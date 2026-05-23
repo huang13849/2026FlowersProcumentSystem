@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>花卉供应链管理平台</title>
+<style>
+:root {
+  --bg-primary: #0b172b;
+  --bg-secondary: #121e34;
+  --bg-card: #19243b;
+  --bg-hover: #1e2d48;
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa0b0;
+  --text-muted: #5e6a82;
+  --accent-purple: #a78bfa;
+  --accent-blue: #60a5fa;
+  --accent-green: #34d399;
+  --accent-pink: #f472b6;
+  --accent-orange: #fb923c;
+  --accent-cyan: #22d3ee;
+  --border: #1e2d48;
+  --shadow: rgba(0,0,0,0.3);
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
+body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
+.layout{display:flex;min-height:100vh}
+/* Sidebar */
+.sidebar{width:240px;background:var(--bg-primary);border-right:1px solid var(--border);padding:0;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-header{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-header .logo{width:36px;height:36px;background:linear-gradient(135deg,var(--accent-purple),var(--accent-pink));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.sidebar-header h1{font-size:15px;font-weight:600;color:var(--text-primary)}
+.sidebar-header span{font-size:11px;color:var(--text-muted)}
+.sidebar-nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s;color:var(--text-secondary);font-size:13px;margin-bottom:2px;text-decoration:none}
+.nav-item:hover{background:var(--bg-hover);color:var(--text-primary)}
+.nav-item.active{background:rgba(167,139,250,0.15);color:var(--accent-purple)}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.nav-item .badge{margin-left:auto;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(167,139,250,0.2);color:var(--accent-purple)}
+.nav-section{font-size:10px;color:var(--text-muted);padding:16px 14px 6px;text-transform:uppercase;letter-spacing:1px}
+.sidebar-footer{padding:12px;border-top:1px solid var(--border)}
+.sidebar-footer .status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);padding:6px 8px}
+.sidebar-footer .dot{width:6px;height:6px;border-radius:50%}
+.dot.green{background:var(--accent-green);box-shadow:0 0 6px var(--accent-green)}
+/* Main */
+.main{flex:1;padding:0;overflow-y:auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border)}
+.topbar h2{font-size:18px;font-weight:600}
+.topbar .actions{display:flex;gap:8px;align-items:center}
+.topbar .time{font-size:12px;color:var(--text-muted)}
+.content{padding:24px 28px}
+/* Stats grid */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--bg-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);position:relative;overflow:hidden;transition:all 0.3s}
+.stat-card:hover{border-color:var(--accent-purple);transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow)}
+.stat-card .stat-icon{font-size:24px;margin-bottom:8px}
+.stat-card .stat-value{font-size:28px;font-weight:700;margin-bottom:2px}
+.stat-card .stat-label{font-size:12px;color:var(--text-secondary)}
+.stat-card .stat-change{font-size:11px;margin-top:4px;padding:2px 6px;border-radius:4px;display:inline-block}
+.stat-card .stat-glow{position:absolute;top:-30px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:0.1;pointer-events:none}
+/* Cards grid */
+.services{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px}
+.service-card{background:var(--bg-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);cursor:pointer;transition:all 0.3s;text-decoration:none;color:inherit;display:block;position:relative;overflow:hidden}
+.service-card:hover{border-color:var(--accent-blue);transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow)}
+.service-card .icon{font-size:28px;margin-bottom:10px}
+.service-card h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.service-card p{font-size:12px;color:var(--text-secondary);margin-bottom:12px}
+.service-card .meta{display:flex;align-items:center;gap:8px;font-size:11px}
+.service-card .meta .tag{padding:2px 8px;border-radius:4px;font-size:10px;background:rgba(96,165,250,0.15);color:var(--accent-blue)}
+.service-card .arrow{position:absolute;right:16px;bottom:16px;font-size:16px;color:var(--text-muted);transition:all 0.3s}
+.service-card:hover .arrow{color:var(--accent-blue);transform:translateX(4px)}
+/* System health */
+.sys-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.sys-panel{background:var(--bg-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border)}
+.sys-panel h3{font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sys-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.sys-item:last-child{border-bottom:none}
+.sys-item .name{display:flex;align-items:center;gap:8px;color:var(--text-secondary)}
+.sys-item .name .dot{width:6px;height:6px;border-radius:50%}
+.sys-item .status-text{font-size:11px;color:var(--accent-green)}
+/* Activity / quick links */
+.activity-list{padding:0;list-style:none}
+.activity-list li{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary)}
+.activity-list li:last-child{border-bottom:none}
+.activity-list .time{font-size:11px;color:var(--text-muted);margin-left:auto;white-space:nowrap}
+.activity-list .accent{color:var(--accent-purple)}
+/* Loading animation for stat values */
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.stat-card .stat-value,.service-card{animation:countUp 0.5s ease-out both}
+.stat-card:nth-child(2){animation-delay:0.1s}
+.stat-card:nth-child(3){animation-delay:0.2s}
+.stat-card:nth-child(4){animation-delay:0.3s}
+/* Mobile */
+@media(max-width:768px){
+  .sidebar{width:60px}
+  .sidebar-header h1,.sidebar-header span,.nav-item span,.nav-section,.sidebar-footer .status span{display:none}
+  .nav-item{padding:10px;justify-content:center}
+  .sidebar-header{padding:12px;justify-content:center}
+  .content{padding:16px}
+  .stats{grid-template-columns:1fr 1fr}
+  .sys-grid{grid-template-columns:1fr}
+}
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">🌺</div>
+      <div>
+        <h1>花卉供应链</h1>
+        <span>管理平台 v2.0</span>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">导航</div>
+      <a class="nav-item active" href="/"><span class="icon">📊</span><span>总览仪表盘</span></a>
+      <a class="nav-item" href="http://100.96.54.109:3001"><span class="icon">📦</span><span>商品中心</span><span class="badge">3001</span></a>
+      <a class="nav-item" href="http://100.96.54.109:3002"><span class="icon">🤝</span><span>供应商</span><span class="badge">3002</span></a>
+      <a class="nav-item" href="/ai"><span class="icon">🤖</span><span>AI 助手</span><span class="badge">3003</span></a>
+      <a class="nav-item" href="http://100.96.54.109:9001"><span class="icon">🖼️</span><span>MinIO 图床</span><span class="badge">9001</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="status">
+        <span class="dot green"></span>
+        <span id="sysStatus">系统正常运行</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>总览仪表盘</h2>
+        <span class="time" id="currentTime"></span>
+      </div>
+      <div class="actions">
+        <span style="font-size:12px;color:var(--text-muted)" id="modelStatus">AI 模型加载中...</span>
+      </div>
+    </div>
+    <div class="content">
+      <!-- Stats -->
+      <div class="stats" id="statsContainer">
+        <div class="stat-card">
+          <div class="stat-icon">📦</div>
+          <div class="stat-value" id="productCount">-</div>
+          <div class="stat-label">商品总数</div>
+          <div class="stat-glow" style="background:var(--accent-blue);right:-20px"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🤝</div>
+          <div class="stat-value" id="supplierCount">-</div>
+          <div class="stat-label">供应商数量</div>
+          <div class="stat-glow" style="background:var(--accent-purple);right:-10px"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value" id="contractCount">-</div>
+          <div class="stat-label">合同文件</div>
+          <div class="stat-glow" style="background:var(--accent-green);right:-30px"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🖼️</div>
+          <div class="stat-value" id="imageCount">-</div>
+          <div class="stat-label">图床文件</div>
+          <div class="stat-glow" style="background:var(--accent-pink);right:-25px"></div>
+        </div>
+      </div>
+
+      <!-- Quick Access Services -->
+      <div class="services">
+        <a class="service-card" href="http://100.96.54.109:3001">
+          <div class="icon">📦</div>
+          <h3>商品管理系统</h3>
+          <p>管理花卉商品信息、库存、价格、上下架</p>
+          <div class="meta">
+            <span class="tag">商品服务</span>
+            <span style="color:var(--text-muted)">:3001</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="service-card" href="http://100.96.54.109:3002">
+          <div class="icon">🤝</div>
+          <h3>供应商管理系统</h3>
+          <p>管理供应商资质、合同、营业执照、往来文件</p>
+          <div class="meta">
+            <span class="tag">供应商服务</span>
+            <span style="color:var(--text-muted)">:3002</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="service-card" href="/ai">
+          <div class="icon">🤖</div>
+          <h3>AI 智能助手</h3>
+          <p>植物识别、SKU生成、营销文案、商品审核</p>
+          <div class="meta">
+            <span class="tag">AI 服务</span>
+            <span style="color:var(--text-muted)">:3003</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="service-card" href="http://100.96.54.109:9001" target="_blank">
+          <div class="icon">🖼️</div>
+          <h3>MinIO 对象存储</h3>
+          <p>商品图片、合同文件、资质文件的统一存储</p>
+          <div class="meta">
+            <span class="tag">图床服务</span>
+            <span style="color:var(--text-muted)">:9001</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+
+      <!-- System Health -->
+      <div class="sys-grid">
+        <div class="sys-panel">
+          <h3>🔌 系统服务状态</h3>
+          <div id="serviceStatus">
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>商品服务</div><span class="status-text">检测中...</span></div>
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>供应商服务</div><span class="status-text">检测中...</span></div>
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>AI 服务</div><span class="status-text">检测中...</span></div>
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>MinIO 图床</div><span class="status-text">检测中...</span></div>
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>Ollama LLM</div><span class="status-text">检测中...</span></div>
+          </div>
+        </div>
+        <div class="sys-panel">
+          <h3>📋 最近活动</h3>
+          <ul class="activity-list" id="activityList">
+            <li><span>系统启动完成</span><span class="time" id="startTime"></span></li>
+            <li style="color:var(--text-muted)">加载更多数据...</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = "/api";
+const TIME_UPDATE_INTERVAL = 10000;
+
+// Update time
+function updateTime() {
+  const now = new Date();
+  document.getElementById("currentTime").textContent = now.toLocaleString("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit"
+  });
+}
+updateTime();
+setInterval(updateTime, 1000);
+document.getElementById("startTime").textContent = new Date().toLocaleTimeString("zh-CN");
+
+// Health check all services
+async function checkServices() {
+  const services = [
+    { name: "商品服务", url: "http://100.96.54.109:3001/api/health", key: "product" },
+    { name: "供应商服务", url: "http://100.96.54.109:3002/api/health", key: "supplier" },
+    { name: "AI 服务", url: "http://100.96.54.109:3003/api/ai/health", key: "ai" },
+    { name: "MinIO API", url: "http://100.96.54.109:9000/minio/health/live", key: "minio" },
+    { name: "Ollama LLM", url: "http://100.96.54.109:11434/api/tags", key: "ollama" },
+  ];
+
+  for (const svc of services) {
+    const el = document.querySelector("#serviceStatus .sys-item:nth-child(" + (services.indexOf(svc) + 1) + ") .status-text");
+    try {
+      const res = await fetch(svc.url, { mode: "no-cors", signal: AbortSignal.timeout(5000) });
+      el.textContent = "正常";
+      el.style.color = "var(--accent-green)";
+    } catch {
+      el.textContent = "离线";
+      el.style.color = "var(--accent-orange)";
+    }
+  }
+}
+
+// Load stats
+async function loadStats() {
+  try {
+    // Product count
+    const prodRes = await fetch("http://100.96.54.109:3001/api/products?limit=1", {
+      headers: { "Authorization": "Bearer " },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (prodRes.ok) {
+      const prodData = await prodRes.json();
+      document.getElementById("productCount").textContent = prodData.total || "?";
+    }
+  } catch {}
+  
+  try {
+    const supRes = await fetch("http://100.96.54.109:3002/api/suppliers", {
+      signal: AbortSignal.timeout(5000)
+    });
+    if (supRes.ok) {
+      const supData = await supRes.json();
+      const count = (supData.suppliers || []).length;
+      document.getElementById("supplierCount").textContent = count;
+      // Count contracts
+      const contracts = (supData.suppliers || []).reduce((sum, s) => sum + (s.contract_files || []).length + (s.license_files || []).length, 0);
+      document.getElementById("contractCount").textContent = contracts || "0";
+    }
+  } catch {}
+
+  // MinIO file count
+  try {
+    document.getElementById("imageCount").textContent = "N/A";
+  } catch {}
+}
+
+// Check AI model status
+async function checkAI() {
+  try {
+    const res = await fetch("http://100.96.54.109:3003/api/ai/health", {
+      signal: AbortSignal.timeout(5000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById("modelStatus").textContent = "AI: " + data.textModel.split(":")[0] + " ✓";
+    }
+  } catch {
+    document.getElementById("modelStatus").textContent = "AI: 等待模型加载...";
+  }
+}
+
+// Init
+checkServices();
+loadStats();
+checkAI();
+setInterval(() => { checkServices(); loadStats(); }, TIME_UPDATE_INTERVAL);
+</script>
+</body>
+</html>
