@@ -1,0 +1,44 @@
+import mongoose from 'mongoose';
+
+const productSchema = new mongoose.Schema({
+  title: { type: String, required: true, index: true },
+  isListed: { type: Boolean, default: false, index: true },
+  category: { type: String, index: true },
+  sellerName: String,
+  images: [String],
+  flowerName: String,
+  contactPerson: String,
+  specSize: String,
+  deliveryMethod: String,
+  origin: String,
+  potColorNotes: String,
+  stock: { type: Number, default: 0 },
+  weight: Number,
+  dropShippingCost: Number,
+  dropShippingMarketPrice: Number,
+  costPrice: Number,
+  sellPrice: Number,
+  retailMarkupPrice: Number,
+  profit: Number,
+  platformPriceDiff: Number,
+  couponInfo: String,
+  retailProfit: Number,
+  description: String,
+  batchMinQty: Number,
+  batchShipping: Number,
+  batchUnitPrice: Number,
+  productId: { type: String, unique: true, sparse: true },
+  listedDate: Date,
+  listedStore: String,
+  salesVolume: { type: Number, default: 0 },
+  createdBy: { type: String, default: 'admin' },
+
+  supplier_id: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", index: true, sparse: true },
+  supplier_name: { type: String, index: true },
+}, { timestamps: true });
+
+productSchema.index({ title: 'text', description: 'text', flowerName: 'text' });
+productSchema.index({ createdAt: -1 });
+productSchema.index({ updatedAt: -1 });
+
+export default mongoose.model('Product', productSchema);
