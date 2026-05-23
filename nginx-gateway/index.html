@@ -89,8 +89,8 @@ body.dark .upload-area{background:rgba(18,30,52,0.5)}
 body.dark .upload-area:hover{border-color:#a78bfa}
 
 /* ===== Background Orchid Decoration ===== */
-.orchid-bg{position:fixed;pointer-events:none;z-index:0;opacity:var(--orchid-opacity);transition:opacity 0.8s}
-.orchid-bg svg{width:100%;height:100%}
+
+
 .orchid-left{bottom:-40px;left:-60px;width:480px;height:520px;transform:rotate(-8deg)}
 .orchid-right{top:80px;right:-80px;width:380px;height:440px;transform:rotate(25deg) scaleX(-1)}
 .orchid-bottom{right:60px;bottom:-30px;width:300px;height:340px;transform:rotate(15deg)}
@@ -201,8 +201,8 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
 
 /* ===== Animations ===== */
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes orchidSway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
-@keyframes orchidFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+50%{transform:rotate(2deg)}}
+50%{transform:translateY(-6px)}}
 .stat-card,.feature-card,.panel{animation:fadeUp 0.6s ease-out both}
 .stat-card:nth-child(2){animation-delay:0.08s}
 .stat-card:nth-child(3){animation-delay:0.15s}
@@ -213,9 +213,6 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
 .features .feature-card:nth-child(4){animation-delay:0.30s}
 .bottom-grid .panel:nth-child(1){animation-delay:0.25s}
 .bottom-grid .panel:nth-child(2){animation-delay:0.32s}
-.orchid-sway{animation:orchidSway 8s ease-in-out infinite}
-.orchid-float{animation:orchidFloat 6s ease-in-out infinite}
-.orchid-sway-slow{animation:orchidSway 12s ease-in-out infinite}
 
 /* ===== Responsive ===== */
 @media(max-width:1024px){
@@ -242,58 +239,23 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Orchid Scene */
+.orchid-scene{position:fixed;pointer-events:none;z-index:0;bottom:0;right:0;width:750px;height:650px;overflow:hidden}
+.orchid-image-frame{position:absolute;bottom:-40px;right:-50px;width:622px;height:514px}
+.orchid-img{width:100%;height:100%;object-fit:contain;-webkit-mask-image:radial-gradient(ellipse 75% 60% at 75% 80%,black 25%,transparent 72%);mask-image:radial-gradient(ellipse 75% 60% at 75% 80%,black 25%,transparent 72%);opacity:var(--orchid-opacity);transition:opacity 0.8s}
+@media(max-width:768px){.orchid-scene{width:400px;height:400px}.orchid-image-frame{width:320px;height:260px;right:-40px;bottom:-30px}}
+@media(max-width:480px){.orchid-scene{display:none}}
+
 </style>
 </head>
 <body>
-<!-- ===== Decorative Butterfly Orchid (蝴蝶兰) SVGs ===== -->
-<div class="orchid-bg orchid-left orchid-sway">
-  <svg viewBox="0 0 240 280" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g stroke="var(--accent-purplegrey)" stroke-width="0.6" fill="var(--accent-lavender)" opacity="0.7">
-      <!-- Stem -->
-      <path d="M120 280 Q118 220 120 160 Q122 100 120 40" stroke="var(--accent-greengrey)" stroke-width="1.5" fill="none"/>
-      <!-- Leaf 1 -->
-      <path d="M120 260 Q80 250 60 240 Q70 260 120 265" fill="var(--accent-greengrey)" opacity="0.5"/>
-      <!-- Leaf 2 -->
-      <path d="M120 240 Q160 230 180 220 Q170 240 120 245" fill="var(--accent-greengrey)" opacity="0.5"/>
-      <!-- Orchid 1 - bloom -->
-      <ellipse cx="110" cy="130" rx="28" ry="22" transform="rotate(-15 110 130)"/>
-      <ellipse cx="132" cy="120" rx="26" ry="20" transform="rotate(10 132 120)"/>
-      <ellipse cx="105" cy="112" rx="22" ry="18" transform="rotate(-30 105 112)"/>
-      <ellipse cx="120" cy="118" rx="14" ry="12"/>
-      <ellipse cx="120" cy="122" rx="6" ry="4" fill="var(--accent-pinkgrey)"/>
-      <!-- Orchid 2 - bud -->
-      <ellipse cx="118" cy="60" rx="18" ry="14" transform="rotate(5 118 60)"/>
-      <ellipse cx="112" cy="56" rx="14" ry="11" transform="rotate(-20 112 56)"/>
-      <ellipse cx="116" cy="58" rx="8" ry="7"/>
-      <ellipse cx="116" cy="60" rx="3" ry="2.5" fill="var(--accent-pinkgrey)"/>
-    </g>
-  </svg>
+<!-- ===== Decorative Phalaenopsis Orchid Background ===== -->
+<div class="orchid-scene">
+  <div class="orchid-image-frame">
+    <img src="/orchid_bg.png" alt="" class="orchid-img" />
+  </div>
 </div>
-<div class="orchid-bg orchid-right orchid-sway-slow">
-  <svg viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g stroke="var(--accent-purplegrey)" stroke-width="0.5" fill="var(--accent-lavender)" opacity="0.5">
-      <path d="M100 240 Q98 180 100 120 Q102 60 100 10" stroke="var(--accent-greengrey)" stroke-width="1.2" fill="none"/>
-      <ellipse cx="92" cy="100" rx="24" ry="18" transform="rotate(-12 92 100)"/>
-      <ellipse cx="110" cy="92" rx="22" ry="17" transform="rotate(8 110 92)"/>
-      <ellipse cx="88" cy="86" rx="18" ry="14" transform="rotate(-25 88 86)"/>
-      <ellipse cx="100" cy="90" rx="11" ry="10"/>
-      <ellipse cx="100" cy="94" rx="5" ry="3.5" fill="var(--accent-pinkgrey)"/>
-    </g>
-  </svg>
-</div>
-<div class="orchid-bg orchid-bottom orchid-float">
-  <svg viewBox="0 0 160 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g stroke="var(--accent-purplegrey)" stroke-width="0.5" fill="var(--accent-beige)" opacity="0.4">
-      <path d="M80 180 Q78 140 80 100 Q82 60 80 20" stroke="var(--accent-greengrey)" stroke-width="1" fill="none"/>
-      <ellipse cx="74" cy="70" rx="20" ry="15" transform="rotate(-10 74 70)"/>
-      <ellipse cx="88" cy="64" rx="18" ry="14" transform="rotate(6 88 64)"/>
-      <ellipse cx="70" cy="58" rx="15" ry="12" transform="rotate(-20 70 58)"/>
-      <ellipse cx="80" cy="62" rx="9" ry="8"/>
-      <ellipse cx="80" cy="65" rx="4" ry="3" fill="var(--accent-pinkgrey)"/>
-    </g>
-  </svg>
-</div>
-
 <!-- ===== Sidebar ===== -->
 <div class="sidebar">
   <div class="sidebar-header">
