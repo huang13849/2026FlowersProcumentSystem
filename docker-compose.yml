@@ -1,0 +1,77 @@
+services:
+  product:
+    build:
+      context: ./product-service/backend
+      dockerfile: Dockerfile
+    container_name: product-service
+    restart: unless-stopped
+    ports:
+      - 3001:3000
+    env_file: ./product-service/.env
+    volumes:
+      - /home/huangfra-ubun-master/picgo/uploads:/app/uploads
+
+  supplier:
+    build: ./supplier-service
+    container_name: supplier-service
+    restart: unless-stopped
+    ports:
+      - 3002:3002
+    env_file: ./supplier-service/.env
+    volumes:
+      - ./supplier-service/uploads:/app/uploads
+
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    ports:
+      - 9000:9000
+      - 9001:9001
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_BROWSER: "on"
+    volumes:
+      - /home/huangfra-ubun-master/minio-data:/data
+    command: server /data --console-address :9001
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - 11434:11434
+    volumes:
+      - /home/huangfra-ubun-master/ollama-models:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+
+  ai-service:
+    build: ./ai-service
+    container_name: ai-service
+    restart: unless-stopped
+    ports:
+      - 3003:3003
+    env_file: ./ai-service/.env
+    depends_on:
+      - ollama
+
+  gateway:
+    build: ./nginx-gateway
+    container_name: nginx-gateway
+    restart: unless-stopped
+    ports:
+      - 8088:80
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      - product
+      - supplier

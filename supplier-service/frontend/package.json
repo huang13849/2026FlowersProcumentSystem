@@ -1,0 +1,1 @@
+{"name":"sf","private":true,"version":"0.0.1","type":"module","scripts":{"dev":"vite","build":"vite build"},"dependencies":{"react":"^19.2.6","react-dom":"^19.2.6","react-router-dom":"^7.15.1","axios":"^1.16.1"},"devDependencies":{"@vitejs/plugin-react":"^4.7.0","vite":"^5.4.21"}}

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI 智能助手 - 花卉供应链</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
+body{background:#0b172b;color:#e8eaed;min-height:100vh}
+.topbar{background:#121e34;border-bottom:1px solid #1e2d48;padding:12px 24px;display:flex;align-items:center;gap:12px}
+.topbar h1{font-size:16px;font-weight:600}
+.topbar .nav{display:flex;gap:8px;margin-left:auto}
+.topbar .nav a{color:#9aa0b0;text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;transition:all 0.2s}
+.topbar .nav a:hover{color:#e8eaed;background:#1e2d48}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:20px}
+.card{background:#19243b;border-radius:12px;padding:20px;border:1px solid #1e2d48;cursor:pointer;transition:all 0.3s}
+.card:hover{border-color:#a78bfa;transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3)}
+.card .icon{font-size:28px;margin-bottom:8px}
+.card h3{font-size:14px;margin-bottom:4px;color:#e8eaed}
+.card p{font-size:12px;color:#9aa0b0}
+.card .badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;margin-top:6px}
+.panel{background:#19243b;border-radius:12px;padding:20px;border:1px solid #1e2d48;display:none;margin-bottom:16px}
+.panel.active{display:block}
+.panel h2{font-size:16px;margin-bottom:12px;color:#e8eaed}
+.panel textarea,.panel input[type=text]{width:100%;padding:8px 10px;background:#121e34;border:1px solid #1e2d48;border-radius:6px;font-size:13px;margin-bottom:10px;color:#e8eaed;font-family:inherit}
+.panel textarea::placeholder,.panel input::placeholder{color:#5e6a82}
+.panel textarea:focus,.panel input:focus{outline:none;border-color:#a78bfa}
+.panel textarea{min-height:80px;resize:vertical}
+.row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.row>*{flex:1;min-width:150px}
+.btn{padding:8px 20px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;transition:all 0.2s}
+.btn:hover{opacity:0.9;transform:translateY(-1px)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.result{padding:12px;background:#121e34;border-radius:6px;margin-top:10px;font-size:13px;line-height:1.6;display:none;border:1px solid #1e2d48}
+.result.show{display:block}
+.result .label{font-weight:600;color:#9aa0b0;margin-bottom:4px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #1e2d48;border-top-color:#a78bfa;border-radius:50%;animation:spin 1s linear infinite;margin-right:6px;vertical-align:middle}
+.upload-area{border:2px dashed #1e2d48;border-radius:8px;padding:30px;text-align:center;cursor:pointer;margin-bottom:10px;transition:all 0.2s}
+.upload-area:hover{border-color:#a78bfa;background:rgba(167,139,250,0.05)}
+.upload-area.has-image{border-color:#34d399;padding:10px}
+.upload-area img{max-width:200px;max-height:200px;border-radius:4px}
+.json-view{background:#0b172b;color:#cdd6f4;padding:12px;border-radius:6px;font-size:12px;overflow-x:auto;max-height:400px;overflow-y:auto}
+.json-view .key{color:#89dceb}
+.json-view .str{color:#a6e3a1}
+.json-view .num{color:#fab387}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span style="font-size:20px">🌺</span>
+  <h1>AI 智能助手</h1>
+  <div class="nav">
+    <a href="/">← 返回仪表盘</a>
+  </div>
+</div>
+<div class="container">
+  <div class="cards">
+    <div class="card" onclick="showPanel(0)">
+      <div class="icon">🔍</div>
+      <h3>AI 识别植物</h3>
+      <p>上传植物图片，AI自动识别品种、分类</p>
+      <span class="badge" style="background:rgba(96,165,250,0.15);color:#60a5fa">视觉识别</span>
+    </div>
+    <div class="card" onclick="showPanel(1)">
+      <div class="icon">🏷️</div>
+      <h3>AI 生成 SKU</h3>
+      <p>根据商品信息智能生成SKU编码</p>
+      <span class="badge" style="background:rgba(52,211,153,0.15);color:#34d399">编码生成</span>
+    </div>
+    <div class="card" onclick="showPanel(2)">
+      <div class="icon">✍️</div>
+      <h3>AI 营销文案</h3>
+      <p>自动生成商品标题、卖点、SEO关键词</p>
+      <span class="badge" style="background:rgba(251,146,60,0.15);color:#fb923c">文案创作</span>
+    </div>
+    <div class="card" onclick="showPanel(3)">
+      <div class="icon">✅</div>
+      <h3>AI 商品审核</h3>
+      <p>检查商品信息完整性，上架建议</p>
+      <span class="badge" style="background:rgba(244,114,182,0.15);color:#f472b6">质检审核</span>
+    </div>
+  </div>
+  <!-- Panel 0: 植物识别 -->
+  <div class="panel" id="panel0">
+    <h2>🔍 AI 植物识别</h2>
+    <div class="upload-area" id="uploadArea0" onclick="document.getElementById('plantImage').click()">
+      <div id="uploadPlaceholder0">📸 点击上传植物图片<br><span style="font-size:11px;color:#5e6a82">支持 JPG / PNG / GIF，最大 20MB</span></div>
+      <img id="preview0" style="display:none;max-width:200px;border-radius:4px" />
+    </div>
+    <input type="file" id="plantImage" accept="image/*" style="display:none" onchange="previewImage(this,0)" />
+    <button class="btn" id="identifyBtn" onclick="identifyPlant()">🔍 开始识别</button>
+    <div class="result" id="identifyResult"></div>
+  </div>
+  <div class="panel" id="panel1">
+    <h2>🏷️ AI 生成 SKU</h2>
+    <div class="row"><input type="text" id="skuFlowerName" placeholder="花卉名称" /><input type="text" id="skuCategory" placeholder="分类" /></div>
+    <div class="row"><input type="text" id="skuSeller" placeholder="商家名称" /><input type="text" id="skuTitle" placeholder="商品标题" /></div>
+    <button class="btn" onclick="generateSKU()">🏷️ 生成 SKU</button>
+    <div class="result" id="skuResult"></div>
+  </div>
+  <div class="panel" id="panel2">
+    <h2>✍️ AI 营销文案</h2>
+    <div class="row"><input type="text" id="copyTitle" placeholder="商品名称" /><input type="text" id="copyFlowerName" placeholder="花卉品种" /></div>
+    <div class="row"><input type="text" id="copyCategory" placeholder="分类" /><input type="text" id="copySeller" placeholder="商家" /></div>
+    <div class="row"><input type="text" id="copyPrice" placeholder="售价" /><input type="text" id="copyOrigin" placeholder="产地" /></div>
+    <textarea id="copyExtra" placeholder="额外信息：花语、养护需求等"></textarea>
+    <button class="btn" onclick="generateCopy()">✍️ 生成文案</button>
+    <div class="result" id="copyResult"></div>
+  </div>
+  <div class="panel" id="panel3">
+    <h2>✅ AI 商品上架审核</h2>
+    <p style="font-size:12px;color:#5e6a82;margin-bottom:10px">填写商品信息，AI检查完整性和合规性</p>
+    <div class="row"><input type="text" id="reviewTitle" placeholder="商品标题" /><input type="text" id="reviewFlowerName" placeholder="花卉名称" /></div>
+    <div class="row"><input type="text" id="reviewCategory" placeholder="分类" /><input type="text" id="reviewSeller" placeholder="商家" /></div>
+    <div class="row"><input type="text" id="reviewPrice" placeholder="售价" /><input type="text" id="reviewCost" placeholder="成本价" /></div>
+    <div class="row"><input type="text" id="reviewStock" placeholder="库存" /><input type="text" id="reviewOrigin" placeholder="产地" /></div>
+    <button class="btn" onclick="reviewProduct()">✅ 开始审核</button>
+    <div class="result" id="reviewResult"></div>
+  </div>
+</div>
+<script>
+const AI_API = "http://100.96.54.109:3003/api/ai";
+function showPanel(idx) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel'+idx).classList.add('active');
+  document.getElementById('panel'+idx).scrollIntoView({behavior:'smooth',block:'start'});
+}
+function previewImage(input,idx) {
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    document.getElementById('preview'+idx).src=e.target.result;
+    document.getElementById('preview'+idx).style.display='block';
+    document.getElementById('uploadPlaceholder'+idx).style.display='none';
+    document.getElementById('uploadArea'+idx).classList.add('has-image');
+  };
+  reader.readAsDataURL(file);
+}
+function setLoading(id,loading){
+  const btn=document.getElementById(id);
+  btn.disabled=loading;
+  btn.innerHTML=loading?'<span class="spinner"></span>处理中...':btn.dataset.orig;
+  if(!btn.dataset.orig)btn.dataset.orig=btn.innerHTML;
+}
+function showResult(id,data,isError){
+  const el=document.getElementById(id);
+  el.classList.add('show');
+  if(isError){el.innerHTML='<div class="label">❌ 错误</div><div style="color:#f472b6">'+data+'</div>';return;}
+  let html='<div class="json-view">';
+  function renderObj(obj,indent){
+    for(const[k,v]of Object.entries(obj)){
+      if(typeof v==='object'&&v!==null&&!Array.isArray(v)){
+        html+='  '.repeat(indent)+'<span class="key">"'+k+'":</span> {<br>';
+        renderObj(v,indent+1);
+        html+='  '.repeat(indent)+'}<br>';
+      }else{
+        const val=Array.isArray(v)?'['+v.map(x=>'"'+x+'"').join(', ')+']':(typeof v==='string'?'"'+v+'"':v);
+        html+='  '.repeat(indent)+'<span class="key">"'+k+'":</span> '+(typeof v==='string'?'<span class="str">'+esc(val)+'</span>':'<span class="num">'+val+'</span>')+'<br>';
+      }
+    }
+  }
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  renderObj(data,1);
+  html+='</div>';
+  el.innerHTML=html;
+}
+async function identifyPlant(){
+  const fi=document.getElementById('plantImage');
+  if(!fi.files[0])return alert('请先上传植物图片');
+  setLoading('identifyBtn',true);
+  showResult('identifyResult',{status:'analyzing...'});
+  try{
+    const fd=new FormData();fd.append('image',fi.files[0]);
+    const r=await fetch(AI_API+'/identify-plant',{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.error){showResult('identifyResult',d.error,true);return;}
+    showResult('identifyResult',d);
+  }catch(e){showResult('identifyResult',e.message,true);}
+  setLoading('identifyBtn',false);
+}
+async function generateSKU(){
+  const body={flowerName:document.getElementById('skuFlowerName').value,category:document.getElementById('skuCategory').value,sellerName:document.getElementById('skuSeller').value,title:document.getElementById('skuTitle').value};
+  if(!body.flowerName&&!body.title)return alert('请至少填写花卉名称或商品标题');
+  setLoading('identifyBtn',true);
+  showResult('skuResult',{status:'generating...'});
+  try{
+    const r=await fetch(AI_API+'/generate-sku',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.error){showResult('skuResult',d.error,true);return;}
+    showResult('skuResult',d);
+  }catch(e){showResult('skuResult',e.message,true);}
+  setLoading('identifyBtn',false);
+}
+async function generateCopy(){
+  const body={title:document.getElementById('copyTitle').value,flowerName:document.getElementById('copyFlowerName').value,category:document.getElementById('copyCategory').value,sellerName:document.getElementById('copySeller').value,sellPrice:document.getElementById('copyPrice').value,origin:document.getElementById('copyOrigin').value,description:document.getElementById('copyExtra').value};
+  if(!body.title&&!body.flowerName)return alert('请至少填写商品名称或花卉品种');
+  setLoading('identifyBtn',true);
+  showResult('copyResult',{status:'generating...'});
+  try{
+    const r=await fetch(AI_API+'/generate-copy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.error){showResult('copyResult',d.error,true);return;}
+    showResult('copyResult',d);
+  }catch(e){showResult('copyResult',e.message,true);}
+  setLoading('identifyBtn',false);
+}
+async function reviewProduct(){
+  const body={title:document.getElementById('reviewTitle').value,flowerName:document.getElementById('reviewFlowerName').value,category:document.getElementById('reviewCategory').value,sellerName:document.getElementById('reviewSeller').value,sellPrice:document.getElementById('reviewPrice').value,costPrice:document.getElementById('reviewCost').value,stock:document.getElementById('reviewStock').value,origin:document.getElementById('reviewOrigin').value};
+  if(!body.title)return alert('请填写商品标题');
+  setLoading('identifyBtn',true);
+  showResult('reviewResult',{status:'reviewing...'});
+  try{
+    const r=await fetch(AI_API+'/auto-list-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.error){showResult('reviewResult',d.error,true);return;}
+    showResult('reviewResult',d);
+  }catch(e){showResult('reviewResult',e.message,true);}
+  setLoading('identifyBtn',false);
+}
+</script>
+</body>
+</html>
