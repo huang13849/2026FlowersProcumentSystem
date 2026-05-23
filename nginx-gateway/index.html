@@ -458,8 +458,15 @@ async function checkServices(){
 checkServices();setInterval(checkServices,15000);
 
 // ===== Stats =====
+async function let STATS_TOKEN=null;
+async function ensureToken(){
+  if(STATS_TOKEN)return STATS_TOKEN;
+  try{const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'}),signal:AbortSignal.timeout(5000)});if(r.ok){const d=await r.json();STATS_TOKEN=d.token;return STATS_TOKEN;}}catch{}
+  return null;
+}
 async function loadStats(){
-  try{const r=await fetch('http://100.96.54.109:3001/api/products?limit=1',{signal:AbortSignal.timeout(5000)});if(r.ok){const d=await r.json();document.getElementById('productCount').textContent=d.total||'—';}}catch{}
+  const tok=await ensureToken();
+  try{if(tok){const r=await fetch('http://100.96.54.109:3001/api/products?limit=1',{headers:{'Authorization':'Bearer '+tok},signal:AbortSignal.timeout(5000)});if(r.ok){const d=await r.json();document.getElementById('productCount').textContent=d.total||'—';}}}catch{}
   try{
     const r=await fetch('http://100.96.54.109:3002/api/suppliers',{signal:AbortSignal.timeout(5000)});
     if(r.ok){const d=await r.json();const s=d.suppliers||[];document.getElementById('supplierCount').textContent=s.length;document.getElementById('contractCount').textContent=s.reduce((a,x)=>a+(x.contract_files||[]).length+(x.license_files||[]).length,0);}
