@@ -458,7 +458,7 @@ async function checkServices(){
 checkServices();setInterval(checkServices,15000);
 
 // ===== Stats =====
-async function let STATS_TOKEN=null;
+let STATS_TOKEN=null;
 async function ensureToken(){
   if(STATS_TOKEN)return STATS_TOKEN;
   try{const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'}),signal:AbortSignal.timeout(5000)});if(r.ok){const d=await r.json();STATS_TOKEN=d.token;return STATS_TOKEN;}}catch{}
