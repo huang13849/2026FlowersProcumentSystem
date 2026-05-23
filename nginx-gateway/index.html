@@ -9,7 +9,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:"PingFang SC","Source Han Sans","Noto Sans SC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;transition:background 0.35s,color 0.35s}
 
-/* ===== Light Theme (Morandi) ===== */
+/* ===== Light Theme ===== */
 :root{
   --bg-body:#F0F0F3;
   --bg-sidebar:#B8B8C2;
@@ -34,10 +34,12 @@ body{font-family:"PingFang SC","Source Han Sans","Noto Sans SC",-apple-system,Bl
   --dot-ok:#A8C5B6;
   --dot-err:#C9A8A8;
   --input-bg:#F0F0F3;
-  --texture:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  --texture:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.012'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   --btn-primary:#A29FA5;--btn-hover:#8E8C97;--btn-text:#fff;
   --fc-card-1:#DEDCE2;--fc-card-2:#D8DAD8;--fc-card-3:#DAD6DE;--fc-card-4:#DCD5D0;
+  --orchid-opacity:0.12;
 }
+
 /* ===== Dark Theme ===== */
 body.dark{
   --bg-body:#0b172b;
@@ -66,58 +68,61 @@ body.dark{
   --texture:none;
   --btn-primary:#a78bfa;--btn-hover:#7c3aed;--btn-text:#fff;
   --fc-card-1:#1a2440;--fc-card-2:#1a2a38;--fc-card-3:#1e223a;--fc-card-4:#201e34;
+  --orchid-opacity:0.06;
 }
 body.dark .nav-item.active{background:rgba(167,139,250,0.2);color:#a78bfa}
 body.dark .nav-item.active::before{background:#a78bfa}
 body.dark .nav-item:hover{background:rgba(255,255,255,0.06)}
 body.dark .nav-item{color:#9aa0b0}
-body.dark .sidebar-header{border-color:rgba(255,255,255,0.06)}
-body.dark .sidebar-footer{border-color:rgba(255,255,255,0.06)}
+body.dark .sidebar-header,body.dark .sidebar-footer{border-color:rgba(255,255,255,0.06)}
 body.dark .header{background:#121e34;border-color:#1e2d48}
 body.dark .header-user:hover{background:#19243b}
 body.dark .dropdown{background:#19243b;border-color:#1e2d48}
 body.dark .dropdown a:hover{background:#1e2d48}
 body.dark .stat-trend{background:rgba(52,211,153,0.1);color:#34d399}
-body.dark .sidebar-logo{background:#a78bfa;color:#0b172b}
-body.dark .avatar{background:#a78bfa;color:#0b172b}
+body.dark .sidebar-logo,body.dark .avatar{background:#a78bfa;color:#0b172b}
 body.dark .fc-tag{background:rgba(255,255,255,0.1)!important;color:#9aa0b0!important}
 body.dark .fc-arrow{color:#3d4a60!important}
 body.dark .panel{background:#19243b;border-color:#1e2d48}
-body.dark .svc-item{border-color:rgba(255,255,255,0.04)}
-body.dark .activity-list li{border-color:rgba(255,255,255,0.03)}
-body.dark input,body.dark textarea,body.dark select{background:#121e34;border-color:#1e2d48;color:#e8eaed}
-body.dark input:focus,body.dark textarea:focus{border-color:#a78bfa;background:#1a2440}
-body.dark .upload-area{background:rgba(18,30,52,0.5);border-color:#1e2d48}
-body.dark .upload-area:hover{border-color:#a78bfa;background:rgba(18,30,52,0.8)}
+body.dark .svc-item,body.dark .activity-list li{border-color:rgba(255,255,255,0.04)}
+body.dark .upload-area{background:rgba(18,30,52,0.5)}
+body.dark .upload-area:hover{border-color:#a78bfa}
+
+/* ===== Background Orchid Decoration ===== */
+.orchid-bg{position:fixed;pointer-events:none;z-index:0;opacity:var(--orchid-opacity);transition:opacity 0.8s}
+.orchid-bg svg{width:100%;height:100%}
+.orchid-left{bottom:-40px;left:-60px;width:480px;height:520px;transform:rotate(-8deg)}
+.orchid-right{top:80px;right:-80px;width:380px;height:440px;transform:rotate(25deg) scaleX(-1)}
+.orchid-bottom{right:60px;bottom:-30px;width:300px;height:340px;transform:rotate(15deg)}
 
 /* ===== Layout ===== */
 body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer-events:none;z-index:-1;transition:background 0.35s}
 .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--bg-sidebar);z-index:100;display:flex;flex-direction:column;box-shadow:1px 0 0 rgba(0,0,0,0.04);transition:background 0.35s}
-.sidebar-header{padding:16px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.2);transition:border-color 0.35s}
-.sidebar-logo{width:36px;height:36px;border-radius:8px;background:var(--accent-lavender);color:#6F6D73;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;transition:all 0.35s}
+.sidebar-header{padding:18px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.2)}
+.sidebar-logo{width:36px;height:36px;border-radius:8px;background:var(--accent-lavender);color:#6F6D73;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .sidebar-brand{display:flex;flex-direction:column}
-.sidebar-brand h1{font-size:14px;font-weight:600;color:var(--text-primary);letter-spacing:0.3px;transition:color 0.35s}
-.sidebar-brand span{font-size:10px;color:var(--text-muted);letter-spacing:0.5px;margin-top:1px;transition:color 0.35s}
-.sidebar-nav{flex:1;padding:10px 8px;overflow-y:auto}
-.nav-section{font-size:10px;color:var(--text-muted);padding:14px 14px 6px;text-transform:uppercase;letter-spacing:1px}
+.sidebar-brand h1{font-size:14px;font-weight:600;color:var(--text-primary);letter-spacing:0.3px}
+.sidebar-brand span{font-size:10px;color:var(--text-muted);letter-spacing:0.5px;margin-top:1px}
+.sidebar-nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-section{font-size:10px;color:var(--text-muted);padding:16px 14px 8px;text-transform:uppercase;letter-spacing:1px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:8px;cursor:pointer;transition:all 0.25s;color:var(--text-secondary);font-size:13px;margin-bottom:2px;text-decoration:none;position:relative}
 .nav-item:hover{background:rgba(255,255,255,0.4);color:var(--text-primary)}
 .nav-item.active{background:rgba(201,184,192,0.4);color:#6F5E6E;font-weight:500}
 .nav-item.active::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:3px;border-radius:0 3px 3px 0;background:var(--accent-pinkgrey)}
 .nav-item .icon{font-size:15px;width:20px;text-align:center}
 .nav-item .badge{font-size:10px;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,0.35);color:var(--text-muted);margin-left:auto;font-weight:500}
-.sidebar-footer{padding:12px;border-top:1px solid rgba(255,255,255,0.2)}
+.sidebar-footer{padding:14px;border-top:1px solid rgba(255,255,255,0.2)}
 .status-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:4px 6px}
 .status-dot{width:6px;height:6px;border-radius:50%}
 .status-dot.green{background:var(--dot-ok);box-shadow:0 0 6px var(--dot-ok)}
-/* Header */
-.header{position:fixed;left:220px;right:0;top:0;height:56px;background:var(--bg-header);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;z-index:99;backdrop-filter:blur(8px);transition:all 0.35s}
+
+/* ===== Header ===== */
+.header{position:fixed;left:220px;right:0;top:0;height:56px;background:var(--bg-header);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 32px;z-index:99;backdrop-filter:blur(8px)}
 .header-left{display:flex;align-items:center;gap:12px}
-.header-left h2{font-size:16px;font-weight:600;color:var(--text-primary);transition:color 0.35s}
+.header-left h2{font-size:16px;font-weight:600;color:var(--text-primary)}
 .header-left .breadcrumb{font-size:12px;color:var(--text-muted)}
 .header-right{display:flex;align-items:center;gap:14px}
-.header-time{font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums;transition:color 0.35s}
-/* Theme toggle */
+.header-time{font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums}
 .theme-toggle{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.3s}
 .theme-toggle:hover{background:var(--bg-card-hover);transform:rotate(15deg)}
 .header-user{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background 0.2s;position:relative}
@@ -125,33 +130,44 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
 .avatar{width:30px;height:30px;border-radius:50%;background:var(--accent-lavender);display:flex;align-items:center;justify-content:center;font-size:13px;color:#6F6D73;font-weight:500}
 .header-user .name{font-size:12px;color:var(--text-secondary)}
 .header-user .arrow{font-size:8px;color:var(--text-muted);margin-left:2px}
-.dropdown{position:absolute;top:100%;right:0;margin-top:6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px var(--shadow);padding:4px;min-width:140px;display:none;z-index:200;transition:background 0.35s,border-color 0.35s}
+.dropdown{position:absolute;top:100%;right:0;margin-top:6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px var(--shadow);padding:4px;min-width:140px;display:none;z-index:200}
 .dropdown.show{display:block}
 .dropdown a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--text-secondary);text-decoration:none;border-radius:4px;transition:background 0.2s}
 .dropdown a:hover{background:var(--bg-card)}
-/* Main */
-.main{margin-left:220px;margin-top:56px;padding:24px 28px;min-height:calc(100vh - 56px);background:var(--bg-body);transition:background 0.35s}
-/* Stats */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
-.stat-card{background:var(--bg-card);border-radius:12px;padding:18px 20px;transition:all 0.3s;cursor:default;position:relative}
-.stat-card:hover{background:var(--bg-card-alt);box-shadow:0 4px 16px var(--shadow)}
-.stat-icon{font-size:20px;margin-bottom:6px;color:var(--accent-bluegrey)}
-.stat-value{font-size:26px;font-weight:700;color:var(--stat-color);line-height:1.2}
-.stat-label{font-size:12px;color:var(--text-muted);margin-top:2px}
-.stat-trend{font-size:11px;margin-top:6px;padding:1px 6px;border-radius:4px;display:inline-block;background:rgba(181,196,188,0.2);color:var(--accent-greengrey)}
-/* Features */
-.features{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
-.feature-card{border-radius:12px;padding:20px;cursor:pointer;transition:all 0.35s;text-decoration:none;display:block;position:relative;overflow:hidden}
-.feature-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px var(--shadow)}
-.feature-card:hover .fc-icon{transform:scale(1.08)}
-.feature-card .fc-icon{font-size:28px;margin-bottom:10px;transition:transform 0.35s;display:inline-block}
-.feature-card h3{font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:3px}
-.feature-card p{font-size:12px;color:var(--text-muted);line-height:1.4;margin-bottom:10px}
+
+/* ===== Main Content (with generous white space) ===== */
+.main{margin-left:220px;margin-top:56px;padding:36px 40px 60px;min-height:calc(100vh - 56px);background:var(--bg-body);position:relative;z-index:1}
+.main-inner{position:relative;z-index:2;max-width:1400px}
+
+/* ===== Welcome Banner ===== */
+.welcome{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:32px;padding:0 4px}
+.welcome-left h2{font-size:22px;font-weight:700;color:var(--text-primary);line-height:1.3}
+.welcome-left p{font-size:13px;color:var(--text-muted);margin-top:4px}
+.welcome-right{text-align:right}
+.welcome-right .date{font-size:13px;color:var(--text-secondary);font-weight:500}
+.welcome-right .greeting{font-size:12px;color:var(--text-muted);margin-top:2px}
+
+/* ===== Stats (more breathing) ===== */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:32px}
+.stat-card{background:var(--bg-card);border-radius:14px;padding:22px 24px;transition:all 0.3s;cursor:default;position:relative;border:1px solid transparent}
+.stat-card:hover{background:var(--bg-card-alt);border-color:var(--border);box-shadow:0 6px 20px var(--shadow);transform:translateY(-2px)}
+.stat-icon{font-size:22px;margin-bottom:8px;color:var(--accent-bluegrey)}
+.stat-value{font-size:28px;font-weight:700;color:var(--stat-color);line-height:1.2}
+.stat-label{font-size:12px;color:var(--text-muted);margin-top:3px}
+.stat-trend{font-size:11px;margin-top:8px;padding:2px 8px;border-radius:4px;display:inline-block;background:rgba(181,196,188,0.2);color:var(--accent-greengrey)}
+
+/* ===== Features ===== */
+.features{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:32px}
+.feature-card{border-radius:14px;padding:24px;cursor:pointer;transition:all 0.35s;text-decoration:none;display:block;position:relative;overflow:hidden;border:1px solid transparent}
+.feature-card:hover{transform:translateY(-4px);border-color:var(--border);box-shadow:0 10px 32px var(--shadow)}
+.feature-card:hover .fc-icon{transform:scale(1.1)}
+.feature-card .fc-icon{font-size:30px;margin-bottom:12px;transition:transform 0.35s;display:inline-block}
+.feature-card h3{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px}
+.feature-card p{font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:14px}
 .feature-card .fc-meta{display:flex;align-items:center;gap:6px;font-size:11px}
-.feature-card .fc-tag{font-size:10px;padding:2px 8px;border-radius:4px}
-.feature-card .fc-arrow{position:absolute;right:16px;bottom:16px;font-size:14px;color:var(--text-light);transition:all 0.3s}
-.feature-card:hover .fc-arrow{color:var(--text-muted);transform:translateX(3px)}
-/* Card colors */
+.feature-card .fc-tag{font-size:10px;padding:2px 10px;border-radius:4px}
+.feature-card .fc-arrow{position:absolute;right:20px;bottom:20px;font-size:16px;color:var(--text-light);transition:all 0.3s}
+.feature-card:hover .fc-arrow{color:var(--text-muted);transform:translateX(5px)}
 .fc-products{background:var(--fc-card-1)}
 .fc-products .fc-tag{background:rgba(142,140,151,0.18);color:var(--text-secondary)}
 .fc-suppliers{background:var(--fc-card-2)}
@@ -160,12 +176,14 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
 .fc-ai .fc-tag{background:rgba(200,192,208,0.3);color:var(--text-secondary)}
 .fc-minio{background:var(--fc-card-4)}
 .fc-minio .fc-tag{background:rgba(213,206,196,0.3);color:var(--text-secondary)}
-/* Bottom */
-.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.panel{background:var(--bg-card);border-radius:12px;padding:18px 20px;transition:background 0.35s}
-.panel h3{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+/* ===== Bottom ===== */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{background:var(--bg-card);border-radius:14px;padding:22px 24px;border:1px solid transparent;transition:all 0.3s}
+.panel:hover{border-color:var(--border)}
+.panel h3{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px;display:flex;align-items:center;gap:6px}
 .panel h3 .count{font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto}
-.svc-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(0,0,0,0.04);font-size:12px}
+.svc-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.04);font-size:12px}
 .svc-item:last-child{border-bottom:none}
 .svc-item .name{display:flex;align-items:center;gap:8px;color:var(--text-secondary)}
 .svc-item .name .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
@@ -173,26 +191,37 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
 .svc-item .svc-status.ok{color:var(--dot-ok)}
 .svc-item .svc-status.err{color:var(--dot-err)}
 .activity-list{list-style:none;padding:0}
-.activity-list li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.03);font-size:12px;color:var(--text-muted)}
+.activity-list li{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,0.03);font-size:12px;color:var(--text-muted)}
 .activity-list li:last-child{border-bottom:none}
 .activity-list .atime{font-size:11px;color:var(--text-light);margin-left:auto;white-space:nowrap}
 .activity-list .accent{color:var(--text-secondary)}
-/* Animations */
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.stat-card,.feature-card,.panel{animation:fadeUp 0.5s ease-out both}
-.stat-card:nth-child(2){animation-delay:0.05s}
-.stat-card:nth-child(3){animation-delay:0.1s}
-.stat-card:nth-child(4){animation-delay:0.15s}
-.features .feature-card:nth-child(1){animation-delay:0.1s}
-.features .feature-card:nth-child(2){animation-delay:0.15s}
-.features .feature-card:nth-child(3){animation-delay:0.2s}
-.features .feature-card:nth-child(4){animation-delay:0.25s}
-.bottom-grid .panel:nth-child(1){animation-delay:0.2s}
-.bottom-grid .panel:nth-child(2){animation-delay:0.25s}
-/* Responsive */
+
+/* ===== Footer ===== */
+.footer{text-align:center;padding:40px 0 10px;font-size:11px;color:var(--text-light)}
+
+/* ===== Animations ===== */
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes orchidSway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+@keyframes orchidFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.stat-card,.feature-card,.panel{animation:fadeUp 0.6s ease-out both}
+.stat-card:nth-child(2){animation-delay:0.08s}
+.stat-card:nth-child(3){animation-delay:0.15s}
+.stat-card:nth-child(4){animation-delay:0.22s}
+.features .feature-card:nth-child(1){animation-delay:0.12s}
+.features .feature-card:nth-child(2){animation-delay:0.18s}
+.features .feature-card:nth-child(3){animation-delay:0.24s}
+.features .feature-card:nth-child(4){animation-delay:0.30s}
+.bottom-grid .panel:nth-child(1){animation-delay:0.25s}
+.bottom-grid .panel:nth-child(2){animation-delay:0.32s}
+.orchid-sway{animation:orchidSway 8s ease-in-out infinite}
+.orchid-float{animation:orchidFloat 6s ease-in-out infinite}
+.orchid-sway-slow{animation:orchidSway 12s ease-in-out infinite}
+
+/* ===== Responsive ===== */
 @media(max-width:1024px){
   .stats,.features{grid-template-columns:repeat(2,1fr)}
   .bottom-grid{grid-template-columns:1fr}
+  .orchid-right{display:none}
 }
 @media(max-width:768px){
   .sidebar{width:56px}
@@ -200,12 +229,15 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
   .sidebar-header{padding:12px;justify-content:center}
   .nav-item{padding:10px;justify-content:center}
   .header{padding:0 14px}
-  .main{padding:16px;margin-left:56px}
+  .main{padding:20px 16px;margin-left:56px}
   .stats,.features{grid-template-columns:1fr 1fr}
+  .orchid-left{width:240px;height:280px;left:-40px;bottom:-30px}
+  .orchid-bottom{display:none}
 }
 @media(max-width:480px){
   .stats,.features{grid-template-columns:1fr}
   .header-left h2{font-size:14px}
+  .welcome{flex-direction:column;align-items:flex-start;gap:4px}
 }
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -213,6 +245,56 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
 </style>
 </head>
 <body>
+<!-- ===== Decorative Butterfly Orchid (蝴蝶兰) SVGs ===== -->
+<div class="orchid-bg orchid-left orchid-sway">
+  <svg viewBox="0 0 240 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="var(--accent-purplegrey)" stroke-width="0.6" fill="var(--accent-lavender)" opacity="0.7">
+      <!-- Stem -->
+      <path d="M120 280 Q118 220 120 160 Q122 100 120 40" stroke="var(--accent-greengrey)" stroke-width="1.5" fill="none"/>
+      <!-- Leaf 1 -->
+      <path d="M120 260 Q80 250 60 240 Q70 260 120 265" fill="var(--accent-greengrey)" opacity="0.5"/>
+      <!-- Leaf 2 -->
+      <path d="M120 240 Q160 230 180 220 Q170 240 120 245" fill="var(--accent-greengrey)" opacity="0.5"/>
+      <!-- Orchid 1 - bloom -->
+      <ellipse cx="110" cy="130" rx="28" ry="22" transform="rotate(-15 110 130)"/>
+      <ellipse cx="132" cy="120" rx="26" ry="20" transform="rotate(10 132 120)"/>
+      <ellipse cx="105" cy="112" rx="22" ry="18" transform="rotate(-30 105 112)"/>
+      <ellipse cx="120" cy="118" rx="14" ry="12"/>
+      <ellipse cx="120" cy="122" rx="6" ry="4" fill="var(--accent-pinkgrey)"/>
+      <!-- Orchid 2 - bud -->
+      <ellipse cx="118" cy="60" rx="18" ry="14" transform="rotate(5 118 60)"/>
+      <ellipse cx="112" cy="56" rx="14" ry="11" transform="rotate(-20 112 56)"/>
+      <ellipse cx="116" cy="58" rx="8" ry="7"/>
+      <ellipse cx="116" cy="60" rx="3" ry="2.5" fill="var(--accent-pinkgrey)"/>
+    </g>
+  </svg>
+</div>
+<div class="orchid-bg orchid-right orchid-sway-slow">
+  <svg viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="var(--accent-purplegrey)" stroke-width="0.5" fill="var(--accent-lavender)" opacity="0.5">
+      <path d="M100 240 Q98 180 100 120 Q102 60 100 10" stroke="var(--accent-greengrey)" stroke-width="1.2" fill="none"/>
+      <ellipse cx="92" cy="100" rx="24" ry="18" transform="rotate(-12 92 100)"/>
+      <ellipse cx="110" cy="92" rx="22" ry="17" transform="rotate(8 110 92)"/>
+      <ellipse cx="88" cy="86" rx="18" ry="14" transform="rotate(-25 88 86)"/>
+      <ellipse cx="100" cy="90" rx="11" ry="10"/>
+      <ellipse cx="100" cy="94" rx="5" ry="3.5" fill="var(--accent-pinkgrey)"/>
+    </g>
+  </svg>
+</div>
+<div class="orchid-bg orchid-bottom orchid-float">
+  <svg viewBox="0 0 160 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="var(--accent-purplegrey)" stroke-width="0.5" fill="var(--accent-beige)" opacity="0.4">
+      <path d="M80 180 Q78 140 80 100 Q82 60 80 20" stroke="var(--accent-greengrey)" stroke-width="1" fill="none"/>
+      <ellipse cx="74" cy="70" rx="20" ry="15" transform="rotate(-10 74 70)"/>
+      <ellipse cx="88" cy="64" rx="18" ry="14" transform="rotate(6 88 64)"/>
+      <ellipse cx="70" cy="58" rx="15" ry="12" transform="rotate(-20 70 58)"/>
+      <ellipse cx="80" cy="62" rx="9" ry="8"/>
+      <ellipse cx="80" cy="65" rx="4" ry="3" fill="var(--accent-pinkgrey)"/>
+    </g>
+  </svg>
+</div>
+
+<!-- ===== Sidebar ===== -->
 <div class="sidebar">
   <div class="sidebar-header">
     <div class="sidebar-logo">🌸</div>
@@ -223,11 +305,11 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
   </div>
   <div class="sidebar-nav">
     <div class="nav-section">导航</div>
-    <a class="nav-item active" href="/"><span class="icon" style="--icon-color:var(--accent-bluegrey)">◉</span><span>总览仪表盘</span></a>
-    <a class="nav-item" href="http://100.96.54.109:3001"><span class="icon" style="--icon-color:var(--accent-bluegrey)">▣</span><span>商品中心</span><span class="badge">3001</span></a>
-    <a class="nav-item" href="http://100.96.54.109:3002"><span class="icon" style="--icon-color:var(--accent-greengrey)">◆</span><span>供应商</span><span class="badge">3002</span></a>
-    <a class="nav-item" href="/ai"><span class="icon" style="--icon-color:var(--accent-lavender)">◇</span><span>AI 助手</span><span class="badge">3003</span></a>
-    <a class="nav-item" href="http://100.96.54.109:9001" target="_blank"><span class="icon" style="--icon-color:var(--accent-beige)">○</span><span>MinIO 图床</span><span class="badge">9001</span></a>
+    <a class="nav-item active" href="/"><span class="icon">◉</span><span>总览仪表盘</span></a>
+    <a class="nav-item" href="http://100.96.54.109:3001"><span class="icon">▣</span><span>商品中心</span><span class="badge">3001</span></a>
+    <a class="nav-item" href="http://100.96.54.109:3002"><span class="icon">◆</span><span>供应商</span><span class="badge">3002</span></a>
+    <a class="nav-item" href="/ai"><span class="icon">◇</span><span>AI 助手</span><span class="badge">3003</span></a>
+    <a class="nav-item" href="http://100.96.54.109:9001" target="_blank"><span class="icon">○</span><span>MinIO 图床</span><span class="badge">9001</span></a>
   </div>
   <div class="sidebar-footer">
     <div class="status-indicator">
@@ -237,6 +319,7 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
   </div>
 </div>
 
+<!-- ===== Header ===== -->
 <div class="header">
   <div class="header-left">
     <h2>总览仪表盘</h2>
@@ -258,81 +341,103 @@ body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer
   </div>
 </div>
 
+<!-- ===== Main ===== -->
 <div class="main">
-  <div class="stats">
-    <div class="stat-card">
-      <div class="stat-icon">📦</div>
-      <div class="stat-value" id="productCount">-</div>
-      <div class="stat-label">商品总数</div>
-      <div class="stat-trend">实时同步</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🤝</div>
-      <div class="stat-value" id="supplierCount">-</div>
-      <div class="stat-label">供应商数量</div>
-      <div class="stat-trend">实时同步</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">📋</div>
-      <div class="stat-value" id="contractCount">-</div>
-      <div class="stat-label">合同文件</div>
-      <div class="stat-trend">实时同步</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🖼️</div>
-      <div class="stat-value" id="imageCount">-</div>
-      <div class="stat-label">图床文件</div>
-      <div class="stat-trend">实时同步</div>
-    </div>
-  </div>
-  <div class="features">
-    <a class="feature-card fc-products" href="http://100.96.54.109:3001">
-      <div class="fc-icon">📦</div>
-      <h3>商品管理系统</h3>
-      <p>花卉商品信息、库存管理、价格维护与上下架操作</p>
-      <div class="fc-meta"><span class="fc-tag">商品服务 :3001</span></div>
-      <span class="fc-arrow">→</span>
-    </a>
-    <a class="feature-card fc-suppliers" href="http://100.96.54.109:3002">
-      <div class="fc-icon">🤝</div>
-      <h3>供应商管理</h3>
-      <p>供应商资质审核、合同签署、营业执照与往来文件</p>
-      <div class="fc-meta"><span class="fc-tag">供应商服务 :3002</span></div>
-      <span class="fc-arrow">→</span>
-    </a>
-    <a class="feature-card fc-ai" href="/ai">
-      <div class="fc-icon">🤖</div>
-      <h3>AI 智能助手</h3>
-      <p>植物识别、SKU 生成、营销文案、商品上架审核</p>
-      <div class="fc-meta"><span class="fc-tag">AI 服务 :3003</span></div>
-      <span class="fc-arrow">→</span>
-    </a>
-    <a class="feature-card fc-minio" href="http://100.96.54.109:9001" target="_blank">
-      <div class="fc-icon">🖼️</div>
-      <h3>MinIO 对象存储</h3>
-      <p>商品图片、合同资质文件的统一管理与存储</p>
-      <div class="fc-meta"><span class="fc-tag">图床服务 :9001</span></div>
-      <span class="fc-arrow">→</span>
-    </a>
-  </div>
-  <div class="bottom-grid">
-    <div class="panel">
-      <h3>🔌 系统服务状态 <span class="count" id="svcCount">5 个服务</span></h3>
-      <div id="serviceStatus">
-        <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>商品服务</div><span class="svc-status">检测中...</span></div>
-        <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>供应商服务</div><span class="svc-status">检测中...</span></div>
-        <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>AI 服务</div><span class="svc-status">检测中...</span></div>
-        <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>MinIO 图床</div><span class="svc-status">检测中...</span></div>
-        <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>Ollama LLM</div><span class="svc-status">检测中...</span></div>
+  <div class="main-inner">
+    <!-- Welcome -->
+    <div class="welcome">
+      <div class="welcome-left">
+        <h2>欢迎回来 ✦</h2>
+        <p>花卉供应链管理系统 · 全链路数字化管理</p>
+      </div>
+      <div class="welcome-right">
+        <div class="date" id="todayDate"></div>
+        <div class="greeting">🌿 今日花卉交易进行中</div>
       </div>
     </div>
-    <div class="panel">
-      <h3>📋 最近活动 <span class="count" id="activityCount">实时更新</span></h3>
-      <ul class="activity-list" id="activityList">
-        <li><span class="accent">🌺 系统启动完成</span><span class="atime" id="startTime"></span></li>
-        <li><span>等待服务连接...</span><span class="atime"></span></li>
-      </ul>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <div class="stat-value" id="productCount">-</div>
+        <div class="stat-label">商品总数</div>
+        <div class="stat-trend">实时同步</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🤝</div>
+        <div class="stat-value" id="supplierCount">-</div>
+        <div class="stat-label">供应商数量</div>
+        <div class="stat-trend">实时同步</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📋</div>
+        <div class="stat-value" id="contractCount">-</div>
+        <div class="stat-label">合同文件</div>
+        <div class="stat-trend">实时同步</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🖼️</div>
+        <div class="stat-value" id="imageCount">-</div>
+        <div class="stat-label">图床文件</div>
+        <div class="stat-trend">实时同步</div>
+      </div>
     </div>
+
+    <!-- Features -->
+    <div class="features">
+      <a class="feature-card fc-products" href="http://100.96.54.109:3001">
+        <div class="fc-icon">📦</div>
+        <h3>商品管理系统</h3>
+        <p>花卉商品信息、库存管理、价格维护与上下架操作</p>
+        <div class="fc-meta"><span class="fc-tag">商品服务 :3001</span></div>
+        <span class="fc-arrow">→</span>
+      </a>
+      <a class="feature-card fc-suppliers" href="http://100.96.54.109:3002">
+        <div class="fc-icon">🤝</div>
+        <h3>供应商管理</h3>
+        <p>供应商资质审核、合同签署、营业执照与往来文件</p>
+        <div class="fc-meta"><span class="fc-tag">供应商服务 :3002</span></div>
+        <span class="fc-arrow">→</span>
+      </a>
+      <a class="feature-card fc-ai" href="/ai">
+        <div class="fc-icon">🤖</div>
+        <h3>AI 智能助手</h3>
+        <p>植物识别、SKU 生成、营销文案、商品上架审核</p>
+        <div class="fc-meta"><span class="fc-tag">AI 服务 :3003</span></div>
+        <span class="fc-arrow">→</span>
+      </a>
+      <a class="feature-card fc-minio" href="http://100.96.54.109:9001" target="_blank">
+        <div class="fc-icon">🖼️</div>
+        <h3>MinIO 对象存储</h3>
+        <p>商品图片、合同资质文件的统一管理与存储</p>
+        <div class="fc-meta"><span class="fc-tag">图床服务 :9001</span></div>
+        <span class="fc-arrow">→</span>
+      </a>
+    </div>
+
+    <!-- Bottom -->
+    <div class="bottom-grid">
+      <div class="panel">
+        <h3>🔌 系统服务状态 <span class="count" id="svcCount">5 个服务</span></h3>
+        <div id="serviceStatus">
+          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>商品服务</div><span class="svc-status">检测中...</span></div>
+          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>供应商服务</div><span class="svc-status">检测中...</span></div>
+          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>AI 服务</div><span class="svc-status">检测中...</span></div>
+          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>MinIO 图床</div><span class="svc-status">检测中...</span></div>
+          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>Ollama LLM</div><span class="svc-status">检测中...</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>📋 最近活动 <span class="count" id="activityCount">实时更新</span></h3>
+        <ul class="activity-list" id="activityList">
+          <li><span class="accent">🌺 系统启动完成</span><span class="atime" id="startTime"></span></li>
+          <li><span>等待服务连接...</span><span class="atime"></span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">🌿 花卉供应链管理平台 v2.0 · 智连花木，绿动未来</div>
   </div>
 </div>
 
@@ -346,8 +451,7 @@ function toggleTheme(){
   localStorage.setItem('theme',isDark?'dark':'light');
 }
 (function(){
-  const saved=localStorage.getItem('theme');
-  if(saved==='dark'){
+  if(localStorage.getItem('theme')==='dark'){
     document.body.classList.add('dark');
     document.getElementById('themeToggle').textContent='☀️';
   }
@@ -362,6 +466,7 @@ function updateTime(){
 }
 updateTime();setInterval(updateTime,1000);
 document.getElementById('startTime').textContent=new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+document.getElementById('todayDate').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 
 // ===== Dropdown =====
 function toggleDropdown(){document.getElementById('userDropdown').classList.toggle('show')}
