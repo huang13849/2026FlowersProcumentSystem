@@ -96,14 +96,15 @@ export default function SupplierList() {
     { label: '已完成', value: items.filter(x => x.status === '已完成').length, color: '#13c2c2' },
     { label: '待签章', value: items.filter(x => x.status === '待签章').length, color: '#fa8c16'},
     { label: '合同异常', value: items.filter(x => x.status === '合同异常').length, color: '#ff4d4f'},
+    { label: '有合同', value: items.filter(x => (x.contract_files?.length || 0) > 0).length, color: '#52c41a'},
   ]
 
   return (
     <div style={{padding:12,background:'#f5f5f5',minHeight:'calc(100vh - 48px)'}}>
       {/* Stats */}
-      <div style={{display:'flex',gap:12,marginBottom:12}}>
+      <div style={{display:'flex',gap:12,marginBottom:12,flexWrap:'wrap'}}>
         {stats.map((s, i) => (
-          <div key={i} style={{flex:1,background:'#fff',borderRadius:8,padding:'12px 20px',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+          <div key={i} style={{flex:1,minWidth:120,background:'#fff',borderRadius:8,padding:'12px 20px',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
             <div style={{fontSize:12,color:'#888'}}>{s.label}</div>
             <div style={{fontSize:24,fontWeight:700,color:s.color}}>{s.value}</div>
           </div>
@@ -124,7 +125,7 @@ export default function SupplierList() {
           style={{padding:'5px 12px',background:'#1a1a2e',color:'#fff',border:'none',borderRadius:4,cursor:'pointer',fontSize:12}}>+ 新增供应商</button>
       </div>
       {/* Table */}
-      <div style={{overflow:'auto',background:'#fff',borderRadius:8,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',maxHeight:'calc(100vh - 260px)'}}>
+      <div style={{overflow:'auto',background:'#fff',borderRadius:8,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',maxHeight:'calc(100vh - 290px)'}}>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
           <thead>
             <tr style={{background:'#f7f7f7',position:'sticky',top:0}}>
@@ -187,9 +188,20 @@ export default function SupplierList() {
                       <span style={{fontWeight:600}}>{r.product_count || 0}</span>
                     )}
                   </td>
-                  <td style={td}>{(r.contract_files||[]).slice(0,2).map((f,i) => <a key={i} href={f.url} target="_blank" onClick={e=>e.stopPropagation()} style={{fontSize:11,color:'#1890ff',marginRight:4}}>{f.name}</a>)||'\u2014'}</td>
+                  <td style={td}>
+                    {(r.contract_files||[]).length > 0 ? (
+                      <>
+                        <span style={{fontSize:11,fontWeight:600,color:'#52c41a'}}>{(r.contract_files||[]).length} 份：</span>
+                        {(r.contract_files||[]).slice(0,2).map((f,i) => (
+                          <a key={i} href={f.url} target="_blank" onClick={e=>e.stopPropagation()} style={{fontSize:11,color:'#1890ff',marginRight:4}}>{f.name}</a>
+                        ))}
+                      </>
+                    ) : (
+                      '\u2014'
+                    )}
+                  </td>
                   <td style={{...td,fontSize:11,color:'#999'}}>{fmt(r.updatedAt)}</td>
-                  <td style={td} align="center">
+                  <td style={{...td, textAlign:'center'}}>
                     <button onClick={() => goProducts(r)} style={{padding:'3px 8px',border:'1px solid #1890ff',background:'#e6f7ff',color:'#1890ff',borderRadius:4,cursor:'pointer',fontSize:11}}>
                       查看商品
                     </button>
