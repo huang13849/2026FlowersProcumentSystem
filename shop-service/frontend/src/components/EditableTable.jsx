@@ -1,8 +1,49 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 
-// ── Image cell: shows thumbnails, supports paste from clipboard ──
+// ── Full‑screen image preview overlay ──
+export function ImagePreview({ src, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'zoom-out',
+      }}
+    >
+      <img
+        src={src}
+        alt="预览"
+        style={{
+          maxWidth: '90vw', maxHeight: '90vh',
+          objectFit: 'contain',
+          borderRadius: 6,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+        }}
+      />
+      <span
+        onClick={onClose}
+        style={{
+          position: 'fixed', top: 16, right: 24,
+          fontSize: 32, color: '#fff', cursor: 'pointer',
+          fontWeight: 300, lineHeight: 1,
+        }}
+      >×</span>
+    </div>
+  )
+}
+
+// ── Image cell: shows thumbnails, supports paste from clipboard + click to preview ──
 export function ImageCell({ images = [], maxCount = 2, onPaste, onRemove }) {
   const cellRef = useRef(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
 
   const handlePaste = useCallback((e) => {
     const items = e.clipboardData?.items
@@ -38,12 +79,14 @@ export function ImageCell({ images = [], maxCount = 2, onPaste, onRemove }) {
       style={{ display: 'flex', gap: 4, flexWrap: 'wrap', minWidth: 140, minHeight: 50, outline: 'none', cursor: 'pointer' }}
       title="点击后按 Ctrl+V 粘贴图片"
     >
+      {previewUrl && <ImagePreview src={previewUrl} onClose={() => setPreviewUrl(null)} />}
       {images.map((img, i) => (
         <div key={i} style={{ position: 'relative', width: 60, height: 60 }}>
-          <img src={img.url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4, border: '1px solid #e0e0e0' }}
+          <img src={img.url} alt="" onClick={() => setPreviewUrl(img.url)}
+            style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4, border: '1px solid #e0e0e0', cursor: 'zoom-in' }}
             onError={(e) => { e.target.style.display = 'none' }} />
           <button
-            onClick={() => onRemove(i)}
+            onClick={(e) => { e.stopPropagation(); onRemove(i) }}
             style={{
               position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: '50%',
               border: 'none', background: '#e74c3c', color: '#fff', fontSize: 11, cursor: 'pointer',
