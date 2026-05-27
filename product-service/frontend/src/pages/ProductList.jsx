@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
@@ -52,7 +52,6 @@ export default function ProductList() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
   const [categories, setCategories] = useState([]);
-  const [sellers, setSellers] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -60,21 +59,29 @@ export default function ProductList() {
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [stockRange, setStockRange] = useState({ min: '', max: '' });
+  const [exporting, setExporting] = useState(false);
+  // 商家名称筛选
+  const [sellerFilter, setSellerFilter] = useState('');
+  const [sellerSuggestions, setSellerSuggestions] = useState([]);
+  const [showSellerSug, setShowSellerSug] = useState(false);
+  const [allSellers, setAllSellers] = useState([]);
+  const sellerInputRef = useRef(null);
+  const sellerSugRef = useRef(null);
   const inputRef = useRef();
   const nav = useNavigate();
 
   // ── Load all products (no pagination) ──
-  const load = async () => {
+  const load = useCallback(async () => {
     const r = await api.get('/products', { params: { limit: 9999, sort: '-updatedAt' } });
     setAllProducts(r.data.products);
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   // Load filter options
   useEffect(() => {
     api.get('/products/meta/categories').then(r => setCategories(r.data));
-    api.get('/products/meta/sellers').then(r => setSellers(r.data)).catch(() => {});
+    api.get('/products/meta/sellers').then(r => setAllSellers(r.data));
   }, []);
 
   // ── Client-side filtering + search ──
@@ -93,12 +100,16 @@ export default function ProductList() {
 
     // Category
     if (filters.category) list = list.filter(p => p.category === filters.category);
-    // Seller
-    if (filters.seller) list = list.filter(p => p.sellerName === filters.seller);
+
     // Listed
     if (filters.isListed !== undefined && filters.isListed !== '') {
       const v = filters.isListed === 'true';
       list = list.filter(p => p.isListed === v);
+    }
+    // Seller name
+    if (sellerFilter.trim()) {
+      const q = sellerFilter.trim().toLowerCase();
+      list = list.filter(p => (p.sellerName || '').toLowerCase().includes(q));
     }
     // Price range
     if (priceRange.min !== '') list = list.filter(p => (p.sellPrice || 0) >= Number(priceRange.min));
@@ -114,7 +125,7 @@ export default function ProductList() {
     });
 
     setDisplayed(list);
-  }, [allProducts, search, filters, priceRange, stockRange]);
+  }, [allProducts, search, filters, sellerFilter, priceRange, stockRange]);
 
   // ── Inline editing ──
   const startEdit = (row, col, value) => {
@@ -221,6 +232,43 @@ export default function ProductList() {
     setSelected(new Set()); load();
   };
 
+  // ── Export to Excel with images ──
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (filters.category) params.set('category', filters.category);
+      if (filters.isListed !== undefined && filters.isListed !== '') params.set('isListed', filters.isListed);
+      if (priceRange.min) params.set('priceMin', priceRange.min);
+      if (priceRange.max) params.set('priceMax', priceRange.max);
+      if (stockRange.min) params.set('stockMin', stockRange.min);
+      if (stockRange.max) params.set('stockMax', stockRange.max);
+      if (sellerFilter.trim()) params.set('sellerName', sellerFilter.trim());
+      // Also support exporting only selected items
+      if (selected.size > 0) {
+        params.set('ids', [...selected].join(','));
+      }
+      const token = localStorage.getItem('token');
+      const resp = await fetch('/api/export/excel?' + params.toString(), {
+        headers: { Authorization: 'Bearer ' + (token || '') },
+      });
+      if (!resp.ok) throw new Error('导出失败: ' + resp.statusText);
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '商品列表_' + new Date().toLocaleDateString('zh-CN').replace(/\//g, '') + '.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('导出失败: ' + (err.message || '未知错误'));
+    }
+    setExporting(false);
+  };
+
   // ── Toggle expand detail ──
   const toggleExpand = (id) => {
     const s = new Set(expandedRows);
@@ -228,11 +276,64 @@ export default function ProductList() {
     setExpandedRows(s);
   };
 
+  // ── Click outside handler for seller suggestion ──
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (sellerSugRef.current && !sellerSugRef.current.contains(e.target) &&
+          sellerInputRef.current && !sellerInputRef.current.contains(e.target)) {
+        setShowSellerSug(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // ── Render ──
   return (
     <div style={{ padding:'8px 12px', background:'#f5f5f5', minHeight:'calc(100vh - 48px)' }}>
       {/* ════ Toolbar ════ */}
       <div style={{ display:'flex', gap:8, marginBottom:8, alignItems:'center', flexWrap:'wrap' }}>
+        {/* 商家名称筛选 */}
+        <div style={{position:'relative'}}>
+          <input ref={sellerInputRef} value={sellerFilter}
+            onChange={e => {
+              const v = e.target.value;
+              setSellerFilter(v);
+              if (v.trim()) {
+                setSellerSuggestions(allSellers.filter(n => n && n.toLowerCase().includes(v.toLowerCase())));
+                setShowSellerSug(true);
+              } else {
+                setSellerSuggestions([]);
+                setShowSellerSug(false);
+              }
+            }}
+            onFocus={() => { if (sellerFilter.trim() && sellerSuggestions.length) setShowSellerSug(true); }}
+            placeholder="🏷️ 筛选商家"
+            style={{padding:'6px 10px',border:'1px solid #d9d9d9',borderRadius:4,width:160,fontSize:13}} />
+          {sellerFilter && (
+            <button onClick={() => {setSellerFilter('');setSellerSuggestions([]);setShowSellerSug(false);}}
+              style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:14,color:'#999',padding:0,lineHeight:1}}
+              title="清除筛选">✕</button>
+          )}
+          {showSellerSug && sellerSuggestions.length > 0 && (
+            <div ref={sellerSugRef} style={{
+              position:'absolute',top:'100%',left:0,zIndex:1000,
+              background:'#fff',border:'1px solid #d9d9d9',borderRadius:4,
+              maxHeight:200,overflowY:'auto',width:220,
+              boxShadow:'0 4px 12px rgba(0,0,0,0.15)',
+            }}>
+              {sellerSuggestions.map((name, i) => (
+                <div key={i} onClick={() => {setSellerFilter(name);setSellerSuggestions([]);setShowSellerSug(false);}}
+                  onMouseDown={e => e.preventDefault()}
+                  style={{padding:'6px 10px',fontSize:12,cursor:'pointer',borderBottom:'1px solid #f0f0f0',background:'#fff',}}
+                  onMouseEnter={e => e.currentTarget.style.background='#e6f7ff'}
+                  onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                  {name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="🔍 搜索标题 / 花卉 / SKU…"
           style={{ padding:'6px 10px', border:'1px solid #d9d9d9', borderRadius:4, width:200, fontSize:13 }} />
@@ -240,10 +341,7 @@ export default function ProductList() {
           <option value="">全部分类</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select onChange={e => setFilters(f => ({...f, seller: e.target.value}))} style={selStyle}>
-          <option value="">全部商家</option>
-          {sellers.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+
         <select onChange={e => setFilters(f => ({...f, isListed: e.target.value}))} style={selStyle}>
           <option value="">全部状态</option>
           <option value="true">🟢 已上架</option>
@@ -272,6 +370,18 @@ export default function ProductList() {
 
         <span style={{ fontSize:12, color:'#888' }}>共 {displayed.length} 条</span>
         <div style={{ flex:1 }} />
+        <button onClick={exportExcel} disabled={exporting}
+          style={{
+            padding:'5px 12px',
+            background: exporting ? '#d9d9d9' : '#52c41a',
+            color: exporting ? '#999' : '#fff',
+            border:'none', borderRadius:4,
+            cursor: exporting ? 'not-allowed' : 'pointer',
+            fontSize:12, whiteSpace:'nowrap',
+            display:'flex', alignItems:'center', gap:4,
+          }}>
+          {exporting ? '⏳ 导出中…' : '📊 导出Excel'}
+        </button>
         <button onClick={() => nav('/products/new')} style={btnStyle('#1a1a2e','#fff')}>➕ 新增</button>
         {selected.size > 0 && <>
           <button onClick={() => batchStatus(true)} style={btnStyle('#52c41a','#fff')}>✅ 上架</button>

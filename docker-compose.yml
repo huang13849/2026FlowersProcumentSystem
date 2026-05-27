@@ -21,6 +21,13 @@ services:
     volumes:
       - ./supplier-service/uploads:/app/uploads
 
+  shop:
+    build: ./shop-service
+    container_name: shop-service
+    restart: unless-stopped
+    ports:
+      - 3004:3004
+    env_file: ./shop-service/backend/.env
 
   minio:
     image: minio/minio:latest
@@ -32,16 +39,15 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
-      MINIO_BROWSER: "on"
+      MINIO_BROWSER: on
     volumes:
       - /home/huangfra-ubun-master/minio-data:/data
     command: server /data --console-address :9001
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [CMD, mc, ready, local]
       interval: 30s
       timeout: 10s
       retries: 3
-
 
   ollama:
     image: ollama/ollama:latest
@@ -75,3 +81,4 @@ services:
     depends_on:
       - product
       - supplier
+      - shop

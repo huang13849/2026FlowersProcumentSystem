@@ -124,7 +124,6 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
       <a class="nav-item active" href="/"><span class="icon">📊</span><span>总览仪表盘</span></a>
       <a class="nav-item" href="http://100.96.54.109:3001"><span class="icon">📦</span><span>商品中心</span><span class="badge">3001</span></a>
       <a class="nav-item" href="http://100.96.54.109:3002"><span class="icon">🤝</span><span>供应商</span><span class="badge">3002</span></a>
-      <a class="nav-item" href="http://100.96.54.109:3004"><span class="icon">🏪</span><span>店铺注册</span><span class="badge">3004</span></a>
       <a class="nav-item" href="/ai"><span class="icon">🤖</span><span>AI 助手</span><span class="badge">3003</span></a>
       <a class="nav-item" href="http://100.96.54.109:9001"><span class="icon">🖼️</span><span>MinIO 图床</span><span class="badge">9001</span></a>
     </div>
@@ -198,16 +197,6 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
           </div>
           <span class="arrow">→</span>
         </a>
-        <a class="service-card" href="http://100.96.54.109:3004">
-          <div class="icon">🏪</div>
-          <h3>店铺注册管理系统</h3>
-          <p>管理店铺注册信息、拉卡拉/微信/支付宝商户号、资质图片</p>
-          <div class="meta">
-            <span class="tag">店铺服务</span>
-            <span style="color:var(--text-muted)">:3004</span>
-          </div>
-          <span class="arrow">→</span>
-        </a>
         <a class="service-card" href="/ai">
           <div class="icon">🤖</div>
           <h3>AI 智能助手</h3>
@@ -275,7 +264,6 @@ async function checkServices() {
   const services = [
     { name: "商品服务", url: "http://100.96.54.109:3001/api/health", key: "product" },
     { name: "供应商服务", url: "http://100.96.54.109:3002/api/health", key: "supplier" },
-    { name: "店铺注册", url: "http://100.96.54.109:3004/api/health", key: "shop" },
     { name: "AI 服务", url: "http://100.96.54.109:3003/api/ai/health", key: "ai" },
     { name: "MinIO API", url: "http://100.96.54.109:9000/minio/health/live", key: "minio" },
     { name: "Ollama LLM", url: "http://100.96.54.109:11434/api/tags", key: "ollama" },
