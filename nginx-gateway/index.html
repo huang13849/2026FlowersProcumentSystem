@@ -3,490 +3,351 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>花卉供应链管理平台 v2.0</title>
+<title>花卉供应链管理平台</title>
 <style>
-/* ===== Base ===== */
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:"PingFang SC","Source Han Sans","Noto Sans SC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;transition:background 0.35s,color 0.35s}
-
-/* ===== Light Theme ===== */
-:root{
-  --bg-body:#F0F0F3;
-  --bg-sidebar:#B8B8C2;
-  --bg-card:#E3E2E6;
-  --bg-card-alt:#D7D6DA;
-  --bg-card-hover:#CAC7CD;
-  --bg-header:#B0B0BD;
-  --bg-panel:#EBEAEE;
-  --text-primary:#4A4857;
-  --text-secondary:#6F6D73;
-  --text-muted:#9A98A0;
-  --text-light:#C5C4CB;
-  --accent-bluegrey:#8E8C97;
-  --accent-purplegrey:#A29FA5;
-  --accent-pinkgrey:#C9B8C0;
-  --accent-greengrey:#B5C4BC;
-  --accent-beige:#D5CEC4;
-  --accent-lavender:#C8C0D0;
-  --border:#D5D4D9;
-  --shadow:rgba(0,0,0,0.06);
-  --stat-color:#6F6D73;
-  --dot-ok:#A8C5B6;
-  --dot-err:#C9A8A8;
-  --input-bg:#F0F0F3;
-  --texture:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.012'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  --btn-primary:#A29FA5;--btn-hover:#8E8C97;--btn-text:#fff;
-  --fc-card-1:#DEDCE2;--fc-card-2:#D8DAD8;--fc-card-3:#DAD6DE;--fc-card-4:#DCD5D0;
-  --orchid-opacity:0.12;
+:root {
+  --bg-primary: #0b172b;
+  --bg-secondary: #121e34;
+  --bg-card: #19243b;
+  --bg-hover: #1e2d48;
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa0b0;
+  --text-muted: #5e6a82;
+  --accent-purple: #a78bfa;
+  --accent-blue: #60a5fa;
+  --accent-green: #34d399;
+  --accent-pink: #f472b6;
+  --accent-orange: #fb923c;
+  --accent-cyan: #22d3ee;
+  --border: #1e2d48;
+  --shadow: rgba(0,0,0,0.3);
+  --radius: 12px;
+  --radius-sm: 8px;
 }
-
-/* ===== Dark Theme ===== */
-body.dark{
-  --bg-body:#0b172b;
-  --bg-sidebar:#0b172b;
-  --bg-card:#19243b;
-  --bg-card-alt:#1e2d48;
-  --bg-card-hover:#253450;
-  --bg-header:#121e34;
-  --bg-panel:#121e34;
-  --text-primary:#e8eaed;
-  --text-secondary:#9aa0b0;
-  --text-muted:#5e6a82;
-  --text-light:#3d4a60;
-  --accent-bluegrey:#60a5fa;
-  --accent-purplegrey:#a78bfa;
-  --accent-pinkgrey:#c9b8c0;
-  --accent-greengrey:#34d399;
-  --accent-beige:#d5cec4;
-  --accent-lavender:#c8c0d0;
-  --border:#1e2d48;
-  --shadow:rgba(0,0,0,0.3);
-  --stat-color:#9aa0b0;
-  --dot-ok:#34d399;
-  --dot-err:#f472b6;
-  --input-bg:#121e34;
-  --texture:none;
-  --btn-primary:#a78bfa;--btn-hover:#7c3aed;--btn-text:#fff;
-  --fc-card-1:#1a2440;--fc-card-2:#1a2a38;--fc-card-3:#1e223a;--fc-card-4:#201e34;
-  --orchid-opacity:0.06;
-}
-body.dark .nav-item.active{background:rgba(167,139,250,0.2);color:#a78bfa}
-body.dark .nav-item.active::before{background:#a78bfa}
-body.dark .nav-item:hover{background:rgba(255,255,255,0.06)}
-body.dark .nav-item{color:#9aa0b0}
-body.dark .sidebar-header,body.dark .sidebar-footer{border-color:rgba(255,255,255,0.06)}
-body.dark .header{background:#121e34;border-color:#1e2d48}
-body.dark .header-user:hover{background:#19243b}
-body.dark .dropdown{background:#19243b;border-color:#1e2d48}
-body.dark .dropdown a:hover{background:#1e2d48}
-body.dark .stat-trend{background:rgba(52,211,153,0.1);color:#34d399}
-body.dark .sidebar-logo,body.dark .avatar{background:#a78bfa;color:#0b172b}
-body.dark .fc-tag{background:rgba(255,255,255,0.1)!important;color:#9aa0b0!important}
-body.dark .fc-arrow{color:#3d4a60!important}
-body.dark .panel{background:#19243b;border-color:#1e2d48}
-body.dark .svc-item,body.dark .activity-list li{border-color:rgba(255,255,255,0.04)}
-body.dark .upload-area{background:rgba(18,30,52,0.5)}
-body.dark .upload-area:hover{border-color:#a78bfa}
-
-/* ===== Background Orchid Decoration ===== */
-
-
-.orchid-left{bottom:-40px;left:-60px;width:480px;height:520px;transform:rotate(-8deg)}
-.orchid-right{top:80px;right:-80px;width:380px;height:440px;transform:rotate(25deg) scaleX(-1)}
-.orchid-bottom{right:60px;bottom:-30px;width:300px;height:340px;transform:rotate(15deg)}
-
-/* ===== Layout ===== */
-body::before{content:"";position:fixed;inset:0;background:var(--texture);pointer-events:none;z-index:-1;transition:background 0.35s}
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--bg-sidebar);z-index:100;display:flex;flex-direction:column;box-shadow:1px 0 0 rgba(0,0,0,0.04);transition:background 0.35s}
-.sidebar-header{padding:18px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.2)}
-.sidebar-logo{width:36px;height:36px;border-radius:8px;background:var(--accent-lavender);color:#6F6D73;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.sidebar-brand{display:flex;flex-direction:column}
-.sidebar-brand h1{font-size:14px;font-weight:600;color:var(--text-primary);letter-spacing:0.3px}
-.sidebar-brand span{font-size:10px;color:var(--text-muted);letter-spacing:0.5px;margin-top:1px}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
+body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
+.layout{display:flex;min-height:100vh}
+/* Sidebar */
+.sidebar{width:240px;background:var(--bg-primary);border-right:1px solid var(--border);padding:0;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-header{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-header .logo{width:36px;height:36px;background:linear-gradient(135deg,var(--accent-purple),var(--accent-pink));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.sidebar-header h1{font-size:15px;font-weight:600;color:var(--text-primary)}
+.sidebar-header span{font-size:11px;color:var(--text-muted)}
 .sidebar-nav{flex:1;padding:12px 8px;overflow-y:auto}
-.nav-section{font-size:10px;color:var(--text-muted);padding:16px 14px 8px;text-transform:uppercase;letter-spacing:1px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:8px;cursor:pointer;transition:all 0.25s;color:var(--text-secondary);font-size:13px;margin-bottom:2px;text-decoration:none;position:relative}
-.nav-item:hover{background:rgba(255,255,255,0.4);color:var(--text-primary)}
-.nav-item.active{background:rgba(201,184,192,0.4);color:#6F5E6E;font-weight:500}
-.nav-item.active::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:3px;border-radius:0 3px 3px 0;background:var(--accent-pinkgrey)}
-.nav-item .icon{font-size:15px;width:20px;text-align:center}
-.nav-item .badge{font-size:10px;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,0.35);color:var(--text-muted);margin-left:auto;font-weight:500}
-.sidebar-footer{padding:14px;border-top:1px solid rgba(255,255,255,0.2)}
-.status-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:4px 6px}
-.status-dot{width:6px;height:6px;border-radius:50%}
-.status-dot.green{background:var(--dot-ok);box-shadow:0 0 6px var(--dot-ok)}
-
-/* ===== Header ===== */
-.header{position:fixed;left:220px;right:0;top:0;height:56px;background:var(--bg-header);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 32px;z-index:99;backdrop-filter:blur(8px)}
-.header-left{display:flex;align-items:center;gap:12px}
-.header-left h2{font-size:16px;font-weight:600;color:var(--text-primary)}
-.header-left .breadcrumb{font-size:12px;color:var(--text-muted)}
-.header-right{display:flex;align-items:center;gap:14px}
-.header-time{font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums}
-.theme-toggle{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.3s}
-.theme-toggle:hover{background:var(--bg-card-hover);transform:rotate(15deg)}
-.header-user{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background 0.2s;position:relative}
-.header-user:hover{background:var(--bg-card)}
-.avatar{width:30px;height:30px;border-radius:50%;background:var(--accent-lavender);display:flex;align-items:center;justify-content:center;font-size:13px;color:#6F6D73;font-weight:500}
-.header-user .name{font-size:12px;color:var(--text-secondary)}
-.header-user .arrow{font-size:8px;color:var(--text-muted);margin-left:2px}
-.dropdown{position:absolute;top:100%;right:0;margin-top:6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px var(--shadow);padding:4px;min-width:140px;display:none;z-index:200}
-.dropdown.show{display:block}
-.dropdown a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--text-secondary);text-decoration:none;border-radius:4px;transition:background 0.2s}
-.dropdown a:hover{background:var(--bg-card)}
-
-/* ===== Main Content (with generous white space) ===== */
-.main{margin-left:220px;margin-top:56px;padding:36px 40px 60px;min-height:calc(100vh - 56px);background:var(--bg-body);position:relative;z-index:1}
-.main-inner{position:relative;z-index:2;max-width:1400px}
-
-/* ===== Welcome Banner ===== */
-.welcome{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:32px;padding:0 4px}
-.welcome-left h2{font-size:22px;font-weight:700;color:var(--text-primary);line-height:1.3}
-.welcome-left p{font-size:13px;color:var(--text-muted);margin-top:4px}
-.welcome-right{text-align:right}
-.welcome-right .date{font-size:13px;color:var(--text-secondary);font-weight:500}
-.welcome-right .greeting{font-size:12px;color:var(--text-muted);margin-top:2px}
-
-/* ===== Stats (more breathing) ===== */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:32px}
-.stat-card{background:var(--bg-card);border-radius:14px;padding:22px 24px;transition:all 0.3s;cursor:default;position:relative;border:1px solid transparent}
-.stat-card:hover{background:var(--bg-card-alt);border-color:var(--border);box-shadow:0 6px 20px var(--shadow);transform:translateY(-2px)}
-.stat-icon{font-size:22px;margin-bottom:8px;color:var(--accent-bluegrey)}
-.stat-value{font-size:28px;font-weight:700;color:var(--stat-color);line-height:1.2}
-.stat-label{font-size:12px;color:var(--text-muted);margin-top:3px}
-.stat-trend{font-size:11px;margin-top:8px;padding:2px 8px;border-radius:4px;display:inline-block;background:rgba(181,196,188,0.2);color:var(--accent-greengrey)}
-
-/* ===== Features ===== */
-.features{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:32px}
-.feature-card{border-radius:14px;padding:24px;cursor:pointer;transition:all 0.35s;text-decoration:none;display:block;position:relative;overflow:hidden;border:1px solid transparent}
-.feature-card:hover{transform:translateY(-4px);border-color:var(--border);box-shadow:0 10px 32px var(--shadow)}
-.feature-card:hover .fc-icon{transform:scale(1.1)}
-.feature-card .fc-icon{font-size:30px;margin-bottom:12px;transition:transform 0.35s;display:inline-block}
-.feature-card h3{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px}
-.feature-card p{font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:14px}
-.feature-card .fc-meta{display:flex;align-items:center;gap:6px;font-size:11px}
-.feature-card .fc-tag{font-size:10px;padding:2px 10px;border-radius:4px}
-.feature-card .fc-arrow{position:absolute;right:20px;bottom:20px;font-size:16px;color:var(--text-light);transition:all 0.3s}
-.feature-card:hover .fc-arrow{color:var(--text-muted);transform:translateX(5px)}
-.fc-products{background:var(--fc-card-1)}
-.fc-products .fc-tag{background:rgba(142,140,151,0.18);color:var(--text-secondary)}
-.fc-suppliers{background:var(--fc-card-2)}
-.fc-suppliers .fc-tag{background:rgba(181,196,188,0.3);color:var(--text-secondary)}
-.fc-ai{background:var(--fc-card-3)}
-.fc-ai .fc-tag{background:rgba(200,192,208,0.3);color:var(--text-secondary)}
-.fc-minio{background:var(--fc-card-4)}
-.fc-minio .fc-tag{background:rgba(213,206,196,0.3);color:var(--text-secondary)}
-
-/* ===== Bottom ===== */
-.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.panel{background:var(--bg-card);border-radius:14px;padding:22px 24px;border:1px solid transparent;transition:all 0.3s}
-.panel:hover{border-color:var(--border)}
-.panel h3{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px;display:flex;align-items:center;gap:6px}
-.panel h3 .count{font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto}
-.svc-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.04);font-size:12px}
-.svc-item:last-child{border-bottom:none}
-.svc-item .name{display:flex;align-items:center;gap:8px;color:var(--text-secondary)}
-.svc-item .name .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.svc-item .svc-status{font-size:11px}
-.svc-item .svc-status.ok{color:var(--dot-ok)}
-.svc-item .svc-status.err{color:var(--dot-err)}
-.activity-list{list-style:none;padding:0}
-.activity-list li{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,0.03);font-size:12px;color:var(--text-muted)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s;color:var(--text-secondary);font-size:13px;margin-bottom:2px;text-decoration:none}
+.nav-item:hover{background:var(--bg-hover);color:var(--text-primary)}
+.nav-item.active{background:rgba(167,139,250,0.15);color:var(--accent-purple)}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.nav-item .badge{margin-left:auto;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(167,139,250,0.2);color:var(--accent-purple)}
+.nav-section{font-size:10px;color:var(--text-muted);padding:16px 14px 6px;text-transform:uppercase;letter-spacing:1px}
+.sidebar-footer{padding:12px;border-top:1px solid var(--border)}
+.sidebar-footer .status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);padding:6px 8px}
+.sidebar-footer .dot{width:6px;height:6px;border-radius:50%}
+.dot.green{background:var(--accent-green);box-shadow:0 0 6px var(--accent-green)}
+/* Main */
+.main{flex:1;padding:0;overflow-y:auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border)}
+.topbar h2{font-size:18px;font-weight:600}
+.topbar .actions{display:flex;gap:8px;align-items:center}
+.topbar .time{font-size:12px;color:var(--text-muted)}
+.content{padding:24px 28px}
+/* Stats grid */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--bg-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);position:relative;overflow:hidden;transition:all 0.3s}
+.stat-card:hover{border-color:var(--accent-purple);transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow)}
+.stat-card .stat-icon{font-size:24px;margin-bottom:8px}
+.stat-card .stat-value{font-size:28px;font-weight:700;margin-bottom:2px}
+.stat-card .stat-label{font-size:12px;color:var(--text-secondary)}
+.stat-card .stat-change{font-size:11px;margin-top:4px;padding:2px 6px;border-radius:4px;display:inline-block}
+.stat-card .stat-glow{position:absolute;top:-30px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:0.1;pointer-events:none}
+/* Cards grid */
+.services{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px}
+.service-card{background:var(--bg-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);cursor:pointer;transition:all 0.3s;text-decoration:none;color:inherit;display:block;position:relative;overflow:hidden}
+.service-card:hover{border-color:var(--accent-blue);transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow)}
+.service-card .icon{font-size:28px;margin-bottom:10px}
+.service-card h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.service-card p{font-size:12px;color:var(--text-secondary);margin-bottom:12px}
+.service-card .meta{display:flex;align-items:center;gap:8px;font-size:11px}
+.service-card .meta .tag{padding:2px 8px;border-radius:4px;font-size:10px;background:rgba(96,165,250,0.15);color:var(--accent-blue)}
+.service-card .arrow{position:absolute;right:16px;bottom:16px;font-size:16px;color:var(--text-muted);transition:all 0.3s}
+.service-card:hover .arrow{color:var(--accent-blue);transform:translateX(4px)}
+/* System health */
+.sys-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.sys-panel{background:var(--bg-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border)}
+.sys-panel h3{font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sys-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.sys-item:last-child{border-bottom:none}
+.sys-item .name{display:flex;align-items:center;gap:8px;color:var(--text-secondary)}
+.sys-item .name .dot{width:6px;height:6px;border-radius:50%}
+.sys-item .status-text{font-size:11px;color:var(--accent-green)}
+/* Activity / quick links */
+.activity-list{padding:0;list-style:none}
+.activity-list li{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary)}
 .activity-list li:last-child{border-bottom:none}
-.activity-list .atime{font-size:11px;color:var(--text-light);margin-left:auto;white-space:nowrap}
-.activity-list .accent{color:var(--text-secondary)}
-
-/* ===== Footer ===== */
-.footer{text-align:center;padding:40px 0 10px;font-size:11px;color:var(--text-light)}
-
-/* ===== Animations ===== */
-@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-50%{transform:rotate(2deg)}}
-50%{transform:translateY(-6px)}}
-.stat-card,.feature-card,.panel{animation:fadeUp 0.6s ease-out both}
-.stat-card:nth-child(2){animation-delay:0.08s}
-.stat-card:nth-child(3){animation-delay:0.15s}
-.stat-card:nth-child(4){animation-delay:0.22s}
-.features .feature-card:nth-child(1){animation-delay:0.12s}
-.features .feature-card:nth-child(2){animation-delay:0.18s}
-.features .feature-card:nth-child(3){animation-delay:0.24s}
-.features .feature-card:nth-child(4){animation-delay:0.30s}
-.bottom-grid .panel:nth-child(1){animation-delay:0.25s}
-.bottom-grid .panel:nth-child(2){animation-delay:0.32s}
-
-/* ===== Responsive ===== */
-@media(max-width:1024px){
-  .stats,.features{grid-template-columns:repeat(2,1fr)}
-  .bottom-grid{grid-template-columns:1fr}
-  .orchid-right{display:none}
-}
+.activity-list .time{font-size:11px;color:var(--text-muted);margin-left:auto;white-space:nowrap}
+.activity-list .accent{color:var(--accent-purple)}
+/* Loading animation for stat values */
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.stat-card .stat-value,.service-card{animation:countUp 0.5s ease-out both}
+.stat-card:nth-child(2){animation-delay:0.1s}
+.stat-card:nth-child(3){animation-delay:0.2s}
+.stat-card:nth-child(4){animation-delay:0.3s}
+/* Mobile */
 @media(max-width:768px){
-  .sidebar{width:56px}
-  .sidebar-brand,.nav-item span,.nav-section,.sidebar-footer .status-indicator span{display:none}
-  .sidebar-header{padding:12px;justify-content:center}
+  .sidebar{width:60px}
+  .sidebar-header h1,.sidebar-header span,.nav-item span,.nav-section,.sidebar-footer .status span{display:none}
   .nav-item{padding:10px;justify-content:center}
-  .header{padding:0 14px}
-  .main{padding:20px 16px;margin-left:56px}
-  .stats,.features{grid-template-columns:1fr 1fr}
-  .orchid-left{width:240px;height:280px;left:-40px;bottom:-30px}
-  .orchid-bottom{display:none}
+  .sidebar-header{padding:12px;justify-content:center}
+  .content{padding:16px}
+  .stats{grid-template-columns:1fr 1fr}
+  .sys-grid{grid-template-columns:1fr}
 }
-@media(max-width:480px){
-  .stats,.features{grid-template-columns:1fr}
-  .header-left h2{font-size:14px}
-  .welcome{flex-direction:column;align-items:flex-start;gap:4px}
-}
+/* Scrollbar */
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-
-/* Orchid Scene */
-.orchid-scene{position:fixed;pointer-events:none;z-index:0;bottom:0;right:0;width:750px;height:650px;overflow:hidden}
-.orchid-image-frame{position:absolute;bottom:-40px;right:-50px;width:622px;height:514px}
-.orchid-img{width:100%;height:100%;object-fit:contain;-webkit-mask-image:radial-gradient(ellipse 75% 60% at 75% 80%,black 25%,transparent 72%);mask-image:radial-gradient(ellipse 75% 60% at 75% 80%,black 25%,transparent 72%);opacity:var(--orchid-opacity);transition:opacity 0.8s}
-@media(max-width:768px){.orchid-scene{width:400px;height:400px}.orchid-image-frame{width:320px;height:260px;right:-40px;bottom:-30px}}
-@media(max-width:480px){.orchid-scene{display:none}}
-
 </style>
 </head>
 <body>
-<!-- ===== Decorative Phalaenopsis Orchid Background ===== -->
-<div class="orchid-scene">
-  <div class="orchid-image-frame">
-    <img src="/orchid_bg.png" alt="" class="orchid-img" />
-  </div>
-</div>
-<!-- ===== Sidebar ===== -->
-<div class="sidebar">
-  <div class="sidebar-header">
-    <div class="sidebar-logo">🌸</div>
-    <div class="sidebar-brand">
-      <h1>花卉供应链</h1>
-      <span>管理平台 v2.0</span>
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">🌺</div>
+      <div>
+        <h1>花卉供应链</h1>
+        <span>管理平台 v2.0</span>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">导航</div>
+      <a class="nav-item active" href="/"><span class="icon">📊</span><span>总览仪表盘</span></a>
+      <a class="nav-item" href="http://100.96.54.109:3001"><span class="icon">📦</span><span>商品中心</span><span class="badge">3001</span></a>
+      <a class="nav-item" href="http://100.96.54.109:3002"><span class="icon">🤝</span><span>供应商</span><span class="badge">3002</span></a>
+      <a class="nav-item" href="http://100.96.54.109:3004"><span class="icon">🏪</span><span>店铺注册</span><span class="badge">3004</span></a>
+      <a class="nav-item" href="/ai"><span class="icon">🤖</span><span>AI 助手</span><span class="badge">3003</span></a>
+      <a class="nav-item" href="http://100.96.54.109:9001"><span class="icon">🖼️</span><span>MinIO 图床</span><span class="badge">9001</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="status">
+        <span class="dot green"></span>
+        <span id="sysStatus">系统正常运行</span>
+      </div>
     </div>
   </div>
-  <div class="sidebar-nav">
-    <div class="nav-section">导航</div>
-    <a class="nav-item active" href="/"><span class="icon">◉</span><span>总览仪表盘</span></a>
-    <a class="nav-item" href="http://100.96.54.109:3001"><span class="icon">▣</span><span>商品中心</span><span class="badge">3001</span></a>
-    <a class="nav-item" href="http://100.96.54.109:3002"><span class="icon">◆</span><span>供应商</span><span class="badge">3002</span></a>
-    <a class="nav-item" href="/ai"><span class="icon">◇</span><span>AI 助手</span><span class="badge">3003</span></a>
-    <a class="nav-item" href="http://100.96.54.109:9001" target="_blank"><span class="icon">○</span><span>MinIO 图床</span><span class="badge">9001</span></a>
-  </div>
-  <div class="sidebar-footer">
-    <div class="status-indicator">
-      <span class="status-dot green"></span>
-      <span id="sysStatus">系统正常运行</span>
-    </div>
-  </div>
-</div>
 
-<!-- ===== Header ===== -->
-<div class="header">
-  <div class="header-left">
-    <h2>总览仪表盘</h2>
-    <span class="breadcrumb">/ 管理后台</span>
-  </div>
-  <div class="header-right">
-    <span class="header-time" id="currentTime"></span>
-    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题">🌙</button>
-    <div class="header-user" onclick="toggleDropdown()">
-      <div class="avatar">H</div>
-      <span class="name">管理员</span>
-      <span class="arrow">▼</span>
-      <div class="dropdown" id="userDropdown">
-        <a href="#">👤 个人中心</a>
-        <a href="#">⚙️ 系统设置</a>
-        <a href="#" style="color:#C9A8A8">🚪 退出登录</a>
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>总览仪表盘</h2>
+        <span class="time" id="currentTime"></span>
+      </div>
+      <div class="actions">
+        <span style="font-size:12px;color:var(--text-muted)" id="modelStatus">AI 模型加载中...</span>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- ===== Main ===== -->
-<div class="main">
-  <div class="main-inner">
-    <!-- Welcome -->
-    <div class="welcome">
-      <div class="welcome-left">
-        <h2>欢迎回来 ✦</h2>
-        <p>花卉供应链管理系统 · 全链路数字化管理</p>
-      </div>
-      <div class="welcome-right">
-        <div class="date" id="todayDate"></div>
-        <div class="greeting">🌿 今日花卉交易进行中</div>
-      </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-icon">📦</div>
-        <div class="stat-value" id="productCount">-</div>
-        <div class="stat-label">商品总数</div>
-        <div class="stat-trend">实时同步</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🤝</div>
-        <div class="stat-value" id="supplierCount">-</div>
-        <div class="stat-label">供应商数量</div>
-        <div class="stat-trend">实时同步</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">📋</div>
-        <div class="stat-value" id="contractCount">-</div>
-        <div class="stat-label">合同文件</div>
-        <div class="stat-trend">实时同步</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🖼️</div>
-        <div class="stat-value" id="imageCount">-</div>
-        <div class="stat-label">图床文件</div>
-        <div class="stat-trend">实时同步</div>
-      </div>
-    </div>
-
-    <!-- Features -->
-    <div class="features">
-      <a class="feature-card fc-products" href="http://100.96.54.109:3001">
-        <div class="fc-icon">📦</div>
-        <h3>商品管理系统</h3>
-        <p>花卉商品信息、库存管理、价格维护与上下架操作</p>
-        <div class="fc-meta"><span class="fc-tag">商品服务 :3001</span></div>
-        <span class="fc-arrow">→</span>
-      </a>
-      <a class="feature-card fc-suppliers" href="http://100.96.54.109:3002">
-        <div class="fc-icon">🤝</div>
-        <h3>供应商管理</h3>
-        <p>供应商资质审核、合同签署、营业执照与往来文件</p>
-        <div class="fc-meta"><span class="fc-tag">供应商服务 :3002</span></div>
-        <span class="fc-arrow">→</span>
-      </a>
-      <a class="feature-card fc-ai" href="/ai">
-        <div class="fc-icon">🤖</div>
-        <h3>AI 智能助手</h3>
-        <p>植物识别、SKU 生成、营销文案、商品上架审核</p>
-        <div class="fc-meta"><span class="fc-tag">AI 服务 :3003</span></div>
-        <span class="fc-arrow">→</span>
-      </a>
-      <a class="feature-card fc-minio" href="http://100.96.54.109:9001" target="_blank">
-        <div class="fc-icon">🖼️</div>
-        <h3>MinIO 对象存储</h3>
-        <p>商品图片、合同资质文件的统一管理与存储</p>
-        <div class="fc-meta"><span class="fc-tag">图床服务 :9001</span></div>
-        <span class="fc-arrow">→</span>
-      </a>
-    </div>
-
-    <!-- Bottom -->
-    <div class="bottom-grid">
-      <div class="panel">
-        <h3>🔌 系统服务状态 <span class="count" id="svcCount">5 个服务</span></h3>
-        <div id="serviceStatus">
-          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>商品服务</div><span class="svc-status">检测中...</span></div>
-          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>供应商服务</div><span class="svc-status">检测中...</span></div>
-          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>AI 服务</div><span class="svc-status">检测中...</span></div>
-          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>MinIO 图床</div><span class="svc-status">检测中...</span></div>
-          <div class="svc-item"><div class="name"><span class="dot" style="background:var(--dot-ok)"></span>Ollama LLM</div><span class="svc-status">检测中...</span></div>
+    <div class="content">
+      <!-- Stats -->
+      <div class="stats" id="statsContainer">
+        <div class="stat-card">
+          <div class="stat-icon">📦</div>
+          <div class="stat-value" id="productCount">-</div>
+          <div class="stat-label">商品总数</div>
+          <div class="stat-glow" style="background:var(--accent-blue);right:-20px"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🤝</div>
+          <div class="stat-value" id="supplierCount">-</div>
+          <div class="stat-label">供应商数量</div>
+          <div class="stat-glow" style="background:var(--accent-purple);right:-10px"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value" id="contractCount">-</div>
+          <div class="stat-label">合同文件</div>
+          <div class="stat-glow" style="background:var(--accent-green);right:-30px"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🖼️</div>
+          <div class="stat-value" id="imageCount">-</div>
+          <div class="stat-label">图床文件</div>
+          <div class="stat-glow" style="background:var(--accent-pink);right:-25px"></div>
         </div>
       </div>
-      <div class="panel">
-        <h3>📋 最近活动 <span class="count" id="activityCount">实时更新</span></h3>
-        <ul class="activity-list" id="activityList">
-          <li><span class="accent">🌺 系统启动完成</span><span class="atime" id="startTime"></span></li>
-          <li><span>等待服务连接...</span><span class="atime"></span></li>
-        </ul>
+
+      <!-- Quick Access Services -->
+      <div class="services">
+        <a class="service-card" href="http://100.96.54.109:3001">
+          <div class="icon">📦</div>
+          <h3>商品管理系统</h3>
+          <p>管理花卉商品信息、库存、价格、上下架</p>
+          <div class="meta">
+            <span class="tag">商品服务</span>
+            <span style="color:var(--text-muted)">:3001</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="service-card" href="http://100.96.54.109:3002">
+          <div class="icon">🤝</div>
+          <h3>供应商管理系统</h3>
+          <p>管理供应商资质、合同、营业执照、往来文件</p>
+          <div class="meta">
+            <span class="tag">供应商服务</span>
+            <span style="color:var(--text-muted)">:3002</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="service-card" href="http://100.96.54.109:3004">
+          <div class="icon">🏪</div>
+          <h3>店铺注册管理系统</h3>
+          <p>管理店铺注册信息、拉卡拉/微信/支付宝商户号、资质图片</p>
+          <div class="meta">
+            <span class="tag">店铺服务</span>
+            <span style="color:var(--text-muted)">:3004</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="service-card" href="/ai">
+          <div class="icon">🤖</div>
+          <h3>AI 智能助手</h3>
+          <p>植物识别、SKU生成、营销文案、商品审核</p>
+          <div class="meta">
+            <span class="tag">AI 服务</span>
+            <span style="color:var(--text-muted)">:3003</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="service-card" href="http://100.96.54.109:9001" target="_blank">
+          <div class="icon">🖼️</div>
+          <h3>MinIO 对象存储</h3>
+          <p>商品图片、合同文件、资质文件的统一存储</p>
+          <div class="meta">
+            <span class="tag">图床服务</span>
+            <span style="color:var(--text-muted)">:9001</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+
+      <!-- System Health -->
+      <div class="sys-grid">
+        <div class="sys-panel">
+          <h3>🔌 系统服务状态</h3>
+          <div id="serviceStatus">
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>商品服务</div><span class="status-text">检测中...</span></div>
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>供应商服务</div><span class="status-text">检测中...</span></div>
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>AI 服务</div><span class="status-text">检测中...</span></div>
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>MinIO 图床</div><span class="status-text">检测中...</span></div>
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>Ollama LLM</div><span class="status-text">检测中...</span></div>
+          </div>
+        </div>
+        <div class="sys-panel">
+          <h3>📋 最近活动</h3>
+          <ul class="activity-list" id="activityList">
+            <li><span>系统启动完成</span><span class="time" id="startTime"></span></li>
+            <li style="color:var(--text-muted)">加载更多数据...</li>
+          </ul>
+        </div>
       </div>
     </div>
-
-    <div class="footer">🌿 花卉供应链管理平台 v2.0 · 智连花木，绿动未来</div>
   </div>
 </div>
 
 <script>
-// ===== Theme =====
-function toggleTheme(){
-  const b=document.body;
-  b.classList.toggle('dark');
-  const isDark=b.classList.contains('dark');
-  document.getElementById('themeToggle').textContent=isDark?'☀️':'🌙';
-  localStorage.setItem('theme',isDark?'dark':'light');
+const API_BASE = "/api";
+const TIME_UPDATE_INTERVAL = 10000;
+
+// Update time
+function updateTime() {
+  const now = new Date();
+  document.getElementById("currentTime").textContent = now.toLocaleString("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit"
+  });
 }
-(function(){
-  if(localStorage.getItem('theme')==='dark'){
-    document.body.classList.add('dark');
-    document.getElementById('themeToggle').textContent='☀️';
-  }
-})();
+updateTime();
+setInterval(updateTime, 1000);
+document.getElementById("startTime").textContent = new Date().toLocaleTimeString("zh-CN");
 
-// ===== Time =====
-function pad(n){return n<10?'0'+n:n}
-function updateTime(){
-  const n=new Date();
-  document.getElementById('currentTime').textContent=
-    n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())+' '+pad(n.getHours())+':'+pad(n.getMinutes())+':'+pad(n.getSeconds());
-}
-updateTime();setInterval(updateTime,1000);
-document.getElementById('startTime').textContent=new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-document.getElementById('todayDate').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+// Health check all services
+async function checkServices() {
+  const services = [
+    { name: "商品服务", url: "http://100.96.54.109:3001/api/health", key: "product" },
+    { name: "供应商服务", url: "http://100.96.54.109:3002/api/health", key: "supplier" },
+    { name: "店铺注册", url: "http://100.96.54.109:3004/api/health", key: "shop" },
+    { name: "AI 服务", url: "http://100.96.54.109:3003/api/ai/health", key: "ai" },
+    { name: "MinIO API", url: "http://100.96.54.109:9000/minio/health/live", key: "minio" },
+    { name: "Ollama LLM", url: "http://100.96.54.109:11434/api/tags", key: "ollama" },
+  ];
 
-// ===== Dropdown =====
-function toggleDropdown(){document.getElementById('userDropdown').classList.toggle('show')}
-document.addEventListener('click',function(e){if(!e.target.closest('.header-user'))document.getElementById('userDropdown').classList.remove('show')});
-
-// ===== Services =====
-const SVC_STATUS=[
-  {name:"商品服务",url:"http://100.96.54.109:3001/api/health"},
-  {name:"供应商服务",url:"http://100.96.54.109:3002/api/health"},
-  {name:"AI 服务",url:"http://100.96.54.109:3003/api/ai/health"},
-  {name:"MinIO 图床",url:"http://100.96.54.109:9000/minio/health/live"},
-  {name:"Ollama LLM",url:"http://100.96.54.109:11434/api/tags"},
-];
-async function checkServices(){
-  for(let i=0;i<SVC_STATUS.length;i++){
-    const row=document.querySelector('#serviceStatus .svc-item:nth-child('+(i+1)+')');
-    const dot=row.querySelector('.dot');
-    const se=row.querySelector('.svc-status');
-    try{
-      await fetch(SVC_STATUS[i].url,{mode:'no-cors',signal:AbortSignal.timeout(4000)});
-      dot.style.background='var(--dot-ok)';se.textContent='运行正常';se.className='svc-status ok';
-    }catch{
-      dot.style.background='var(--dot-err)';se.textContent='未连接';se.className='svc-status err';
+  for (const svc of services) {
+    const el = document.querySelector("#serviceStatus .sys-item:nth-child(" + (services.indexOf(svc) + 1) + ") .status-text");
+    try {
+      const res = await fetch(svc.url, { mode: "no-cors", signal: AbortSignal.timeout(5000) });
+      el.textContent = "正常";
+      el.style.color = "var(--accent-green)";
+    } catch {
+      el.textContent = "离线";
+      el.style.color = "var(--accent-orange)";
     }
   }
 }
-checkServices();setInterval(checkServices,15000);
 
-// ===== Stats =====
-let STATS_TOKEN=null;
-async function ensureToken(){
-  if(STATS_TOKEN)return STATS_TOKEN;
-  try{const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'}),signal:AbortSignal.timeout(5000)});if(r.ok){const d=await r.json();STATS_TOKEN=d.token;return STATS_TOKEN;}}catch{}
-  return null;
-}
-async function loadStats(){
-  const tok=await ensureToken();
-  try{if(tok){const r=await fetch('http://100.96.54.109:3001/api/products?limit=1',{headers:{'Authorization':'Bearer '+tok},signal:AbortSignal.timeout(5000)});if(r.ok){const d=await r.json();document.getElementById('productCount').textContent=d.total||'—';}}}catch{}
-  try{
-    const r=await fetch('http://100.96.54.109:3002/api/suppliers',{signal:AbortSignal.timeout(5000)});
-    if(r.ok){const d=await r.json();const s=d.suppliers||[];document.getElementById('supplierCount').textContent=s.length;document.getElementById('contractCount').textContent=s.reduce((a,x)=>a+(x.contract_files||[]).length+(x.license_files||[]).length,0);}
-  }catch{}
-}
-loadStats();setInterval(loadStats,15000);
+// Load stats
+async function loadStats() {
+  try {
+    // Product count
+    const prodRes = await fetch("http://100.96.54.109:3001/api/products?limit=1", {
+      headers: { "Authorization": "Bearer " },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (prodRes.ok) {
+      const prodData = await prodRes.json();
+      document.getElementById("productCount").textContent = prodData.total || "?";
+    }
+  } catch {}
+  
+  try {
+    const supRes = await fetch("http://100.96.54.109:3002/api/suppliers", {
+      signal: AbortSignal.timeout(5000)
+    });
+    if (supRes.ok) {
+      const supData = await supRes.json();
+      const count = (supData.suppliers || []).length;
+      document.getElementById("supplierCount").textContent = count;
+      // Count contracts
+      const contracts = (supData.suppliers || []).reduce((sum, s) => sum + (s.contract_files || []).length + (s.license_files || []).length, 0);
+      document.getElementById("contractCount").textContent = contracts || "0";
+    }
+  } catch {}
 
-// ===== Activity =====
-const ACT_MSGS=["📦 商品数据同步完成","🤝 供应商状态已更新","🤖 AI 模型就绪 (qwen2.5)","🖼️ MinIO 存储空间正常","📋 合同文件上传完成","⚙️ 系统健康检查通过"];
-let actIdx=0;
-setInterval(function(){
-  if(actIdx<ACT_MSGS.length){
-    const ul=document.getElementById('activityList');
-    const li=document.createElement('li');
-    li.innerHTML='<span>'+ACT_MSGS[actIdx]+'</span><span class="atime">刚刚</span>';
-    ul.insertBefore(li,ul.lastElementChild);
-    while(ul.children.length>6)ul.removeChild(ul.lastElementChild);
-    actIdx++;
+  // MinIO file count
+  try {
+    document.getElementById("imageCount").textContent = "N/A";
+  } catch {}
+}
+
+// Check AI model status
+async function checkAI() {
+  try {
+    const res = await fetch("http://100.96.54.109:3003/api/ai/health", {
+      signal: AbortSignal.timeout(5000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById("modelStatus").textContent = "AI: " + data.textModel.split(":")[0] + " ✓";
+    }
+  } catch {
+    document.getElementById("modelStatus").textContent = "AI: 等待模型加载...";
   }
-},8000);
+}
+
+// Init
+checkServices();
+loadStats();
+checkAI();
+setInterval(() => { checkServices(); loadStats(); }, TIME_UPDATE_INTERVAL);
 </script>
 </body>
 </html>

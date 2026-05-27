@@ -14,11 +14,12 @@ async function log(user, action, details = {}) {
 // List / Search
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 50, search, category, isListed, sort = '-createdAt', supplier_id } = req.query;
+    const { page = 1, limit = 50, search, category, isListed, sellerName, sort = '-createdAt', supplier_id } = req.query;
     const query = {};
     if (search) query.$text = { $search: search };
     if (category) query.category = category;
     if (isListed !== undefined) query.isListed = isListed === 'true';
+    if (sellerName) query.sellerName = sellerName;
     if (supplier_id) query.supplier_id = supplier_id;
     const total = await Product.countDocuments(query);
     const products = await Product.find(query)

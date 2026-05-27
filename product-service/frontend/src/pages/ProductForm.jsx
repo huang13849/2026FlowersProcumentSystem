@@ -1,62 +1,115 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
 export default function ProductForm() {
   const nav = useNavigate();
   const [form, setForm] = useState({});
-  const [images, setImages] = useState([]);
+  const [mainImages, setMainImages] = useState([]);
+  const [detailImages, setDetailImages] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const fileRef = useRef();
+
+  const mainFileRef = useRef();
+  const detailFileRef = useRef();
+
+  useEffect(() => {
+    // 支持粘贴上传
+    const handlePaste = e => {
+      const items = e.clipboardData?.items;
+      if (!items?.length) return;
+      const files = Array.from(items)
+        .filter(item => item.type.startsWith('image/'))
+        .map(item => item.getAsFile());
+      if (files.length > 0) {
+        pasteUploadImages(files);
+      }
+    };
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, []);
 
   const set = (k, v) => setForm(f => ({...f, [k]: v}));
 
-  const uploadImg = async e => {
-    const files = e.target.files;
-    if (!files?.length) return;
+  const uploadImages = async (files, targetArray, setTargetArray) => {
     setUploading(true);
     const fd = new FormData();
     for (const f of files) fd.append('files', f);
     try {
       const r = await api.post('/images/upload-multiple', fd);
-      setImages(i => [...i, ...(r.data.urls || [])]);
+      setTargetArray(i => [...i, ...(r.data.urls || [])]);
     } catch (e) { alert('上传失败'); }
     setUploading(false);
-    fileRef.current.value = '';
+  };
+
+  const pasteUploadImages = async (files) => {
+    if (mainImages.length === 0) {
+      await uploadImages(files, mainImages, setMainImages);
+    } else {
+      await uploadImages(files, detailImages, setDetailImages);
+    }
+  };
+
+  const uploadMainImg = async e => {
+    await uploadImages(e.target.files, mainImages, setMainImages);
+    mainFileRef.current.value = '';
+  };
+
+  const uploadDetailImg = async e => {
+    await uploadImages(e.target.files, detailImages, setDetailImages);
+    detailFileRef.current.value = '';
   };
 
   const save = async () => {
     if (!form.title) return alert('请输入商品标题');
+    if (!form.sellerName) return alert('请输入商家名称');
     try {
-      await api.post('/products', { ...form, images });
+      await api.post('/products', { 
+        ...form, 
+        main_images: mainImages,
+        detail_images: detailImages,
+        images: [...mainImages, ...detailImages]
+      });
       nav('/');
     } catch (e) { alert('保存失败: ' + (e.response?.data?.error || e.message)); }
   };
 
   const fields = [
     ['title','商品标题','text',true], ['productId','SKU','text'], ['category','分类','text'],
-    ['sellerName','商家名称','text'], ['flowerName','花卉名称','text'], ['specSize','规格尺寸','text'],
+    ['sellerName','商家名称','text',true], ['flowerName','花卉名称','text'], ['specSize','规格尺寸','text'],
     ['potColorNotes','备注','text'], ['deliveryMethod','履约方式','text'], ['origin','发货地','text'],
     ['weight','重量(kg)','number'], ['stock','库存','number'], ['costPrice','成本价','number'],
     ['sellPrice','销售价','number'], ['profit','利润','number'],
   ];
 
-  return (
-    <div style={{ padding:20, maxWidth:700, margin:'0 auto' }}>
-      <h2 style={{ marginBottom:16, fontSize:16 }}>新增商品</h2>
-
-      <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
+  const renderImageSection = (title, images, setImages, fileRef, uploadFn, color) => (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ fontSize:13, fontWeight:600, color, marginBottom:8 }}>{title}</div>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'flex-start' }}>
         {images.map((url,i) => (
           <div key={i} style={{ position:'relative' }}>
-            <img src={url} alt="" style={{ width:56, height:56, borderRadius:4, objectFit:'cover' }} />
+            <img src={url} alt="" style={{ width:72, height:72, borderRadius:6, objectFit:'cover' }} />
             <span onClick={() => setImages(ii => ii.filter(x => x !== url))}
-              style={{ position:'absolute', top:-3, right:-3, width:16, height:16, borderRadius:'50%', background:'#ff4d4f', color:'#fff', fontSize:10, lineHeight:'16px', textAlign:'center', cursor:'pointer' }}>×</span>
+              style={{ position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%', background:'#ff4d4f', color:'#fff', fontSize:12, lineHeight:'18px', textAlign:'center', cursor:'pointer' }}>×</span>
           </div>
         ))}
-        <label style={{ width:56, height:56, border:'2px dashed #d9d9d9', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#aaa', fontSize:22 }}>
-          {uploading ? '⏳' : '+'}
-          <input ref={fileRef} type="file" multiple accept="image/*" onChange={uploadImg} style={{ display:'none' }} />
+        <label style={{ width:72, height:72, border:'2px dashed', borderColor:color, borderRadius:6, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', color, fontSize:22 }}>
+          {uploading ? '⏳' : '📷'}
+          <span style={{ fontSize:10, marginTop:2 }}>点击/粘贴</span>
+          <input ref={fileRef} type="file" multiple accept="image/*" onChange={uploadFn} style={{ display:'none' }} />
         </label>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:20, maxWidth:800, margin:'0 auto' }}>
+      <h2 style={{ marginBottom:16, fontSize:16 }}>新增商品</h2>
+
+      {renderImageSection('📷 商品主图', mainImages, setMainImages, mainFileRef, uploadMainImg, '#1890ff')}
+      {renderImageSection('🖼️ 商品详情图', detailImages, setDetailImages, detailFileRef, uploadDetailImg, '#52c41a')}
+
+      <div style={{ padding:8, background:'#f6ffed', border:'1px solid #b7eb8f', borderRadius:4, marginBottom:16, fontSize:12, color:'#389e0d' }}>
+        💡 提示：可以直接粘贴图片（Ctrl+V / Cmd+V）到页面，第一张粘贴为头图，之后粘贴为详情图
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
