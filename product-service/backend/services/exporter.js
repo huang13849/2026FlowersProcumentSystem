@@ -24,7 +24,8 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     { header: '销售价',     key: 'sellPrice',   width: 10 },
     { header: '利润',       key: 'profit',      width: 10 },
     { header: '利润率',     key: 'profitRate',  width: 10 },
-    { header: '税费利率',   key: 'taxRate',     width: 8 },
+    { header: '乙方税率',       key: 'taxRateB',  width: 8 },
+    { header: '甲方税率',       key: 'taxRateA',  width: 8 },
     { header: '备注',       key: 'potColorNotes', width: 16 },
     { header: '上架状态',   key: 'isListed',    width: 10 },
     { header: '商品ID',     key: 'productId',   width: 18 },
@@ -95,7 +96,8 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell('sellPrice').value = sellP || '';
     row.getCell('profit').value = pft ? pft.toFixed(1) : '';
     row.getCell('profitRate').value = pftRate ? pftRate.toFixed(0) + '%' : '';
-    row.getCell('taxRate').value = p.taxRate ?? '';
+    row.getCell('taxRateA').value = p.taxRateA ?? '';
+    row.getCell('taxRateB').value = p.taxRateB ?? '';
     row.getCell('potColorNotes').value = p.potColorNotes || '';
     row.getCell('isListed').value = p.isListed ? '已上架' : '未上架';
     row.getCell('productId').value = p.productId || '';

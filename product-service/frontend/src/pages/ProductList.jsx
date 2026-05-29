@@ -49,9 +49,11 @@ const COLUMNS = [
   { field: 'costPrice',    label: '成本价',   width: 70,  type: 'money',  editable: true },
   // 15: 销售价
   { field: 'sellPrice',    label: '销售价',   width: 70,  type: 'money',  editable: true },
-  // 16: 税费利率
-  { field: 'taxRate',      label: '税费利率', width: 65,  type: 'percent', editable: true },
-  // 17: 利润
+  // 16: 甲方税率
+  { field: 'taxRateA',      label: '甲方税率', width: 65,  type: 'percent', editable: true },
+  // 17: 乙方税率
+  { field: 'taxRateB',      label: '乙方税率', width: 65,  type: 'percent', editable: true },
+  // 18: 利润
   { field: '_profit',      label: '利润',     width: 60,  type: 'profit', editable: false },
   // 18: 利润率
   { field: '_profitRate',  label: '利率',     width: 50,  type: 'profitRate',editable: false },
@@ -222,13 +224,22 @@ export default function ProductList() {
   const profit = p => {
     const s = Number(p.sellPrice || 0);
     const c = Number(p.costPrice || 0);
-    return s - c;
+    const ta = Number(p.taxRateA || 0);
+    const tb = Number(p.taxRateB || 0);
+    // 甲方税 = 销售价/(1+甲方税率) * 甲方税率
+    const taxA = ta > 0 ? (s / (1 + ta/100) * ta/100) : 0;
+    // 乙方税 = 成本价/(1+乙方税率) * 乙方税率
+    const taxB = tb > 0 ? (c / (1 + tb/100) * tb/100) : 0;
+    return s - c - (taxA - taxB);
   };
   const profitRate = p => {
+    const s = Number(p.sellPrice || 0);
     const c = Number(p.costPrice || 0);
-    const t = Number(p.taxRate || 0);
-    const baseRate = c > 0 ? ((profit(p) / c) * 100) : 0;
-    return baseRate - t;
+    const ta = Number(p.taxRateA || 0);
+    const tb = Number(p.taxRateB || 0);
+    const pft = profit(p);
+    // 利润率 = (售价 - 成本 - (甲方税 - 乙方税)) / 销售价
+    return s > 0 ? (pft / s) * 100 : 0;
   };
 
   // ── Image compression ──
@@ -537,7 +548,7 @@ export default function ProductList() {
           }}>
           {exporting ? '⏳ 导出中…' : '📊 导出Excel'}
         </button>
-        <button onClick={() => { const id = '_new_' + Date.now(); setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, costPrice: 0, sellPrice: 0, taxRate: 0, isListed: false }, ...p]); setNewRowId(id); }} style={btnStyle('#1a1a2e','#fff')}>➕ 新增</button>
+        <button onClick={() => { const id = '_new_' + Date.now(); setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false }, ...p]); setNewRowId(id); }} style={btnStyle('#1a1a2e','#fff')}>➕ 新增</button>
         {selected.size > 0 && <>
           <button onClick={() => batchStatus(true)} style={btnStyle('#52c41a','#fff')}>✅ 上架</button>
           <button onClick={() => batchStatus(false)} style={btnStyle('#faad14','#fff')}>⏸ 下架</button>
@@ -590,7 +601,19 @@ export default function ProductList() {
                     // ── Grid Image column (all 11 types, 50px cell) ──
                     if (col.type === 'gridImg') {
                       const key = imgFieldKey(col.field);
-                      const imgs = p[key] || [];
+                      let imgs = p[key] || [];
+                      // Fallback: if dedicated field empty and column is panorama, use images[0]
+                      if (!imgs.length && col.field === 'panorama' && p.images?.length) {
+                        imgs = [p.images[0]];
+                      }
+                      // For other empty columns, distribute remaining images
+                      if (!imgs.length && col.field !== 'panorama' && p.images?.length) {
+                        const imgFallbackIdx = ['panorama','package_img','detail_img','root_soil_img','size_img',
+                          'scene_img','selling_img','care_img','compare_img','shipping_img','after_img'].indexOf(col.field);
+                        if (imgFallbackIdx > 0 && imgFallbackIdx < p.images.length) {
+                          imgs = [p.images[imgFallbackIdx]];
+                        }
+                      }
                       const firstUrl = imgs[0];
                       const isMain = col.field.indexOf('img') < 0;
                       const colLabel = IMG_COLS.concat(DETAIL_IMG_COLS).find(c => c.key === col.field.replace('_img',''))?.label || '';
