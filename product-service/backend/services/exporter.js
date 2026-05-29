@@ -21,18 +21,23 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     { header: '库存',       key: 'stock',       width: 8 },
     { header: '重量',       key: 'weight',      width: 8 },
     { header: '成本价',     key: 'costPrice',   width: 10 },
-    { header: '市场价',     key: 'retailMarkupPrice', width: 10 },
     { header: '销售价',     key: 'sellPrice',   width: 10 },
     { header: '利润',       key: 'profit',      width: 10 },
     { header: '利润率',     key: 'profitRate',  width: 10 },
-    { header: '平台价',     key: 'platformPriceDiff', width: 10 },
-    { header: '优惠券',     key: 'couponInfo',  width: 12 },
+    { header: '税费利率',   key: 'taxRate',     width: 8 },
     { header: '备注',       key: 'potColorNotes', width: 16 },
-    { header: '履约方式',   key: 'deliveryMethod', width: 12 },
-    { header: '联系人',     key: 'contactPerson', width: 12 },
-    { header: '多图',       key: 'extraImages', width: 22 },
     { header: '上架状态',   key: 'isListed',    width: 10 },
     { header: '商品ID',     key: 'productId',   width: 18 },
+    { header: '发货包装图', key: 'package_images', width: 18 },
+    { header: '细节特写',   key: 'detail_images', width: 18 },
+    { header: '根系盆土',   key: 'root_soil_images', width: 18 },
+    { header: '尺寸参考',   key: 'size_ref_images', width: 18 },
+    { header: '场景应用',   key: 'scene_images', width: 18 },
+    { header: '品种卖点',   key: 'selling_point_images', width: 18 },
+    { header: '养护教程',   key: 'care_images', width: 18 },
+    { header: '规格对比',   key: 'comparison_images', width: 18 },
+    { header: '发货售后',   key: 'shipping_images', width: 18 },
+    { header: '售后保障',   key: 'after_sale_images', width: 18 },
   ];
 
   ws.columns = columns;
@@ -90,18 +95,14 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell('sellPrice').value = sellP || '';
     row.getCell('profit').value = pft ? pft.toFixed(1) : '';
     row.getCell('profitRate').value = pftRate ? pftRate.toFixed(0) + '%' : '';
-    row.getCell('platformPriceDiff').value = p.platformPriceDiff || '';
-    row.getCell('couponInfo').value = p.couponInfo || '';
+    row.getCell('taxRate').value = p.taxRate ?? '';
     row.getCell('potColorNotes').value = p.potColorNotes || '';
-    row.getCell('deliveryMethod').value = p.deliveryMethod || '';
-    row.getCell('contactPerson').value = p.contactPerson || '';
     row.getCell('isListed').value = p.isListed ? '已上架' : '未上架';
     row.getCell('productId').value = p.productId || '';
 
-    // ── Main image (first image) embedded in cell ──
+    // ── Main image from panorama_images ──
     const images = p.images || [];
-    const mainImg = images[0];
-
+    const mainImg = (p.panorama_images || images)[0];
     if (mainImg) {
       const imgData = await fetchImage(mainImg);
       if (imgData) {
