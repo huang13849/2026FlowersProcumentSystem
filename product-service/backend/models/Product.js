@@ -48,6 +48,7 @@ const productSchema = new mongoose.Schema({
   createdBy: { type: String, default: "admin" },
 
   supplier_id: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", index: true, sparse: true },
+  ecommerceReferenceUrl: String,
   supplier_name: { type: String, index: true },
 }, { timestamps: true });
 
