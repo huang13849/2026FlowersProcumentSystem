@@ -17,7 +17,7 @@ function buildQuery(req) {
   const query = {};
 
   if (ids) query._id = { $in: ids.split(',') };
-  if (search) query.$text = { $search: search };
+  if (search) query.title = { $regex: search, $options: 'i' };
   if (category) query.category = category;
   if (isListed !== undefined && isListed !== '') query.isListed = isListed === 'true';
   if (sellerName) query.sellerName = sellerName;
@@ -53,7 +53,8 @@ router.get('/csv', async (req, res) => {
 router.get('/excel', async (req, res) => {
   try {
     const query = buildQuery(req);
-    const products = await Product.find(query).sort('-updatedAt').lean();
+    const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+    const products = await Product.find(query).sort('-updatedAt').limit(limit).lean();
     const buffer = await exportToExcel(products);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=products.xlsx');

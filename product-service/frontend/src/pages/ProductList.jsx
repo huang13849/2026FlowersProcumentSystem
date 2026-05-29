@@ -406,6 +406,7 @@ export default function ProductList() {
       if (stockRange.min) params.set('stockMin', stockRange.min);
       if (stockRange.max) params.set('stockMax', stockRange.max);
       if (sellerFilter.trim()) params.set('sellerName', sellerFilter.trim());
+      params.set('limit', '30');
       // Also support exporting only selected items
       if (selected.size > 0) {
         params.set('ids', [...selected].join(','));
