@@ -1,7 +1,8 @@
-import { Router } from 'express';
-import Product from '../models/Product.js';
-import { exportToCSV, exportToExcel } from '../services/exporter.js';
-import { auth } from '../middleware/auth.js';
+import { Router } from "express";
+import mongoose from "mongoose";
+import Product from "../models/Product.js";
+import { exportToCSV, exportToExcel } from "../services/exporter.js";
+import { auth } from "../middleware/auth.js";
 
 const router = Router();
 router.use(auth);
@@ -16,10 +17,15 @@ function buildQuery(req) {
           priceMin, priceMax, stockMin, stockMax } = req.query;
   const query = {};
 
-  if (ids) query._id = { $in: ids.split(',') };
-  if (search) query.title = { $regex: search, $options: 'i' };
+  if (ids) {
+    // Filter out invalid ObjectId strings (e.g. _new_ prefixed rows)
+    const validIds = ids.split(",").filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length > 0) query._id = { $in: validIds };
+    else query._id = null; // force empty result if no valid IDs
+  }
+  if (search) query.title = { $regex: search, $options: "i" };
   if (category) query.category = category;
-  if (isListed !== undefined && isListed !== '') query.isListed = isListed === 'true';
+  if (isListed !== undefined && isListed !== "") query.isListed = isListed === "true";
   if (sellerName) query.sellerName = sellerName;
   if (supplier_id) query.supplier_id = supplier_id;
 
@@ -39,28 +45,28 @@ function buildQuery(req) {
   return query;
 }
 
-router.get('/csv', async (req, res) => {
+router.get("/csv", async (req, res) => {
   try {
     const query = buildQuery(req);
-    const products = await Product.find(query).sort('-updatedAt').lean();
+    const products = await Product.find(query).sort("-updatedAt").lean();
     const csv = exportToCSV(products);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename=products.csv');
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=products.csv");
     res.send(csv);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/excel', async (req, res) => {
+router.get("/excel", async (req, res) => {
   try {
     const query = buildQuery(req);
     const limit = Math.min(parseInt(req.query.limit) || 30, 100);
-    const products = await Product.find(query).sort('-updatedAt').limit(limit).lean();
+    const products = await Product.find(query).sort("-updatedAt").limit(limit).lean();
     const buffer = await exportToExcel(products);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=products.xlsx');
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=products.xlsx");
     res.send(buffer);
   } catch (err) {
-    console.error('Export Excel error:', err);
+    console.error("Export Excel error:", err);
     res.status(500).json({ error: err.message });
   }
 });

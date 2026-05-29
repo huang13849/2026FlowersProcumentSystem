@@ -420,7 +420,8 @@ export default function ProductList() {
       params.set('limit', '30');
       // Also support exporting only selected items
       if (selected.size > 0) {
-        params.set('ids', [...selected].join(','));
+        const validIds = [...selected].filter(id => !id.startsWith("_new_"));
+        if (validIds.length > 0) params.set("ids", validIds.join(","));
       }
       const token = localStorage.getItem('token');
       const resp = await fetch('/api/export/excel?' + params.toString(), {

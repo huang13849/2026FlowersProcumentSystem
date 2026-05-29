@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema({
   title: { type: String, required: true, index: true },
@@ -6,6 +6,18 @@ const productSchema = new mongoose.Schema({
   category: { type: String, index: true },
   sellerName: String,
   images: [String],
+  // 11 dedicated image columns
+  panorama_images: [String],
+  package_images: [String],
+  detail_images: [String],
+  root_soil_images: [String],
+  size_ref_images: [String],
+  scene_images: [String],
+  selling_point_images: [String],
+  care_images: [String],
+  comparison_images: [String],
+  shipping_images: [String],
+  after_sale_images: [String],
   flowerName: String,
   contactPerson: String,
   specSize: String,
@@ -33,14 +45,14 @@ const productSchema = new mongoose.Schema({
   listedDate: Date,
   listedStore: String,
   salesVolume: { type: Number, default: 0 },
-  createdBy: { type: String, default: 'admin' },
+  createdBy: { type: String, default: "admin" },
 
   supplier_id: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", index: true, sparse: true },
   supplier_name: { type: String, index: true },
 }, { timestamps: true });
 
-productSchema.index({ title: 'text', description: 'text', flowerName: 'text' });
+productSchema.index({ title: "text", description: "text", flowerName: "text" });
 productSchema.index({ createdAt: -1 });
 productSchema.index({ updatedAt: -1 });
 
-export default mongoose.model('Product', productSchema);
+export default mongoose.model("Product", productSchema);
