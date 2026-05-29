@@ -18,6 +18,7 @@ const productSchema = new mongoose.Schema({
   dropShippingMarketPrice: Number,
   costPrice: Number,
   sellPrice: Number,
+  taxRate: { type: Number, default: 0 },
   retailMarkupPrice: Number,
   profit: Number,
   platformPriceDiff: Number,

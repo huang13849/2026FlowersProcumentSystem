@@ -49,21 +49,23 @@ const COLUMNS = [
   { field: 'costPrice',    label: '成本价',   width: 70,  type: 'money',  editable: true },
   // 15: 销售价
   { field: 'sellPrice',    label: '销售价',   width: 70,  type: 'money',  editable: true },
-  // 16: 利润
+  // 16: 税费利率
+  { field: 'taxRate',      label: '税费利率', width: 65,  type: 'percent', editable: true },
+  // 17: 利润
   { field: '_profit',      label: '利润',     width: 60,  type: 'profit', editable: false },
-  // 17: 利润率
+  // 18: 利润率
   { field: '_profitRate',  label: '利率',     width: 50,  type: 'profitRate',editable: false },
-  // 18-23: 商品详情图 6列
+  // 19-24: 商品详情图 6列
   { field: 'scene_img',    label: '场景应用', width: 56, type: 'gridImg', editable: false },
   { field: 'selling_img',  label: '品种卖点', width: 56, type: 'gridImg', editable: false },
   { field: 'care_img',     label: '养护教程', width: 56, type: 'gridImg', editable: false },
   { field: 'compare_img',  label: '规格对比', width: 56, type: 'gridImg', editable: false },
   { field: 'shipping_img', label: '发货与售后', width: 56, type: 'gridImg', editable: false },
   { field: 'after_img',    label: '售后', width: 56, type: 'gridImg', editable: false },
-  // 24: 上架状态
+  // 25: 上架状态
   { field: 'isListed',     label: '状态', width: 60, type: 'enum', editable: true,
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
-  // 25: 操作
+  // 26: 操作
   { field: '_actions',     label: '操作', width: 70, type: 'actions', editable: false },
 ];
 
@@ -82,6 +84,8 @@ export default function ProductList() {
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [exporting, setExporting] = useState(false);
   const [newRowId, setNewRowId] = useState(null);
+  const tableRef = useRef(null);
+  const [pasteTarget, setPasteTarget] = useState(null); // { product, colField }
   // 商家名称筛选
   const [sellerFilter, setSellerFilter] = useState('');
   const [sellerSuggestions, setSellerSuggestions] = useState([]);
@@ -222,7 +226,9 @@ export default function ProductList() {
   };
   const profitRate = p => {
     const c = Number(p.costPrice || 0);
-    return c > 0 ? ((profit(p) / c) * 100) : 0;
+    const t = Number(p.taxRate || 0);
+    const baseRate = c > 0 ? ((profit(p) / c) * 100) : 0;
+    return baseRate - t;
   };
 
   // ── Image compression ──
@@ -324,6 +330,45 @@ export default function ProductList() {
     };
     inp.click();
   };
+
+  // ── Paste image support ──
+  useEffect(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    const handlePaste = async (e) => {
+      if (!pasteTarget) return;
+      const { product, colField } = pasteTarget;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const imageFiles = [];
+      for (const item of items) {
+        const file = item.getAsFile();
+        if (file && file.type.startsWith('image/')) imageFiles.push(file);
+      }
+      if (!imageFiles.length) return;
+      e.preventDefault();
+
+      const compressed = await Promise.all(imageFiles.map(compressImage));
+      const fd = new FormData();
+      compressed.forEach(f => fd.append('files', f));
+      try {
+        const r = await api.post('/images/upload-multiple', fd);
+        const urls = r.data.urls || [];
+        if (urls.length) {
+          const key = imgFieldKey(colField);
+          setAllProducts(prev => prev.map(p =>
+            p._id === product._id
+              ? { ...p, [key]: [...(p[key] || []), ...urls], images: [...(p.images || []), ...urls] }
+              : p
+          ));
+        }
+      } catch (err) {
+        alert('粘贴上传失败: ' + (err.response?.data?.error || err.message));
+      }
+    };
+    el.addEventListener('paste', handlePaste);
+    return () => el.removeEventListener('paste', handlePaste);
+  }, [pasteTarget]);
 
   // ── Selection ──
   const toggle = id => {
@@ -491,7 +536,7 @@ export default function ProductList() {
           }}>
           {exporting ? '⏳ 导出中…' : '📊 导出Excel'}
         </button>
-        <button onClick={() => { const id = '_new_' + Date.now(); setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, costPrice: 0, sellPrice: 0, isListed: false }, ...p]); setNewRowId(id); }} style={btnStyle('#1a1a2e','#fff')}>➕ 新增</button>
+        <button onClick={() => { const id = '_new_' + Date.now(); setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, costPrice: 0, sellPrice: 0, taxRate: 0, isListed: false }, ...p]); setNewRowId(id); }} style={btnStyle('#1a1a2e','#fff')}>➕ 新增</button>
         {selected.size > 0 && <>
           <button onClick={() => batchStatus(true)} style={btnStyle('#52c41a','#fff')}>✅ 上架</button>
           <button onClick={() => batchStatus(false)} style={btnStyle('#faad14','#fff')}>⏸ 下架</button>
@@ -501,7 +546,7 @@ export default function ProductList() {
       </div>
 
       {/* ════ Virtual-scroll Table (all rows, no pagination) ════ */}
-      <div style={{
+      <div ref={tableRef} style={{
         overflow:'auto', background:'#fff', borderRadius:8, boxShadow:'0 1px 4px #0000000d',
         maxHeight:'calc(100vh - 160px)', position:'relative',
       }}>
@@ -512,7 +557,7 @@ export default function ProductList() {
                 checked={selected.size === displayed.length && displayed.length > 0} /></th>
               {COLUMNS.map((col, ci) => (
                 <th key={ci} style={{ ...thS, width:col.width, minWidth:col.width,
-                  textAlign: ['number','money','profit','profitRate'].includes(col.type) ? 'right' : 'left'
+                  textAlign: ['number','money','profit','profitRate','percent'].includes(col.type) ? 'right' : 'left'
                 }}>{col.label}</th>
               ))}
             </tr>
@@ -556,7 +601,7 @@ export default function ProductList() {
                                 title={colLabel + ' (' + imgs.length + '张)'}>
                                 <img src={firstUrl} alt=""
                                   style={{ width:44, height:44, borderRadius:4, objectFit:'cover', border:'1px solid #e0e0e0', cursor:'pointer', display:'block' }}
-                                  onClick={() => window.open(firstUrl, '_blank')}
+                                  onClick={() => { setPasteTarget({ product: p, colField: col.field }); window.open(firstUrl, '_blank'); }}
                                   onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHoverImage({ url: firstUrl, x: r.right + 8, y: Math.max(r.top - 80, 0) }); }}
                                   onMouseLeave={() => setHoverImage(null)}
                                   onError={e => e.target.style.display='none'} />
@@ -565,7 +610,7 @@ export default function ProductList() {
                                 {imgs.length > 1 && <span style={{ position:'absolute', bottom:-2, right:-2, fontSize:8, color:'#fff', background:'rgba(0,0,0,0.6)', borderRadius:6, padding:'0 3px', lineHeight:'12px' }}>{imgs.length}</span>}
                               </div>
                             ) : (
-                              <div onClick={() => triggerGridUpload(p, col.field)}
+                              <div onClick={() => { setPasteTarget({ product: p, colField: col.field }); triggerGridUpload(p, col.field); }}
                                 style={{ width:44, height:44, border:'2px dashed #ccc', borderRadius:4, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#bbb', fontSize:9, lineHeight:1.2, transition:'all 0.15s' }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = '#999'; e.currentTarget.style.color = '#666' }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = '#ccc'; e.currentTarget.style.color = '#bbb' }}>
@@ -702,8 +747,8 @@ export default function ProductList() {
                             </div>
                           ) : (
                             <input ref={inputRef}
-                              type={['number','money'].includes(col.type) ? 'number' : 'text'}
-                              step={col.type === 'money' ? '0.01' : '1'}
+                              type={['number','money','percent'].includes(col.type) ? 'number' : 'text'}
+                              step={['money','percent'].includes(col.type) ? '0.1' : '1'}
                               value={editValue}
                               onChange={e => setEditValue(e.target.value)}
                               onBlur={saveEdit} onKeyDown={handleKeyDown}
@@ -718,6 +763,7 @@ export default function ProductList() {
                     // ── Display cell ──
                     const displayVal = val ?? '';
                     const isMonetary = col.type === 'money';
+                    const isPercent = col.type === 'percent';
 
                     return (
                       <td key={ci} style={{
@@ -726,7 +772,7 @@ export default function ProductList() {
                         background: isEditing ? '#e6f7ff' : 'transparent',
                         fontWeight: col.field === 'title' ? 600 : 'normal',
                         color: col.field === '_profit' ? (profit(p) >= 0 ? '#52c41a' : '#ff4d4f') : '#333',
-                        textAlign: ['number','money','profit','profitRate'].includes(col.type) ? 'right' : 'left',
+                        textAlign: ['number','money','profit','profitRate','percent'].includes(col.type) ? 'right' : 'left',
                       }} onClick={() => col.editable && startEdit(ri, ci, val)}>
                         <div style={{
                           maxWidth: col.width - 12,
@@ -734,7 +780,7 @@ export default function ProductList() {
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
                         }} title={displayVal}>
-                          {isMonetary && displayVal !== '' ? '¥' + Number(displayVal).toFixed(1) : displayVal}
+                          {isMonetary && displayVal !== '' ? '¥' + Number(displayVal).toFixed(1) : isPercent ? displayVal + '%' : displayVal}
                         </div>
                       </td>
                     );
