@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Product from '../models/Product.js';
 import AuditLog from '../models/AuditLog.js';
 import { auth, requireRole } from '../middleware/auth.js';
+import { uploadFile as minioUpload, deleteFile as minioDelete } from "../services/minio.js";
 
 const router = Router();
 
@@ -68,7 +69,7 @@ router.put('/:id', async (req, res) => {
 // ── Copy product (deep copy including MinIO images) ──
 router.post('/:id/copy', async (req, res) => {
   try {
-    const { uploadFile } = require("../services/minio.js");
+    // minioUpload already imported at top
     const original = await Product.findById(req.params.id);
     if (!original) return res.status(404).json({ error: '商品不存在' });
 
@@ -87,7 +88,7 @@ router.post('/:id/copy', async (req, res) => {
           if (!resp.ok) continue;
           const buffer = Buffer.from(await resp.arrayBuffer());
           const filename = url.split('/').pop() || 'copy.jpg';
-          const result = await uploadFile({
+          const result = await minioUpload({
             buffer,
             filename: 'copy-' + filename,
             mimetype: resp.headers.get('content-type') || 'image/jpeg',
@@ -156,7 +157,7 @@ router.post('/batch', async (req, res) => {
         const toDelete = await Product.find({ _id: { $in: ids } }).lean();
         result = await Product.deleteMany({ _id: { $in: ids } });
         // Fire-and-forget MinIO cleanup of all image arrays
-        const { deleteFile: minioDel } = require("../services/minio.js");
+        // minioDelete already imported at top
         for (const p of toDelete) {
           const allUrls = new Set();
           const imgFields = ['panorama_images','package_images','detail_images','root_soil_images','size_ref_images','scene_images','selling_point_images','care_images','comparison_images','shipping_images','after_sale_images','images'];
@@ -164,7 +165,7 @@ router.post('/batch', async (req, res) => {
             if (p[f]) p[f].forEach(u => allUrls.add(u));
           }
           for (const url of allUrls) {
-            minioDel(url).catch(e => console.warn('MinIO cleanup failed:', url, e.message));
+            minioDelete(url).catch(e => console.warn('MinIO cleanup failed:', url, e.message));
           }
         }
         break;
