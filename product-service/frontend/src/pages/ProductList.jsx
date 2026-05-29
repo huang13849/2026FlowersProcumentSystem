@@ -306,6 +306,9 @@ export default function ProductList() {
   const removeGridImage = async (productId, colField, url) => {
     const key = imgFieldKey(colField);
     try {
+      // 先从 MinIO 删除图片本身
+      try { await api.delete('/images/by-url', { data: { imageUrl: url } }); } catch (e) { console.warn('MinIO删除失败', e); }
+      // 再从产品中移除引用
       setAllProducts(prev => {
         const updated = prev.map(p => {
           if (p._id !== productId) return p;
@@ -416,6 +419,21 @@ export default function ProductList() {
     if (!selected.size) return;
     await api.post('/products/batch', { ids: [...selected], action: 'list', data: { isListed: listed } });
     setSelected(new Set()); load();
+  };
+
+  // ── Copy selected product (deep copy including MinIO images) ──
+  const handleCopySelected = async () => {
+    if (selected.size !== 1) return;
+    const prodId = [...selected][0];
+    if (!prodId || prodId.startsWith('_new_')) return alert('请先保存该商品再复制');
+    try {
+      const r = await api.post('/products/' + prodId + '/copy');
+      const newProduct = r.data;
+      setAllProducts(prev => [newProduct, ...prev]);
+      setSelected(new Set());
+    } catch (err) {
+      alert('复制失败: ' + (err.response?.data?.error || err.message));
+    }
   };
 
   // ── Export to Excel with images ──
@@ -563,7 +581,19 @@ export default function ProductList() {
           }}>
           {exporting ? '⏳ 导出中…' : '📊 导出Excel'}
         </button>
-        <button onClick={() => { const id = '_new_' + Date.now(); setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false }, ...p]); setNewRowId(id); }} style={btnStyle('#1a1a2e','#fff')}>➕ 新增</button>
+        <button onClick={handleCopySelected}
+          disabled={selected.size !== 1}
+          style={{
+            padding:'5px 12px',
+            background: selected.size === 1 ? '#1a1a2e' : '#d9d9d9',
+            color: selected.size === 1 ? '#fff' : '#999',
+            border:'none', borderRadius:4,
+            cursor: selected.size === 1 ? 'pointer' : 'not-allowed',
+            fontSize:12, whiteSpace:'nowrap',
+            display:'flex', alignItems:'center', gap:4,
+          }}>
+          📋 复制
+        </button>
         {selected.size > 0 && <>
           <button onClick={() => batchStatus(true)} style={btnStyle('#52c41a','#fff')}>✅ 上架</button>
           <button onClick={() => batchStatus(false)} style={btnStyle('#faad14','#fff')}>⏸ 下架</button>

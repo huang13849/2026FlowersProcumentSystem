@@ -89,4 +89,16 @@ router.delete("/product/:productId", async (req, res) => {
   }
 });
 
+// Delete image from MinIO by URL (for grid delete button)
+router.delete("/by-url", async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ error: "缺少图片URL" });
+    await deleteFile(imageUrl);
+    res.json({ message: "图片已删除", url: imageUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
