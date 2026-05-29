@@ -3,46 +3,68 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
 // ─── Column definition ──────────────────────────────────────────────
+const IMG_COLS = [
+  { key: 'panorama', label: '全景主图',   color: '#1890ff' },
+  { key: 'package',  label: '发货包装图', color: '#52c41a' },
+  { key: 'detail',   label: '细节特写',   color: '#fa8c16' },
+  { key: 'root_soil',label: '根系盆土',   color: '#722ed1' },
+  { key: 'size_ref', label: '尺寸参考',   color: '#eb2f96' },
+];
+
+const DETAIL_IMG_COLS = [
+  { key: 'scene',         label: '场景应用',   color: '#2f54eb' },
+  { key: 'selling_point', label: '核心卖点',   color: '#f5222d' },
+  { key: 'care',          label: '基础养护',   color: '#13c2c2' },
+  { key: 'comparison',    label: '规格对比',   color: '#fa541c' },
+  { key: 'shipping',      label: '发货说明',   color: '#a0d911' },
+  { key: 'after_sale',    label: '售后保障',   color: '#d4380d' },
+];
+
 const COLUMNS = [
-  // 0: SKU → 商品主图
-  { field: 'mainImage',    label: '主图',        width: 80,  type: 'image',     editable: false },
-  // 1: 商品标题（固定宽）
-  { field: 'title',        label: '商品标题',     width: 180, type: 'string',    editable: true },
-  // 2: 分类
-  { field: 'category',     label: '分类',         width: 85,  type: 'string',    editable: true },
-  // 3: 商家
-  { field: 'sellerName',   label: '商家',         width: 120, type: 'string',    editable: true },
-  // 4: 花卉名称
-  { field: 'flowerName',   label: '花卉',         width: 100, type: 'string',    editable: true },
-  // 5: 规格+备注+履约（合并，可展开）
-  { field: '_detail',      label: '规格/备注',    width: 140, type: 'expand',    editable: false },
-  // 6: 发货地
-  { field: 'origin',       label: '发货地',       width: 70,  type: 'string',    editable: true },
-  // 7: 库存
-  { field: 'stock',        label: '库存',         width: 60,  type: 'number',    editable: true },
-  // 8: 重量
-  { field: 'weight',       label: '重量',         width: 55,  type: 'number',    editable: true },
-  // 9: 成本价
-  { field: 'costPrice',    label: '成本价',       width: 75,  type: 'money',     editable: true },
-  // 10: 市场参考价（新增）
-  { field: 'retailMarkupPrice', label: '市场价',  width: 75,  type: 'money',     editable: true },
-  // 11: 平台对比价
-  { field: 'platformPriceDiff', label: '平台价',  width: 75,  type: 'string',    editable: true },
-  // 12: 销售价
-  { field: 'sellPrice',    label: '销售价',       width: 75,  type: 'money',     editable: true },
-  // 13: 利润（自动计算）
-  { field: '_profit',      label: '利润',         width: 80,  type: 'profit',    editable: false },
-  // 14: 利润率%（自动计算）
-  { field: '_profitRate',  label: '利润率',       width: 65,  type: 'profitRate',editable: false },
-  // 15: 优惠券
-  { field: 'couponInfo',   label: '优惠券',       width: 65,  type: 'string',    editable: true },
-  // 16: 图片多张（新增合并区域）
-  { field: 'images',       label: '多图',         width: 100, type: 'images',    editable: false },
-  // 17: 上架状态
-  { field: 'isListed',     label: '状态',         width: 65,  type: 'enum',      editable: true,
+  // 0-4: 商品主图 5列
+  { field: 'panorama',    label: '主图', width: 56, type: 'gridImg', editable: false },
+  { field: 'package_img', label: '发货包装', width: 56, type: 'gridImg', editable: false },
+  { field: 'detail_img',  label: '细节特写', width: 56, type: 'gridImg', editable: false },
+  { field: 'root_soil_img', label: '根系盆土', width: 56, type: 'gridImg', editable: false },
+  { field: 'size_img',    label: '尺寸参考', width: 56, type: 'gridImg', editable: false },
+  // 5: 商品标题
+  { field: 'title',        label: '商品标题', width: 150, type: 'string', editable: true },
+  // 6: 分类
+  { field: 'category',     label: '分类',     width: 75,  type: 'string', editable: true },
+  // 7: 商家
+  { field: 'sellerName',   label: '商家',     width: 110, type: 'string', editable: true },
+  // 8: 花卉
+  { field: 'flowerName',   label: '花卉',     width: 90,  type: 'string', editable: true },
+  // 9: 规格尺寸 - 直接编辑
+  { field: 'specSize',     label: '规格', width: 70, type: 'string', editable: true },
+  // 10: 备注 - 直接编辑
+  { field: 'potColorNotes', label: '备注', width: 90, type: 'string', editable: true },
+  // 11: 发货地
+  { field: 'origin',       label: '发货地',   width: 65,  type: 'string', editable: true },
+  // 12: 库存
+  { field: 'stock',        label: '库存',     width: 55,  type: 'number', editable: true },
+  // 13: 重量
+  { field: 'weight',       label: '重量',     width: 50,  type: 'number', editable: true },
+  // 14: 成本价
+  { field: 'costPrice',    label: '成本价',   width: 70,  type: 'money',  editable: true },
+  // 15: 销售价
+  { field: 'sellPrice',    label: '销售价',   width: 70,  type: 'money',  editable: true },
+  // 16: 利润
+  { field: '_profit',      label: '利润',     width: 60,  type: 'profit', editable: false },
+  // 17: 利润率
+  { field: '_profitRate',  label: '利率',     width: 50,  type: 'profitRate',editable: false },
+  // 18-23: 商品详情图 6列
+  { field: 'scene_img',    label: '场景应用', width: 56, type: 'gridImg', editable: false },
+  { field: 'selling_img',  label: '品种卖点', width: 56, type: 'gridImg', editable: false },
+  { field: 'care_img',     label: '养护教程', width: 56, type: 'gridImg', editable: false },
+  { field: 'compare_img',  label: '规格对比', width: 56, type: 'gridImg', editable: false },
+  { field: 'shipping_img', label: '发货与售后', width: 56, type: 'gridImg', editable: false },
+  { field: 'after_img',    label: '售后', width: 56, type: 'gridImg', editable: false },
+  // 24: 上架状态
+  { field: 'isListed',     label: '状态', width: 60, type: 'enum', editable: true,
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
-  // 18: 操作
-  { field: '_actions',     label: '操作',         width: 80,  type: 'actions',   editable: false },
+  // 25: 操作
+  { field: '_actions',     label: '操作', width: 70, type: 'actions', editable: false },
 ];
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -56,10 +78,10 @@ export default function ProductList() {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [hoverImage, setHoverImage] = useState(null);   // {url, x, y}
-  const [expandedRows, setExpandedRows] = useState(new Set());
-  const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [stockRange, setStockRange] = useState({ min: '', max: '' });
+  const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [exporting, setExporting] = useState(false);
+  const [newRowId, setNewRowId] = useState(null);
   // 商家名称筛选
   const [sellerFilter, setSellerFilter] = useState('');
   const [sellerSuggestions, setSellerSuggestions] = useState([]);
@@ -118,9 +140,10 @@ export default function ProductList() {
     if (stockRange.min !== '') list = list.filter(p => (p.stock || 0) >= Number(stockRange.min));
     if (stockRange.max !== '') list = list.filter(p => (p.stock || 0) <= Number(stockRange.max));
 
-    // Sort: isListed first, then by updatedAt
+    // Sort: new rows first, then by updatedAt (latest first)
     list.sort((a, b) => {
-      if (a.isListed !== b.isListed) return a.isListed ? -1 : 1;
+      if (a._id && a._id.startsWith('_new_')) return -1;
+      if (b._id && b._id.startsWith('_new_')) return 1;
       return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
     });
 
@@ -147,12 +170,38 @@ export default function ProductList() {
     if (colDef.type === 'number' || colDef.type === 'money') value = value === '' ? null : Number(value);
     if (field === 'isListed') value = editValue === 'true' || editValue === true;
 
-    // Optimistic
+    const isNewRow = product._id && product._id.startsWith('_new_');
+
+    // Optimistic update
     const updateProduct = (p) => p._id === product._id ? { ...p, [field]: value } : p;
     setAllProducts(prev => prev.map(updateProduct));
 
     try {
-      await api.put('/products/' + product._id, { [field]: value });
+      if (isNewRow) {
+        // 需要标题才能保存
+        const titleVal = colDef.field === 'title' ? value : (product.title || '');
+        if (!titleVal) { setEditingCell(null); return; }
+        // 用函数式读取最新 allProducts
+        setAllProducts(prev => {
+          const cur = prev.find(p => p._id === product._id);
+          if (!cur) return prev.map(p => p._id === product._id ? { ...p, [field]: value } : p);
+          const payload = { ...cur, [field]: value };
+          delete payload._id;
+          delete payload._v;
+          delete payload.updatedAt;
+          delete payload.createdAt;
+          api.post('/products', payload).then(res => {
+            const realId = res.data._id;
+            setAllProducts(p2 => p2.map(p2 => p2._id === product._id ? { ...p2, _id: realId } : p2));
+            setNewRowId(null);
+          }).catch(e => {
+            alert('保存失败: ' + (e.response?.data?.error || e.message));
+          });
+          return prev.map(p => p._id === product._id ? { ...p, [field]: value } : p);
+        });
+      } else {
+        await api.put('/products/' + product._id, { [field]: value });
+      }
     } catch {
       setAllProducts(prev => prev.map(p => p._id === product._id ? product : p));
     }
@@ -176,21 +225,55 @@ export default function ProductList() {
     return c > 0 ? ((profit(p) / c) * 100) : 0;
   };
 
-  // ── Image upload (PicGo) ──
-  const uploadMainImage = async (e, product) => {
+  // ── Image compression ──
+  const compressImage = async (file) => {
+    if (!file.type.startsWith('image/')) return file;
+    const limit = 4 * 1024 * 1024;
+    if (file.size <= limit) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > 1920) { height = height * 1920 / width; width = 1920; }
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
+        const tryCompress = (q) => {
+          canvas.toBlob((blob) => {
+            if (blob.size <= limit || q <= 0.15) resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+            else tryCompress(q - 0.1);
+          }, 'image/jpeg', q);
+        };
+        tryCompress(0.8);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // ── Image column helpers ──
+  const imgFieldKey = (colField) => {
+    const map = {
+      panorama: 'panorama_images', package_img: 'package_images', detail_img: 'detail_images',
+      root_soil_img: 'root_soil_images', size_img: 'size_ref_images',
+      scene_img: 'scene_images', selling_img: 'selling_point_images', care_img: 'care_images',
+      compare_img: 'comparison_images', shipping_img: 'shipping_images', after_img: 'after_sale_images',
+    };
+    return map[colField] || 'images';
+  };
+
+  const uploadGridImage = async (e, product, colField) => {
     const files = e.target.files;
     if (!files?.length) return;
     const fd = new FormData();
-    fd.append('files', files[0]);
-    fd.append('productId', product._id);
-    fd.append('productName', product.title || '商品');
+    for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
     try {
       const r = await api.post('/images/upload-multiple', fd);
       const urls = r.data.urls || [];
       if (urls.length) {
+        const key = imgFieldKey(colField);
         setAllProducts(prev => prev.map(p =>
           p._id === product._id
-            ? { ...p, images: [...(p.images || []), ...urls] }
+            ? { ...p, [key]: [...(p[key] || []), ...urls], images: [...(p.images || []), ...urls] }
             : p
         ));
       }
@@ -200,13 +283,46 @@ export default function ProductList() {
     e.target.value = '';
   };
 
-  const removeImage = async (productId, url) => {
+  const removeGridImage = async (productId, colField, url) => {
+    const key = imgFieldKey(colField);
     try {
-      await api.delete('/images/product/' + productId, { data: { imageUrl: url } });
-      setAllProducts(prev => prev.map(p =>
-        p._id === productId ? { ...p, images: (p.images || []).filter(i => i !== url) } : p
-      ));
+      setAllProducts(prev => {
+        const updated = prev.map(p => {
+          if (p._id !== productId) return p;
+          const filtered = (p[key] || []).filter(i => i !== url);
+          return { ...p, [key]: filtered, images: (p.images || []).filter(i => i !== url) };
+        });
+        const updatedProduct = updated.find(p => p._id === productId);
+        const newArr = updatedProduct?.[key] || [];
+        api.put('/products/' + productId, { [key]: newArr }).catch(() => {});
+        return updated;
+      });
     } catch { alert('删除失败'); }
+  };
+
+  const triggerGridUpload = (product, colField) => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.multiple = true; inp.accept = 'image/*';
+    inp.onchange = async (ev) => {
+      if (ev.target.files?.length) {
+        const compressed = await Promise.all(Array.from(ev.target.files).map(compressImage));
+        const fd = new FormData();
+        compressed.forEach(f => fd.append('files', f));
+        try {
+          const r = await api.post('/images/upload-multiple', fd);
+          const urls = r.data.urls || [];
+          if (urls.length) {
+            const key = imgFieldKey(colField);
+            setAllProducts(prev => prev.map(p =>
+              p._id === product._id
+                ? { ...p, [key]: [...(p[key] || []), ...urls], images: [...(p.images || []), ...urls] }
+                : p
+            ));
+          }
+        } catch (err) { alert('上传失败'); }
+      }
+    };
+    inp.click();
   };
 
   // ── Selection ──
@@ -267,13 +383,6 @@ export default function ProductList() {
       alert('导出失败: ' + (err.message || '未知错误'));
     }
     setExporting(false);
-  };
-
-  // ── Toggle expand detail ──
-  const toggleExpand = (id) => {
-    const s = new Set(expandedRows);
-    s.has(id) ? s.delete(id) : s.add(id);
-    setExpandedRows(s);
   };
 
   // ── Click outside handler for seller suggestion ──
@@ -382,7 +491,7 @@ export default function ProductList() {
           }}>
           {exporting ? '⏳ 导出中…' : '📊 导出Excel'}
         </button>
-        <button onClick={() => nav('/products/new')} style={btnStyle('#1a1a2e','#fff')}>➕ 新增</button>
+        <button onClick={() => { const id = '_new_' + Date.now(); setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, costPrice: 0, sellPrice: 0, isListed: false }, ...p]); setNewRowId(id); }} style={btnStyle('#1a1a2e','#fff')}>➕ 新增</button>
         {selected.size > 0 && <>
           <button onClick={() => batchStatus(true)} style={btnStyle('#52c41a','#fff')}>✅ 上架</button>
           <button onClick={() => batchStatus(false)} style={btnStyle('#faad14','#fff')}>⏸ 下架</button>
@@ -410,14 +519,13 @@ export default function ProductList() {
           </thead>
           <tbody>
             {displayed.map((p, ri) => {
-              const isExpanded = expandedRows.has(p._id);
               const isEven = ri % 2 === 0;
 
               return (
                 <tr key={p._id} style={{
                   borderBottom:'1px solid #f0f0f0',
                   background: isEven ? '#fff' : '#fafcff',
-                  height: isExpanded ? 'auto' : 64,
+                  height: 64,
                   transition:'background 0.15s',
                 }}
                   onMouseEnter={e => e.currentTarget.style.background='#f0f7ff'}
@@ -433,58 +541,36 @@ export default function ProductList() {
                     const isEditing = editingCell?.row === ri && editingCell?.col === ci;
                     const val = p[col.field];
 
-                    // ── Main Image column ──
-                    if (col.type === 'image') {
-                      const mainUrl = (p.images || [])[0];
+                    // ── Grid Image column (all 11 types, 50px cell) ──
+                    if (col.type === 'gridImg') {
+                      const key = imgFieldKey(col.field);
+                      const imgs = p[key] || [];
+                      const firstUrl = imgs[0];
+                      const isMain = col.field.indexOf('img') < 0;
+                      const colLabel = IMG_COLS.concat(DETAIL_IMG_COLS).find(c => c.key === col.field.replace('_img',''))?.label || '';
                       return (
-                        <td key={ci} style={{ ...tdS, width:col.width, textAlign:'center', padding:2 }}>
-                          <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:60 }}>
-                            {mainUrl ? (
-                              <div style={{ position:'relative' }}
-                                onMouseEnter={e => {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  setHoverImage({ url: mainUrl, x: rect.right + 8, y: Math.max(rect.top - 120, 0) });
-                                }}
-                                onMouseLeave={() => setHoverImage(null)}
-                              >
-                                <img src={mainUrl} alt=""
-                                  style={{ width:56, height:56, borderRadius:6, objectFit:'cover', border:'2px solid #eee', cursor:'pointer' }}
-                                  onClick={() => window.open(mainUrl, '_blank')}
+                        <td key={ci} style={{ ...tdS, width:col.width, padding:1, textAlign:'center', verticalAlign:'middle' }}>
+                          <div style={{ position:'relative', width:50, height:50, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto' }}>
+                            {firstUrl ? (
+                              <div style={{ position:'relative', width:44, height:44 }}
+                                title={colLabel + ' (' + imgs.length + '张)'}>
+                                <img src={firstUrl} alt=""
+                                  style={{ width:44, height:44, borderRadius:4, objectFit:'cover', border:'1px solid #e0e0e0', cursor:'pointer', display:'block' }}
+                                  onClick={() => window.open(firstUrl, '_blank')}
+                                  onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHoverImage({ url: firstUrl, x: r.right + 8, y: Math.max(r.top - 80, 0) }); }}
+                                  onMouseLeave={() => setHoverImage(null)}
                                   onError={e => e.target.style.display='none'} />
+                                <button onClick={() => removeGridImage(p._id, col.field, firstUrl)}
+                                  style={{ position:'absolute', top:-3, right:-3, width:14, height:14, borderRadius:'50%', border:'none', background:'#e74c3c', color:'#fff', fontSize:9, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1, padding:0 }}>×</button>
+                                {imgs.length > 1 && <span style={{ position:'absolute', bottom:-2, right:-2, fontSize:8, color:'#fff', background:'rgba(0,0,0,0.6)', borderRadius:6, padding:'0 3px', lineHeight:'12px' }}>{imgs.length}</span>}
                               </div>
                             ) : (
-                              <label style={{
-                                width:56, height:56, border:'2px dashed #d9d9d9', borderRadius:6,
-                                display:'flex', alignItems:'center', justifyContent:'center',
-                                cursor:'pointer', color:'#bbb', fontSize:20,
-                              }}>
-                                +<input type="file" accept="image/*" onChange={e => uploadMainImage(e, p)}
-                                  style={{ display:'none' }} />
-                              </label>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    }
-
-                    // ── Expand detail column ──
-                    if (col.type === 'expand') {
-                      return (
-                        <td key={ci} style={{ ...tdS, width:col.width, padding:2, cursor:'pointer' }}
-                          onClick={() => toggleExpand(p._id)}>
-                          <div style={{ fontSize:11, lineHeight:1.4 }}>
-                            <div style={{ fontWeight:500, color:'#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                              {p.specSize || '—'}
-                            </div>
-                            {isExpanded ? (
-                              <div style={{ marginTop:4, padding:6, background:'#f8f8f8', borderRadius:4, fontSize:11, color:'#666' }}>
-                                <div><b>备注:</b> {p.potColorNotes || '—'}</div>
-                                <div><b>履约:</b> {p.deliveryMethod || '—'}</div>
-                                <div><b>联系人:</b> {p.contactPerson || '—'}</div>
-                              </div>
-                            ) : (
-                              <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'#999', fontSize:10 }}>
-                                {p.potColorNotes || ''}
+                              <div onClick={() => triggerGridUpload(p, col.field)}
+                                style={{ width:44, height:44, border:'2px dashed #ccc', borderRadius:4, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#bbb', fontSize:9, lineHeight:1.2, transition:'all 0.15s' }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = '#999'; e.currentTarget.style.color = '#666' }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = '#ccc'; e.currentTarget.style.color = '#bbb' }}>
+                                <span style={{ fontSize:14 }}>+</span>
+                                <span>上传</span>
                               </div>
                             )}
                           </div>
@@ -514,50 +600,7 @@ export default function ProductList() {
                       );
                     }
 
-                    // ── Images column (multi) ──
-                    if (col.type === 'images') {
-                      const imgs = p.images || [];
-                      const imgsToShow = isExpanded ? imgs : imgs.slice(0, 2);
-                      return (
-                        <td key={ci} style={{ ...tdS, width:col.width, padding:2 }}>
-                          <div style={{ display:'flex', gap:2, alignItems:'center', flexWrap:'wrap', minHeight:50 }}>
-                            {imgsToShow.map((url, ii) => (
-                              <div key={ii} style={{ position:'relative', width:38, height:38 }}>
-                                <img src={url} alt=""
-                                  style={{ width:38, height:38, borderRadius:4, objectFit:'cover', border:'1px solid #eee', cursor:'pointer' }}
-                                  onClick={() => window.open(url, '_blank')}
-                                  onMouseEnter={e => {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    setHoverImage({ url, x: rect.right + 8, y: Math.max(rect.top - 80, 0) });
-                                  }}
-                                  onMouseLeave={() => setHoverImage(null)}
-                                  onError={e => e.target.style.display='none'} />
-                                <span onClick={() => removeImage(p._id, url)}
-                                  style={{ position:'absolute', top:-2, right:-2, width:13, height:13, borderRadius:'50%',
-                                    background:'#ff4d4f', color:'#fff', fontSize:8, lineHeight:'13px', textAlign:'center',
-                                    cursor:'pointer', opacity:0.8 }}>
-                                  ×
-                                </span>
-                              </div>
-                            ))}
-                            {!isExpanded && imgs.length > 2 && (
-                              <span style={{ fontSize:10, color:'#888', cursor:'pointer' }}
-                                onClick={() => toggleExpand(p._id)}>
-                                +{imgs.length - 2}
-                              </span>
-                            )}
-                            <label style={{
-                              width:38, height:38, border:'2px dashed #d9d9d9', borderRadius:4,
-                              display:'flex', alignItems:'center', justifyContent:'center',
-                              cursor:'pointer', color:'#bbb', fontSize:14, flexShrink:0,
-                            }}>
-                              +<input type="file" multiple accept="image/*"
-                                onChange={e => uploadMainImage(e, p)} style={{ display:'none' }} />
-                            </label>
-                          </div>
-                        </td>
-                      );
-                    }
+
 
                     // ── Actions column ──
                     if (col.type === 'actions') {
@@ -605,19 +648,69 @@ export default function ProductList() {
                       );
                     }
 
-                    // ── Editing cell (text / number / money) ──
+                    // ── Editing cell (text / number / money / sellerName) ──
                     if (col.editable && isEditing) {
+                      const isSeller = col.field === 'sellerName';
                       return (
-                        <td key={ci} style={{ ...tdS, padding:0 }}>
-                          <input ref={inputRef}
-                            type={['number','money'].includes(col.type) ? 'number' : 'text'}
-                            step={col.type === 'money' ? '0.01' : '1'}
-                            value={editValue}
-                            onChange={e => setEditValue(e.target.value)}
-                            onBlur={saveEdit} onKeyDown={handleKeyDown}
-                            style={{ width:'100%', height:'100%', border:'2px solid #1890ff',
-                              outline:'none', padding:'2px 6px', fontSize:12,
-                              textAlign: ['number','money'].includes(col.type) ? 'right' : 'left' }} />
+                        <td key={ci} style={{ ...tdS, padding:0, position:'relative' }}>
+                          {isSeller ? (
+                            <div style={{ position:'relative', width:'100%', height:'100%' }}>
+                              <input ref={inputRef}
+                                type="text" value={editValue}
+                                onChange={e => {
+                                  setEditValue(e.target.value);
+                                  if (e.target.value.trim()) {
+                                    const q = e.target.value.trim().toLowerCase();
+                                    const filtered = allSellers.filter(n => n && n.toLowerCase().includes(q));
+                                    setSellerSuggestions(filtered);
+                                    setShowSellerSug(filtered.length > 0);
+                                  } else {
+                                    setSellerSuggestions([]);
+                                    setShowSellerSug(false);
+                                  }
+                                }}
+                                onFocus={() => {
+                                  if (allSellers.length > 0 && !editValue) {
+                                    setSellerSuggestions(allSellers.slice(0, 10));
+                                    setShowSellerSug(true);
+                                  }
+                                }}
+                                onBlur={() => setTimeout(() => setShowSellerSug(false), 200)}
+                                onKeyDown={handleKeyDown}
+                                style={{ width:'100%', height:'100%', border:'2px solid #1890ff',
+                                  outline:'none', padding:'2px 6px', fontSize:12,
+                                  boxSizing:'border-box' }} />
+                              {showSellerSug && sellerSuggestions.length > 0 && (
+                                <div style={{
+                                  position:'absolute', top:'100%', left:0, zIndex:1000,
+                                  background:'#fff', border:'1px solid #d9d9d9', borderRadius:4,
+                                  maxHeight:160, overflowY:'auto', width:200,
+                                  boxShadow:'0 4px 12px rgba(0,0,0,0.15)'
+                                }}>
+                                  {sellerSuggestions.map((name, si) => (
+                                    <div key={si}
+                                      onMouseDown={(e) => { e.preventDefault(); setEditValue(name); setShowSellerSug(false); }}
+                                      onClick={() => { setEditValue(name); setShowSellerSug(false); }}
+                                      style={{ padding:'5px 8px', fontSize:12, cursor:'pointer', borderBottom:'1px solid #f0f0f0', background:'#fff' }}
+                                      onMouseEnter={e => e.currentTarget.style.background='#e6f7ff'}
+                                      onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                                      {name}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <input ref={inputRef}
+                              type={['number','money'].includes(col.type) ? 'number' : 'text'}
+                              step={col.type === 'money' ? '0.01' : '1'}
+                              value={editValue}
+                              onChange={e => setEditValue(e.target.value)}
+                              onBlur={saveEdit} onKeyDown={handleKeyDown}
+                              style={{ width:'100%', height:'100%', border:'2px solid #1890ff',
+                                outline:'none', padding:'2px 6px', fontSize:12,
+                                textAlign: ['number','money'].includes(col.type) ? 'right' : 'left' }} />
+                          )}
                         </td>
                       );
                     }
