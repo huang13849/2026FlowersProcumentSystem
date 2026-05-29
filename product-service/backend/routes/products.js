@@ -65,6 +65,66 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete
+// ── Copy product (deep copy including MinIO images) ──
+router.post('/:id/copy', async (req, res) => {
+  try {
+    const { uploadFile } = require("../services/minio.js");
+    const original = await Product.findById(req.params.id);
+    if (!original) return res.status(404).json({ error: '商品不存在' });
+
+    const imgFields = [
+      'panorama_images', 'package_images', 'detail_images', 'root_soil_images',
+      'size_ref_images', 'scene_images', 'selling_point_images', 'care_images',
+      'comparison_images', 'shipping_images', 'after_sale_images', 'images',
+    ];
+
+    const copyUrls = async (urls) => {
+      if (!urls?.length) return [];
+      const newUrls = [];
+      for (const url of urls) {
+        try {
+          const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+          if (!resp.ok) continue;
+          const buffer = Buffer.from(await resp.arrayBuffer());
+          const filename = url.split('/').pop() || 'copy.jpg';
+          const result = await uploadFile({
+            buffer,
+            filename: 'copy-' + filename,
+            mimetype: resp.headers.get('content-type') || 'image/jpeg',
+            folder: 'products',
+          });
+          newUrls.push(result.url);
+        } catch (e) {
+          console.warn('复制图片失败:', url, e.message);
+        }
+      }
+      return newUrls;
+    };
+
+    const copyData = {};
+    const skipFields = ['_id', '__v', 'createdAt', 'updatedAt', 'productId', 'salesVolume', ...imgFields];
+    for (const key of Object.keys(original.toObject())) {
+      if (!skipFields.includes(key)) copyData[key] = original[key];
+    }
+
+    for (const field of imgFields) {
+      if (original[field]?.length) {
+        copyData[field] = await copyUrls(original[field]);
+      }
+    }
+
+    copyData.title = original.title + ' (副本)';
+    if (copyData.title.length > 100) copyData.title = copyData.title.slice(0, 97) + '...';
+    copyData.isListed = false;
+
+    const product = await Product.create(copyData);
+    await log(req.user, 'copy_product', { originalId: original._id.toString(), newId: product._id.toString(), title: product.title });
+    res.status(201).json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/:id', requireRole('admin'), async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
@@ -93,7 +153,20 @@ router.post('/batch', async (req, res) => {
         result = await Product.updateMany({ _id: { $in: ids } }, data);
         break;
       case 'delete':
+        const toDelete = await Product.find({ _id: { $in: ids } }).lean();
         result = await Product.deleteMany({ _id: { $in: ids } });
+        // Fire-and-forget MinIO cleanup of all image arrays
+        const { deleteFile: minioDel } = require("../services/minio.js");
+        for (const p of toDelete) {
+          const allUrls = new Set();
+          const imgFields = ['panorama_images','package_images','detail_images','root_soil_images','size_ref_images','scene_images','selling_point_images','care_images','comparison_images','shipping_images','after_sale_images','images'];
+          for (const f of imgFields) {
+            if (p[f]) p[f].forEach(u => allUrls.add(u));
+          }
+          for (const url of allUrls) {
+            minioDel(url).catch(e => console.warn('MinIO cleanup failed:', url, e.message));
+          }
+        }
         break;
       default:
         return res.status(400).json({ error: '未知操作' });
