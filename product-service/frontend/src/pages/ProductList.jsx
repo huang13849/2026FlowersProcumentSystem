@@ -69,6 +69,8 @@ const COLUMNS = [
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
   // 26: 操作
   { field: '_actions',     label: '操作', width: 70, type: 'actions', editable: false },
+  // 27: 电商平台参考链接
+  { field: 'ecommerceReferenceUrl', label: '电商平台参考', width: 90, type: 'string', editable: true },
 ];
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -581,18 +583,27 @@ export default function ProductList() {
           }}>
           {exporting ? '⏳ 导出中…' : '📊 导出Excel'}
         </button>
-        <button onClick={handleCopySelected}
-          disabled={selected.size !== 1}
+        <button onClick={() => {
+          if (selected.size === 1) {
+            // 复制
+            handleCopySelected();
+          } else {
+            // 新建
+            const id = '_new_' + Date.now();
+            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, ecommerceReferenceUrl: '' }, ...p]);
+            setNewRowId(id);
+          }
+        }}
           style={{
             padding:'5px 12px',
-            background: selected.size === 1 ? '#1a1a2e' : '#d9d9d9',
-            color: selected.size === 1 ? '#fff' : '#999',
+            background: selected.size === 1 ? '#1a1a2e' : '#1a1a2e',
+            color: '#fff',
             border:'none', borderRadius:4,
-            cursor: selected.size === 1 ? 'pointer' : 'not-allowed',
+            cursor:'pointer',
             fontSize:12, whiteSpace:'nowrap',
             display:'flex', alignItems:'center', gap:4,
           }}>
-          📋 复制
+          {selected.size === 1 ? '📋 复制' : '➕ 新增'}
         </button>
         {selected.size > 0 && <>
           <button onClick={() => batchStatus(true)} style={btnStyle('#52c41a','#fff')}>✅ 上架</button>

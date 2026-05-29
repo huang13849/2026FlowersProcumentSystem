@@ -43,6 +43,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     { header: "售后保障",     key: "after_sale_images", width: 18 },
     { header: "上架状态",     key: "isListed",          width: 10 },
     { header: "商品ID",       key: "productId",         width: 18 },
+    { header: "电商平台参考", key: "ecommerceReferenceUrl", width: 24 },
   ];
 
   ws.columns = columns;
@@ -104,6 +105,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell("potColorNotes").value = p.potColorNotes || "";
     row.getCell("isListed").value = p.isListed ? "已上架" : "未上架";
     row.getCell("productId").value = p.productId || "";
+    row.getCell("ecommerceReferenceUrl").value = p.ecommerceReferenceUrl || "";
 
     // ── Embed thumbnail from each dedicated column (cols 0-10) ──
     const allImgCols = [
