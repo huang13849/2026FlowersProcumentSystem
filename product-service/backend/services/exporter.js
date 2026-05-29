@@ -119,33 +119,40 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
       }
     }
 
-    // ── Extra images (2nd onwards) — embed up to 3 small thumbnails ──
-    const extraImgs = images.slice(1, 4);
-    if (extraImgs.length > 0) {
-      const smallH = Math.round(imgH * 0.45);
-      const smallW = Math.round(smallH * 0.75);
-      let colOffset = 19; // "多图" column index (0-based)
-
-      for (let ei = 0; ei < extraImgs.length; ei++) {
-        const imgData = await fetchImage(extraImgs[ei]);
+    // ── Embed first image from each dedicated column (11 image types) ──
+    const imgColMap = [
+      { key: 'panorama_images',   col: 16 },
+      { key: 'package_images',    col: 17 },
+      { key: 'detail_images',     col: 18 },
+      { key: 'root_soil_images',  col: 19 },
+      { key: 'size_ref_images',   col: 20 },
+      { key: 'scene_images',      col: 21 },
+      { key: 'selling_point_images', col: 22 },
+      { key: 'care_images',       col: 23 },
+      { key: 'comparison_images', col: 24 },
+      { key: 'shipping_images',   col: 25 },
+      { key: 'after_sale_images', col: 26 },
+    ];
+    const smallH = Math.round(imgH * 0.5);
+    const smallW = Math.round(smallH * 0.75);
+    for (const { key, col } of imgColMap) {
+      const imgs = p[key] || [];
+      const firstUrl = imgs[0];
+      if (firstUrl) {
+        const imgData = await fetchImage(firstUrl);
         if (imgData) {
           const imageId = wb.addImage({
             buffer: imgData.buffer,
             extension: imgData.extension,
           });
-          // Stack thumbnails vertically within the "多图" column
-          const yOffset = ei * (smallH + 2);
           ws.addImage(imageId, {
-            tl: { col: colOffset, row: rowIdx - 1 },
+            tl: { col, row: rowIdx - 1 },
             ext: { width: smallW, height: smallH },
             editAs: 'oneCell',
           });
         }
       }
-      // Also add URLs as text comment for reference
-      row.getCell('extraImages').value = extraImgs.join('\n');
     }
-
     // Alignment
     row.getCell('stock').alignment = { horizontal: 'right' };
     row.getCell('costPrice').alignment = { horizontal: 'right' };
