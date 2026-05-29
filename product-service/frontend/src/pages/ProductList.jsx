@@ -288,11 +288,14 @@ export default function ProductList() {
       const urls = r.data.urls || [];
       if (urls.length) {
         const key = imgFieldKey(colField);
+        const newUrls = [...(product[key] || []), ...urls];
         setAllProducts(prev => prev.map(p =>
           p._id === product._id
-            ? { ...p, [key]: [...(p[key] || []), ...urls], images: [...(p.images || []), ...urls] }
+            ? { ...p, [key]: newUrls, images: [...(p.images || []), ...urls] }
             : p
         ));
+        // 持久化到数据库
+        try { await api.put('/products/' + product._id, { [key]: newUrls }); } catch (e) { console.warn('保存图片到数据库失败', e); }
       }
     } catch (err) {
       alert('上传失败: ' + (err.response?.data?.error || err.message));
@@ -330,11 +333,14 @@ export default function ProductList() {
           const urls = r.data.urls || [];
           if (urls.length) {
             const key = imgFieldKey(colField);
+            const newUrls = [...(product[key] || []), ...urls];
             setAllProducts(prev => prev.map(p =>
               p._id === product._id
-                ? { ...p, [key]: [...(p[key] || []), ...urls], images: [...(p.images || []), ...urls] }
+                ? { ...p, [key]: newUrls, images: [...(p.images || []), ...urls] }
                 : p
             ));
+            // 持久化到数据库
+            try { await api.put('/products/' + product._id, { [key]: newUrls }); } catch (e) { console.warn('保存图片到数据库失败', e); }
           }
         } catch (err) { alert('上传失败'); }
       }
@@ -348,7 +354,7 @@ export default function ProductList() {
     if (!el) return;
     const handlePaste = async (e) => {
       if (!pasteTarget) return;
-      const { product, colField } = pasteTarget;
+      const { productId, colField } = pasteTarget;
       const items = e.clipboardData?.items;
       if (!items) return;
       const imageFiles = [];
@@ -367,11 +373,19 @@ export default function ProductList() {
         const urls = r.data.urls || [];
         if (urls.length) {
           const key = imgFieldKey(colField);
-          setAllProducts(prev => prev.map(p =>
-            p._id === product._id
-              ? { ...p, [key]: [...(p[key] || []), ...urls], images: [...(p.images || []), ...urls] }
-              : p
-          ));
+          const latestProductId = productId;
+          setAllProducts(prev => {
+            const cur = prev.find(p => p._id === latestProductId);
+            const currentUrls = cur?.[key] || [];
+            const merged = [...currentUrls, ...urls];
+            // 持久化到数据库（在callback里确保读到最新数据）
+            api.put('/products/' + latestProductId, { [key]: merged }).catch(e => console.warn('粘贴图片保存到数据库失败', e));
+            return prev.map(p =>
+              p._id === latestProductId
+                ? { ...p, [key]: merged, images: [...(p.images || []), ...urls] }
+                : p
+            );
+          });
         }
       } catch (err) {
         alert('粘贴上传失败: ' + (err.response?.data?.error || err.message));
@@ -626,7 +640,7 @@ export default function ProductList() {
                                 title={colLabel + ' (' + imgs.length + '张)'}>
                                 <img src={firstUrl} alt=""
                                   style={{ width:44, height:44, borderRadius:4, objectFit:'cover', border:'1px solid #e0e0e0', cursor:'pointer', display:'block' }}
-                                  onClick={() => { setPasteTarget({ product: p, colField: col.field }); window.open(firstUrl, '_blank'); }}
+                                  onClick={() => { setPasteTarget({ productId: p._id, colField: col.field }); window.open(firstUrl, '_blank'); }}
                                   onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setHoverImage({ url: firstUrl, x: r.right + 8, y: Math.max(r.top - 80, 0) }); }}
                                   onMouseLeave={() => setHoverImage(null)}
                                   onError={e => e.target.style.display='none'} />
@@ -635,7 +649,7 @@ export default function ProductList() {
                                 {imgs.length > 1 && <span style={{ position:'absolute', bottom:-2, right:-2, fontSize:8, color:'#fff', background:'rgba(0,0,0,0.6)', borderRadius:6, padding:'0 3px', lineHeight:'12px' }}>{imgs.length}</span>}
                               </div>
                             ) : (
-                              <div onClick={() => { setPasteTarget({ product: p, colField: col.field }); triggerGridUpload(p, col.field); }}
+                              <div onClick={() => { setPasteTarget({ productId: p._id, colField: col.field }); triggerGridUpload(p, col.field); }}
                                 style={{ width:44, height:44, border:'2px dashed #ccc', borderRadius:4, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#bbb', fontSize:9, lineHeight:1.2, transition:'all 0.15s' }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = '#999'; e.currentTarget.style.color = '#666' }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = '#ccc'; e.currentTarget.style.color = '#bbb' }}>

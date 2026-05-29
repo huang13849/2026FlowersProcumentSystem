@@ -9,36 +9,40 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("商品列表");
 
-  // Column definitions — cover all useful fields
+  // Column definitions — match frontend ProductList layout
+  // 5 main img cols → text/num cols → 6 detail img cols
   const columns = [
-    { header: "主图",       key: "mainImage",  width: 14 },
-    { header: "商品标题",   key: "title",       width: 36 },
-    { header: "分类",       key: "category",    width: 12 },
-    { header: "商家",       key: "sellerName",  width: 16 },
-    { header: "花卉名称",   key: "flowerName",  width: 14 },
-    { header: "规格",       key: "specSize",    width: 14 },
-    { header: "发货地",     key: "origin",      width: 10 },
-    { header: "库存",       key: "stock",       width: 8 },
-    { header: "重量",       key: "weight",      width: 8 },
-    { header: "成本价",     key: "costPrice",   width: 10 },
-    { header: "销售价",     key: "sellPrice",   width: 10 },
-    { header: "利润",       key: "profit",      width: 10 },
-    { header: "利润率",     key: "profitRate",  width: 10 },
-    { header: "乙方税率",   key: "taxRateB",    width: 8 },
-    { header: "甲方税率",   key: "taxRateA",    width: 8 },
-    { header: "备注",       key: "potColorNotes", width: 16 },
-    { header: "上架状态",   key: "isListed",    width: 10 },
-    { header: "商品ID",     key: "productId",   width: 18 },
-    { header: "发货包装图", key: "package_images", width: 18 },
-    { header: "细节特写",   key: "detail_images", width: 18 },
-    { header: "根系盆土",   key: "root_soil_images", width: 18 },
-    { header: "尺寸参考",   key: "size_ref_images", width: 18 },
-    { header: "场景应用",   key: "scene_images", width: 18 },
-    { header: "品种卖点",   key: "selling_point_images", width: 18 },
-    { header: "养护教程",   key: "care_images", width: 18 },
-    { header: "规格对比",   key: "comparison_images", width: 18 },
-    { header: "发货售后",   key: "shipping_images", width: 18 },
-    { header: "售后保障",   key: "after_sale_images", width: 18 },
+    // 5 主图列
+    { header: "主图",         key: "panorama_images",   width: 18 },
+    { header: "发货包装图",   key: "package_images",    width: 18 },
+    { header: "细节特写",     key: "detail_images",     width: 18 },
+    { header: "根系盆土",     key: "root_soil_images",  width: 18 },
+    { header: "尺寸参考",     key: "size_ref_images",   width: 18 },
+    // 文字/数字列
+    { header: "商品标题",     key: "title",             width: 36 },
+    { header: "分类",         key: "category",          width: 12 },
+    { header: "商家",         key: "sellerName",        width: 16 },
+    { header: "花卉名称",     key: "flowerName",        width: 14 },
+    { header: "规格",         key: "specSize",          width: 14 },
+    { header: "备注",         key: "potColorNotes",     width: 16 },
+    { header: "发货地",       key: "origin",            width: 10 },
+    { header: "库存",         key: "stock",             width: 8 },
+    { header: "重量",         key: "weight",            width: 8 },
+    { header: "成本价",       key: "costPrice",         width: 10 },
+    { header: "销售价",       key: "sellPrice",         width: 10 },
+    { header: "甲方税率",     key: "taxRateA",          width: 8 },
+    { header: "乙方税率",     key: "taxRateB",          width: 8 },
+    { header: "利润",         key: "profit",            width: 10 },
+    { header: "利润率",       key: "profitRate",        width: 10 },
+    // 6 详情图列
+    { header: "场景应用",     key: "scene_images",      width: 18 },
+    { header: "品种卖点",     key: "selling_point_images", width: 18 },
+    { header: "养护教程",     key: "care_images",       width: 18 },
+    { header: "规格对比",     key: "comparison_images", width: 18 },
+    { header: "发货售后",     key: "shipping_images",   width: 18 },
+    { header: "售后保障",     key: "after_sale_images", width: 18 },
+    { header: "上架状态",     key: "isListed",          width: 10 },
+    { header: "商品ID",       key: "productId",         width: 18 },
   ];
 
   ws.columns = columns;
@@ -101,41 +105,28 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell("isListed").value = p.isListed ? "已上架" : "未上架";
     row.getCell("productId").value = p.productId || "";
 
-    // ── Main image from panorama_images (column 0) ──
-    const images = p.images || [];
-    const mainImg = (p.panorama_images || images)[0];
-    if (mainImg) {
-      const imgData = await fetchImage(mainImg);
-      if (imgData) {
-        const imageId = wb.addImage({
-          buffer: imgData.buffer,
-          extension: imgData.extension,
-        });
-        ws.addImage(imageId, {
-          tl: { col: 0, row: rowIdx - 1 },
-          ext: { width: imgW, height: imgH },
-        });
-      }
-    }
-
-    // ── Embed first image from each dedicated column (10 image types, cols 18-27) ──
-    const imgColMap = [
-      { key: "package_images",       col: 18 },
-      { key: "detail_images",        col: 19 },
-      { key: "root_soil_images",     col: 20 },
-      { key: "size_ref_images",      col: 21 },
-      { key: "scene_images",         col: 22 },
-      { key: "selling_point_images", col: 23 },
-      { key: "care_images",          col: 24 },
-      { key: "comparison_images",    col: 25 },
-      { key: "shipping_images",      col: 26 },
-      { key: "after_sale_images",    col: 27 },
+    // ── Embed thumbnail from each dedicated column (cols 0-10) ──
+    const allImgCols = [
+      { key: "panorama_images",    col: 0,  label: "主图" },
+      { key: "package_images",     col: 1,  label: "发货包装" },
+      { key: "detail_images",      col: 2,  label: "细节特写" },
+      { key: "root_soil_images",   col: 3,  label: "根系盆土" },
+      { key: "size_ref_images",    col: 4,  label: "尺寸参考" },
+      { key: "scene_images",       col: 20, label: "场景应用" },
+      { key: "selling_point_images", col: 21, label: "品种卖点" },
+      { key: "care_images",         col: 22, label: "养护教程" },
+      { key: "comparison_images",   col: 23, label: "规格对比" },
+      { key: "shipping_images",     col: 24, label: "发货售后" },
+      { key: "after_sale_images",   col: 25, label: "售后保障" },
     ];
-    const smallH = Math.round(imgH * 0.5);
-    const smallW = Math.round(smallH * 0.75);
-    for (const { key, col } of imgColMap) {
-      const imgs = p[key] || [];
-      const firstUrl = imgs[0];
+    const fallbacks = p.images || [];
+    for (const { key, col } of allImgCols) {
+      let firstUrl = (p[key] || [])[0];
+      // Fallback: if dedicated field empty, try distributing p.images
+      if (!firstUrl && fallbacks.length > 0) {
+        const idx = allImgCols.findIndex(c => c.key === key);
+        if (idx >= 0 && idx < fallbacks.length) firstUrl = fallbacks[idx];
+      }
       if (firstUrl) {
         const imgData = await fetchImage(firstUrl);
         if (imgData) {
@@ -143,9 +134,10 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
             buffer: imgData.buffer,
             extension: imgData.extension,
           });
+          const sizeW = Math.round(imgH * 0.75);
           ws.addImage(imageId, {
             tl: { col, row: rowIdx - 1 },
-            ext: { width: smallW, height: smallH },
+            ext: { width: sizeW, height: imgH },
             editAs: "oneCell",
           });
         }
@@ -157,6 +149,9 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell("sellPrice").alignment = { horizontal: "right" };
     row.getCell("profit").alignment = { horizontal: "right" };
     row.getCell("profitRate").alignment = { horizontal: "right" };
+    row.getCell("taxRateA").alignment = { horizontal: "right" };
+    row.getCell("taxRateB").alignment = { horizontal: "right" };
+    row.getCell("weight").alignment = { horizontal: "right" };
   }
 
   // Freeze header
