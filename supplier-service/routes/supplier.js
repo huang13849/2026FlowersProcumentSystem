@@ -11,17 +11,39 @@ router.post('/reorder', async (req, res) => {
     const SupplierWrite = supplierModel(req, 'SupplierWrite');
     const { orders } = req.body;
     if (!Array.isArray(orders)) return res.status(400).json({ error: 'orders must be an array' });
-    
-    // Use bulkWrite for atomic batch update — much faster than sequential updates
     const bulkOps = orders.map(({ id, sortOrder }) => ({
-      updateOne: {
-        filter: { _id: id },
-        update: { $set: { sortOrder } }
-      }
+      updateOne: { filter: { _id: id }, update: { $set: { sortOrder } } }
     }));
-    
     await SupplierWrite.bulkWrite(bulkOps);
     res.json({ success: true, updated: orders.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Product shop names ──
+router.get('/shop-names', async (req, res) => {
+  try {
+    const db = req.app.locals.SupplierRead.db;
+    const names = await db.collection('products').distinct('supplier_name', { supplier_name: { $ne: null, $ne: '' } });
+    res.json(names.filter(Boolean));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Product count stats by shop_name ──
+router.get('/product-stats', async (req, res) => {
+  try {
+    const db = req.app.locals.SupplierRead.db;
+    const pipeline = [
+      { $match: { supplier_name: { $ne: null, $ne: '' } } },
+      { $group: { _id: '$supplier_name', count: { $sum: 1 } } }
+    ];
+    if (req.query.names) {
+      const names = req.query.names.split(',');
+      pipeline[0].$match.supplier_name = { $in: names };
+    }
+    const result = await db.collection('products').aggregate(pipeline).toArray();
+    const map = {};
+    result.forEach(r => { map[r._id] = r.count; });
+    res.json(map);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -33,6 +55,7 @@ router.get('/', async (req, res) => {
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
+        { shop_name: { $regex: search, $options: 'i' } },
         { 'contact.name': { $regex: search, $options: 'i' } },
         { 'company_info.tax_id': { $regex: search, $options: 'i' } },
         { notes: { $regex: search, $options: 'i' } }
