@@ -335,7 +335,8 @@ function renderProducts(clear=true){
   if(clear)c.innerHTML='';
   ALL_PRODS.forEach(p=>{
     if(document.querySelector(`[data-pid="${p._id}"]`))return;
-    const img=p.images?.[0]||'';
+    // Check multiple image fields (product-service stores in categorized fields)
+    const img=p.images?.[0]||p.panorama_images?.[0]||p.package_images?.[0]||p.detail_images?.[0]||p.scene_images?.[0]||p.selling_point_images?.[0]||p.care_images?.[0]||p.comparison_images?.[0]||p.shipping_images?.[0]||p.after_sale_images?.[0]||p.root_soil_images?.[0]||p.size_ref_images?.[0]||'';
     const sel=!!SEL[p._id];
     const statuses=renderStatusBadges(p);
     const aiScore=Math.floor(Math.random()*30+70);
