@@ -14,6 +14,8 @@ const stateManager = require('../core/StateManager');
 const publishOrchestrator = require('../core/PublishOrchestrator');
 const { getSupportedPlatforms } = require('../adapter');
 const { createPublishTask, SupportedPlatforms, TaskStatus } = require('../model');
+const minioClient = require('../client/MinioImageClient');
+const config = require('../config');
 
 const router = Router();
 
@@ -241,3 +243,38 @@ router.get('/health', (req, res) => {
 });
 
 module.exports = router;
+
+/**
+ * GET /api/publish/minio-stats
+ * 统计 MinIO 图床各目录文件数量（无认证要求）
+ */
+router.get('/minio-stats', async (req, res) => {
+  try {
+    const folders = ['products', 'contract', 'license', 'shops', 'dispatch'];
+    const counts = {};
+    let total = 0;
+
+    for (const folder of folders) {
+      try {
+        const prefix = config.minio.bucket + '/' + folder;
+        const objects = await new Promise((resolve, reject) => {
+          const items = [];
+          const stream = minioClient.client.listObjects(config.minio.bucket, folder + '/', true);
+          stream.on('data', obj => items.push(obj));
+          stream.on('end', () => resolve(items));
+          stream.on('error', reject);
+        });
+        counts[folder] = objects.length;
+        total += objects.length;
+      } catch (err) {
+        console.warn('[minio-stats] folder error:', folder, err.message);
+        counts[folder] = 0;
+      }
+    }
+
+    return res.json({ total, folders: counts });
+  } catch (err) {
+    console.error('[minio-stats] error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
