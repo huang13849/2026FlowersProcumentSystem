@@ -1,33 +1,62 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>一键铺货 - 多平台商品发布</title>
 <style>
-:root{--bg-primary:#0b172b;--bg-secondary:#121e34;--bg-card:#19243b;--bg-hover:#1e2d48;--text-primary:#e8eaed;--text-secondary:#9aa0b0;--text-muted:#5e6a82;--accent-purple:#a78bfa;--accent-blue:#60a5fa;--accent-green:#34d399;--accent-pink:#f472b6;--accent-orange:#fb923c;--accent-cyan:#22d3ee;--border:#1e2d48;--shadow:rgba(0,0,0,0.3);--radius:12px;--radius-sm:8px}
+:root{--bg-primary:#0b172b;--bg-secondary:#121e34;--bg-card:#19243b;--bg-hover:#1e2d48;--text-primary:#e8eaed;--text-secondary:#9aa0b0;--text-muted:#5e6a82;--accent-purple:#a78bfa;--accent-blue:#60a5fa;--accent-green:#34d399;--accent-pink:#f472b6;--accent-orange:#fb923c;--accent-red:#ef4444;--border:#1e2d48;--radius:12px;--radius-sm:8px}
 *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
 body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh}
-.header{background:var(--bg-card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.header{background:var(--bg-card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .header h1{font-size:18px;display:flex;align-items:center;gap:8px}
 .header .back{color:var(--text-secondary);text-decoration:none;font-size:13px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--bg-hover)}
 .header .back:hover{color:var(--text-primary)}
-.container{max-width:1200px;margin:0 auto;padding:24px}
-.grid{display:grid;grid-template-columns:2fr 1fr;gap:24px}
-@media(max-width:768px){.grid{grid-template-columns:1fr}}
+.container{max-width:1400px;margin:0 auto;padding:24px}
+.flex{display:flex;gap:20px}
+.flex-1{flex:1}.flex-2{flex:2}
+@media(max-width:1024px){.flex{flex-direction:column}}
 .card{background:var(--bg-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);margin-bottom:16px}
-.card h3{font-size:14px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.form-group{margin-bottom:14px}
-.form-group label{display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px}
-.form-group input,.form-group select{width:100%;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:13px;outline:none}
-.form-group input:focus,.form-group select:focus{border-color:var(--accent-blue)}
-.platform-checkboxes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.platform-checkbox{display:flex;align-items:center;gap:8px;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:all .2s;font-size:13px;user-select:none}
-.platform-checkbox:hover{border-color:var(--accent-blue)}
-.platform-checkbox .check{width:16px;height:16px;border-radius:4px;border:1px solid var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
-.platform-checkbox.selected{border-color:var(--accent-blue);background:rgba(96,165,250,0.1)}
-.platform-checkbox.selected .check{background:var(--accent-blue);border-color:var(--accent-blue)}
-.platform-checkbox.selected .check::after{content:"✓";color:#fff}
+.card h3{font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h3 .badge{font-size:10px;padding:2px 6px;border-radius:8px;background:var(--accent-blue);color:#fff;font-weight:400}
+
+/* Product Search */
+.search-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.search-bar input{flex:1;min-width:150px;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:13px;outline:none}
+.search-bar input:focus{border-color:var(--accent-blue)}
+.search-bar .batch-input{display:flex;gap:4px;align-items:center}
+.search-bar .batch-input input{width:160px}
+
+/* Product table */
+.product-table{width:100%;border-collapse:collapse;font-size:12px}
+.product-table th{padding:8px 6px;text-align:left;border-bottom:2px solid var(--border);color:var(--text-muted);font-weight:500;position:sticky;top:0;background:var(--bg-card);white-space:nowrap}
+.product-table td{padding:8px 6px;border-bottom:1px solid var(--border);color:var(--text-secondary);vertical-align:middle}
+.product-table tr.selected td{background:rgba(96,165,250,0.08)}
+.product-table tr:hover td{background:var(--bg-hover)}
+.product-table .title-cell{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)}
+.product-table .price-cell{color:var(--accent-green);font-weight:600;white-space:nowrap}
+.product-table .ck-cell{width:28px;text-align:center}
+.product-table .ck-cell input{width:14px;height:14px;cursor:pointer;accent-color:var(--accent-blue)}
+
+/* Paginate */
+.paginate{display:flex;align-items:center;justify-content:space-between;padding:8px 0;font-size:12px;color:var(--text-muted)}
+.paginate .pages{display:flex;gap:4px}
+.paginate .pages button{padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;font-size:11px}
+.paginate .pages button:hover{background:var(--bg-hover);color:var(--text-primary)}
+.paginate .pages button.active{background:var(--accent-blue);color:#fff;border-color:var(--accent-blue)}
+
+/* Platform chips */
+.chip-grid{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-secondary);cursor:pointer;transition:all .2s;font-size:13px;user-select:none}
+.chip .ck{width:18px;height:18px;border-radius:50%;border:2px solid var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:transparent}
+.chip.selected{border-color:var(--accent-blue);background:rgba(96,165,250,0.1)}
+.chip.selected .ck{border-color:var(--accent-blue);background:var(--accent-blue);color:#fff}
+.chip:hover{border-color:var(--accent-blue)}
+
+/* Selected count banner */
+.sel-banner{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(96,165,250,0.1);border:1px solid var(--accent-blue);border-radius:var(--radius-sm);margin-bottom:14px;font-size:13px;flex-wrap:wrap;gap:8px}
+.sel-banner .count{font-weight:600;color:var(--accent-blue)}
+
+/* Publish button */
 .btn{padding:10px 20px;border:none;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;transition:all .2s;font-weight:500;display:inline-flex;align-items:center;gap:6px}
 .btn-primary{background:var(--accent-blue);color:#fff}
 .btn-primary:hover{background:#4b8fe0;transform:translateY(-1px)}
@@ -35,31 +64,45 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh}
 .btn-success{background:var(--accent-green);color:#0b172b}
 .btn-warning{background:var(--accent-orange);color:#0b172b}
 .btn-sm{padding:6px 12px;font-size:12px}
-.platform-tag{padding:2px 8px;border-radius:4px;font-size:10px;background:var(--bg-hover)}
+.btn-block{width:100%;justify-content:center}
+
+/* Stats */
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-box{padding:10px;background:var(--bg-secondary);border-radius:var(--radius-sm);text-align:center}
+.stat-box .num{font-size:22px;font-weight:700}
+.stat-box .lbl{font-size:11px;color:var(--text-muted)}
+
+/* Task log */
+.log-table{width:100%;border-collapse:collapse;font-size:11px}
+.log-table th{padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);color:var(--text-muted)}
+.log-table td{padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-secondary)}
+.status-badge{padding:2px 8px;border-radius:10px;font-size:10px}
+.status-badge.waiting,.status-badge.pending{background:rgba(96,165,250,0.2);color:var(--accent-blue)}
+.status-badge.success{background:rgba(52,211,153,0.2);color:var(--accent-green)}
+.status-badge.failed{background:rgba(239,68,68,0.2);color:var(--accent-red)}
+.platform-tag{padding:2px 6px;border-radius:4px;font-size:10px}
 .platform-tag.douyin{background:rgba(34,211,238,0.2);color:var(--accent-cyan)}
 .platform-tag.xiaohongshu{background:rgba(244,114,182,0.2);color:var(--accent-pink)}
 .platform-tag.pinduoduo{background:rgba(251,146,60,0.2);color:var(--accent-orange)}
 .platform-tag.shipinhao{background:rgba(167,139,250,0.2);color:var(--accent-purple)}
-.status-badge{padding:2px 8px;border-radius:10px;font-size:11px}
-.status-badge.waiting{background:rgba(96,165,250,0.2);color:var(--accent-blue)}
-.status-badge.success{background:rgba(52,211,153,0.2);color:var(--accent-green)}
-.status-badge.failed{background:rgba(239,68,68,0.2);color:#ef4444}
-.status-badge.retrying{background:rgba(167,139,250,0.2);color:var(--accent-purple)}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
-th{color:var(--text-muted);font-weight:500}
-td{color:var(--text-secondary)}
-.result-box{padding:12px;border-radius:var(--radius-sm);margin-top:12px;font-size:13px}
-.result-box.success{border:1px solid var(--accent-green);color:var(--accent-green);background:rgba(52,211,153,0.05)}
-.result-box.error{border:1px solid #ef4444;color:#ef4444;background:rgba(239,68,68,0.05)}
-.loading{text-align:center;padding:40px;color:var(--text-muted)}
-.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent-blue);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+.platform-tag.taobao{background:rgba(245,158,11,0.2);color:var(--accent-orange)}
+.platform-tag.jd{background:rgba(96,165,250,0.2);color:var(--accent-blue)}
+
+.toast{position:fixed;top:20px;right:20px;z-index:9999;padding:12px 20px;border-radius:var(--radius-sm);font-size:13px;max-width:400px;animation:slideIn .3s}
+.toast.success{background:rgba(52,211,153,0.95);color:#0b172b}
+.toast.error{background:rgba(239,68,68,0.95);color:#fff}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent-blue);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-.stat-item{padding:8px;background:var(--bg-secondary);border-radius:6px;margin-bottom:8px;text-align:center}
-.stat-item .num{font-size:22px;font-weight:700;color:var(--accent-blue)}
-.stat-item .label{font-size:11px;color:var(--text-muted)}
-.empty-state{text-align:center;padding:40px;color:var(--text-muted);font-size:13px}
-.empty-state .icon{font-size:48px;margin-bottom:12px}
+.empty-state{text-align:center;padding:30px;color:var(--text-muted);font-size:13px}
+.empty-state .icon{font-size:40px;margin-bottom:8px}
+/* Select all row */
+.select-all-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:6px;font-size:12px;color:var(--text-muted);cursor:pointer}
+.select-all-row input{accent-color:var(--accent-blue);cursor:pointer}
+.overflow-auto{max-height:500px;overflow-y:auto}
+.tab-bar{display:flex;gap:2px;background:var(--bg-secondary);border-radius:var(--radius-sm);padding:2px;margin-bottom:14px}
+.tab{flex:1;padding:8px;text-align:center;border:none;background:transparent;color:var(--text-muted);cursor:pointer;border-radius:6px;font-size:12px}
+.tab.active{background:var(--bg-card);color:var(--text-primary)}
 </style>
 </head>
 <body>
@@ -68,159 +111,371 @@ td{color:var(--text-secondary)}
   <a class="back" href="http://100.96.54.109:8088">← 返回仪表盘</a>
 </div>
 <div class="container">
-  <div class="grid">
-    <div>
-      <!-- 发布表单 -->
+  <!-- Publish Actions -->
+  <div class="flex">
+    <div class="flex-2">
       <div class="card">
-        <h3>📤 发布商品 | 一键铺货</h3>
-        <div class="form-group">
-          <label>商品 ID</label>
-          <input id="productId" type="text" placeholder="输入商品ID" />
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <h3 style="margin:0">📋 选择商品</h3>
+          <div class="batch-input" style="display:flex;gap:4px;align-items:center">
+            <span style="font-size:11px;color:var(--text-muted)">按ID批量导入:</span>
+            <input id="batchIds" placeholder="多个ID用逗号分隔" style="width:200px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px"/>
+            <button class="btn btn-sm" onclick="batchImportIds()" style="background:var(--bg-hover)">导入</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label>选择发布平台</label>
-          <div class="platform-checkboxes" id="platformCheckboxes"></div>
+
+        <div class="flex">
+          <div style="flex:1">
+            <div class="search-bar">
+              <input id="searchInput" placeholder="搜索商品名称..." oninput="debounceSearch()" />
+              <select id="catFilter" onchange="loadProducts(1)" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px">
+                <option value="">全部分类</option>
+              </select>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <button class="btn btn-sm" onclick="loadProducts(1)" style="background:var(--bg-hover)">🔄 刷新</button>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
-          <button class="btn btn-primary" id="publishBtn" disabled onclick="doPublish()">🚀 一键铺货</button>
-          <button class="btn btn-success btn-sm" onclick="quickPublish(['douyin','xiaohongshu'])">抖店+小红书</button>
-          <button class="btn btn-sm" style="background:var(--accent-orange);color:#0b172b" onclick="quickPublish(['pinduoduo'])">拼多多</button>
-          <button class="btn btn-sm" style="background:var(--accent-purple);color:#fff" onclick="quickPublish(['shipinhao'])">视频号</button>
-          <button class="btn btn-sm" style="background:var(--accent-green);color:#0b172b" onclick="quickPublish(['douyin','xiaohongshu','pinduoduo','shipinhao'])">所有平台</button>
+
+        <div id="selBanner" class="sel-banner" style="display:none">
+          <span>已选择 <span class="count" id="selCount">0</span> 个商品</span>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-warning btn-sm" onclick="clearSelection()">清空选择</button>
+          </div>
         </div>
-        <div id="publishResult"></div>
-      </div>
-      
-      <!-- 任务查询 -->
-      <div class="card">
-        <h3>🔍 查询发布状态</h3>
-        <div style="display:flex;gap:8px">
-          <input id="lookupTaskId" type="text" placeholder="输入 taskId 查询发布状态" style="flex:1" />
-          <button class="btn btn-primary btn-sm" onclick="lookupTask()">查询</button>
+
+        <div class="overflow-auto" id="productList">
+          <div class="empty-state"><div class="icon">🔄</div><div class="spinner" style="margin:0 auto 8px"></div>加载商品数据中...</div>
         </div>
-        <div id="lookupResult"></div>
+
+        <div class="paginate" id="paginate" style="display:none">
+          <span id="pageInfo">0 / 0</span>
+          <div class="pages" id="pageBtns"></div>
+        </div>
       </div>
 
-      <!-- 发布统计 -->
       <div class="card">
-        <h3>📊 发布统计</h3>
-        <div id="taskStats"><div class="loading"><span class="spinner"></span> 加载中...</div></div>
+        <h3>📤 发布操作</h3>
+        <div style="margin-bottom:12px">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px">选择发布渠道</label>
+          <div class="chip-grid" id="platformChips">
+            <div class="chip" data-key="xiaohongshu" onclick="toggleChip(this)"><span class="ck">✓</span>📕 小红书</div>
+            <div class="chip" data-key="douyin" onclick="toggleChip(this)"><span class="ck">✓</span>🎵 抖音/抖店</div>
+            <div class="chip" data-key="shipinhao" onclick="toggleChip(this)"><span class="ck">✓</span>🎬 微信小店(视频号)</div>
+            <div class="chip" data-key="taobao" onclick="toggleChip(this)"><span class="ck">✓</span>🛒 淘宝</div>
+            <div class="chip" data-key="jd" onclick="toggleChip(this)"><span class="ck">✓</span>🏢 京东</div>
+            <div class="chip" data-key="pinduoduo" onclick="toggleChip(this)"><span class="ck">✓</span>🛍️ 拼多多</div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" id="publishBtn" onclick="startPublish()" disabled>
+          🚀 一键铺货 <span id="publishHint"></span>
+        </button>
+        <div id="publishProgress" style="margin-top:12px"></div>
       </div>
     </div>
 
-    <div>
-      <!-- 图床文件统计 -->
+    <div class="flex-1">
       <div class="card">
-        <h3>🖼️ 图床文件统计</h3>
-        <div id="minioStats"><div class="loading"><span class="spinner"></span> 加载中...</div></div>
+        <h3>📊 发布统计</h3>
+        <div class="stat-row">
+          <div class="stat-box"><div class="num" id="totalTasks" style="color:var(--accent-blue)">0</div><div class="lbl">总发布任务</div></div>
+          <div class="stat-box"><div class="num" id="totalRecords" style="color:var(--accent-green)">0</div><div class="lbl">同步记录</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🖼️ 图床文件</h3>
+        <div class="stat-box"><div class="num" id="minioTotal" style="color:var(--accent-purple)">-</div><div class="lbl">文件总数</div></div>
+        <table style="width:100%;margin-top:8px;font-size:11px"><tbody id="minioFolders"></tbody></table>
+      </div>
+      <div class="card">
+        <div class="tab-bar"><button class="tab active" onclick="switchTab('tasks')">发布任务</button><button class="tab" onclick="switchTab('records')">同步记录</button></div>
+        <div id="tabTasks">
+          <div style="display:flex;gap:4px;margin-bottom:8px">
+            <input id="lookupTid" placeholder="输入taskId查询" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px"/>
+            <button class="btn btn-primary btn-sm" onclick="lookupTask()">查询</button>
+          </div>
+          <div id="taskResult"></div>
+        </div>
+        <div id="tabRecords" style="display:none">
+          <div style="display:flex;gap:4px;margin-bottom:8px">
+            <input id="recordPid" placeholder="输入商品ID查询记录" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px"/>
+            <button class="btn btn-primary btn-sm" onclick="loadRecords()">查询</button>
+          </div>
+          <div id="recordsResult"></div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-const PBASE = '/api/publish';
-const PLATFORMS = {douyin:'抖店',xiaohongshu:'小红书',pinduoduo:'拼多多',shipinhao:'视频号'};
+// ================== CONFIG ==================
+const AUTH = {token:''};
+const PLATFORMS = {xiaohongshu:'📕 小红书',douyin:'🎵 抖音/抖店',shipinhao:'🎬 微信小店',taobao:'🛒 淘宝',jd:'🏢 京东',pinduoduo:'🛍️ 拼多多'};
+const PAGE_SIZE = 15;
+let SEL = {}; // productId -> product
+let ALL_PRODS = [];
+let TOTAL = 0, PAGE = 1;
+let searchTimer = null;
 
-// 初始化平台选择框
-function initPlatforms(){
-  const c = document.getElementById('platformCheckboxes');
-  c.innerHTML = Object.entries(PLATFORMS).map(([k,n]) =>
-    `<label class="platform-checkbox" data-key="${k}" onclick="togglePlatform(this)"><span class="check"></span><span class="platform-tag ${k}">${n}</span></label>`
-  ).join('');
-  document.getElementById('productId').addEventListener('input', updateBtn);
-}
-
-function togglePlatform(el){el.classList.toggle('selected');updateBtn();}
-function getPlatforms(){return[...document.querySelectorAll('.platform-checkbox.selected')].map(e=>e.dataset.key);}
-function updateBtn(){document.getElementById('publishBtn').disabled=!document.getElementById('productId').value.trim()||getPlatforms().length===0;}
-
-// 一键铺货
-async function doPublish(){
-  const pid=document.getElementById('productId').value.trim(),plats=getPlatforms();
-  if(!pid||!plats.length)return;
-  const btn=document.getElementById('publishBtn'),res=document.getElementById('publishResult');
-  btn.disabled=true;btn.textContent='⏳ 发布中...';
-  res.innerHTML='<div class="loading"><span class="spinner"></span> 正在创建发布任务...</div>';
-  try{
-    const r=await fetch(PBASE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({productId:pid,platforms:plats})});
-    const d=await r.json();
-    if(d.success){
-      res.innerHTML='<div class="result-box success">✅ 任务已创建<br>taskId: <code>'+d.taskId+'</code></div><button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="document.getElementById(\'lookupTaskId\').value=\''+d.taskId+'\';lookupTask()">查看发布状态 →</button>';
-      loadTaskStats();
-    } else {
-      res.innerHTML='<div class="result-box error">❌ '+(d.error||'发布失败')+'</div>';
-    }
-  }catch(e){res.innerHTML='<div class="result-box error">❌ 请求失败: '+e.message+'</div>';}
-  btn.disabled=false;btn.textContent='🚀 一键铺货';
-}
-
-window.quickPublish = function(plats){
-  document.getElementById('productId').value='60f7b3c5a9e1f2a3b4c5d6e7';
-  document.querySelectorAll('.platform-checkbox').forEach(e=>e.classList.remove('selected'));
-  plats.forEach(p=>{const e=document.querySelector('.platform-checkbox[data-key="'+p+'"]');if(e)e.classList.add('selected');});
-  updateBtn();
-  doPublish();
-};
-
-// 查询任务状态
-async function lookupTask(){
-  const tid=document.getElementById('lookupTaskId').value.trim(),res=document.getElementById('lookupResult');
-  if(!tid){res.innerHTML='<div style="color:var(--text-muted);font-size:12px;margin-top:8px">请输入 taskId</div>';return;}
-  res.innerHTML='<div class="loading"><span class="spinner"></span> 查询中...</div>';
-  try{
-    const r=await fetch(PBASE+'/status/'+tid);
-    if(!r.ok){res.innerHTML='<div class="result-box error">❌ 任务不存在</div>';return;}
-    const t=await r.json();
-    res.innerHTML='<div style="margin-top:8px;font-size:13px">'+
-      '<div style="padding:12px;background:var(--bg-secondary);border-radius:var(--radius-sm)">'+
-      '<div>商品: <strong>'+t.productId+'</strong></div>'+
-      '<div>状态: <span class="status-badge '+t.status+'">'+t.status+'</span></div>'+
-      '<div>平台: '+t.platforms.map(p=>'<span class="platform-tag '+p+'">'+(PLATFORMS[p]||p)+'</span>').join(' ')+'</div>'+
-      (t.results?Object.entries(t.results).map(([k,r])=>'<div style="margin-top:6px;padding:6px;border:1px solid var(--border);border-radius:6px">'+
-        (PLATFORMS[k]||k)+': <span class="status-badge '+r.status+'">'+r.status+'</span>'+
-        (r.platformProductId?' | ID: '+r.platformProductId:'')+
-        (r.errorMessage?'<br><span style="color:#ef4444;font-size:11px">'+r.errorMessage+'</span>':'')+
-        '</div>').join(''):'')+
-      '</div></div>';
-  }catch(e){res.innerHTML='<div class="result-box error">❌ 查询失败: '+e.message+'</div>';}
-}
-
-// 发布统计
-async function loadTaskStats(){
-  const c=document.getElementById('taskStats');
-  try{
-    const r=await fetch(PBASE+'/health');
-    const d=await r.json();const s=d.state||{};
-    c.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-      '<div class="stat-item"><div class="num">'+(s.totalTasks||0)+'</div><div class="label">总发布任务</div></div>'+
-      '<div class="stat-item"><div class="num" style="color:var(--accent-green)">'+(s.totalRecords||0)+'</div><div class="label">同步记录</div></div></div>'+
-      (d.queue?'<div style="margin-top:8px;font-size:11px;color:var(--text-muted);text-align:center">队列: '+(d.queue.queueLength||0)+' 待处理 · '+(d.queue.activeCount||0)+' 执行中</div>':'');
-  }catch{c.innerHTML='<div class="empty-state"><div class="icon">🔌</div>无法连接发布服务</div>';}
-}
-
-// 图床文件统计
-async function loadMinioStats(){
-  const c=document.getElementById('minioStats');
-  try{
-    const r=await fetch(PBASE+'/minio-stats');
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const d=await r.json();
-    const folders=[{k:'products',e:'📷产品图片'},{k:'contract',e:'📄合同'},{k:'license',e:'📋许可证'},{k:'shops',e:'🏪店铺'},{k:'dispatch',e:'🚚配送'}];
-    c.innerHTML='<div class="stat-item"><div class="num" style="color:var(--accent-purple)">'+(d.total||0)+'</div><div class="label">图床文件总数</div></div>'+
-      '<table style="width:100%;margin-top:8px"><thead><tr><th>目录</th><th style="text-align:right">文件数</th></tr></thead><tbody>'+
-      folders.map(f=>'<tr><td>'+f.e+'</td><td style="text-align:right;font-weight:600">'+(d.folders?.[f.k]||0)+'</td></tr>').join('')+
-      '</tbody></table>';
-  }catch{c.innerHTML='<div class="empty-state"><div class="icon">🔌</div>无法加载图床数据</div>';}
-}
-
-// 初始化
-document.addEventListener('DOMContentLoaded',()=>{
-  initPlatforms();
-  loadTaskStats();
+// ================== INIT ==================
+document.addEventListener('DOMContentLoaded',async()=>{
+  await login();
+  loadProducts(1);
+  loadCategories();
+  loadStats();
   loadMinioStats();
-  setInterval(()=>{loadTaskStats();loadMinioStats();},15000);
+  updateBtn();
+  setInterval(()=>{loadStats();loadMinioStats();},20000);
 });
+
+async function login(){
+  try{
+    const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})});
+    const d=await r.json();
+    AUTH.token=d.token;
+  }catch(e){console.error('Auth fail:',e);}
+}
+
+function authHeaders(){return{AUTHORIZATION:'Bearer '+AUTH.token,'Content-Type':'application/json'}}
+
+// ================== PRODUCT LIST ==================
+async function loadProducts(page){
+  PAGE = page||1;
+  const el = document.getElementById('productList');
+  el.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto 8px"></div>加载中...</div>';
+  try{
+    const search = document.getElementById('searchInput').value.trim();
+    const cat = document.getElementById('catFilter').value;
+    const params = new URLSearchParams({limit:PAGE_SIZE,page:PAGE,sort:'-createdAt'});
+    if(search) params.set('search',search);
+    if(cat) params.set('category',cat);
+    const r=await fetch(`http://100.96.54.109:3001/api/products?${params}`,{headers:authHeaders()});
+    const d=await r.json();
+    TOTAL = d.total||0;
+    ALL_PRODS = d.products||[];
+    renderProducts();
+    renderPaginate();
+  }catch(e){
+    el.innerHTML='<div class="empty-state"><div class="icon">🔌</div>无法加载商品数据</div>';
+  }
+}
+
+function renderProducts(){
+  const el = document.getElementById('productList');
+  if(!ALL_PRODS.length){el.innerHTML='<div class="empty-state"><div class="icon">📭</div>暂无商品</div>';return;}
+  const allSelected = ALL_PRODS.every(p=>SEL[p._id]);
+  el.innerHTML = `
+    <table class="product-table">
+      <thead><tr>
+        <th class="ck-cell"><input type="checkbox" ${allSelected?'checked':''} onchange="selectAll(this)"/></th>
+        <th>商品名称</th>
+        <th>分类</th>
+        <th>售价</th>
+        <th>库存</th>
+        <th>状态</th>
+      </tr></thead>
+      <tbody>${ALL_PRODS.map(p=>`
+        <tr class="${SEL[p._id]?'selected':''}" onclick="toggleSel('${p._id}')" style="cursor:pointer">
+          <td class="ck-cell"><input type="checkbox" ${SEL[p._id]?'checked':''} onchange="event.stopPropagation();toggleSel('${p._id}')"/></td>
+          <td class="title-cell" title="${p.title||''}">${p.title||'无标题'}</td>
+          <td>${p.category||'未分类'}</td>
+          <td class="price-cell">¥${parseFloat(p.price||0).toFixed(2)}</td>
+          <td>${p.stock??'-'}</td>
+          <td>${p.isListed?'<span style="color:var(--accent-green)">上架</span>':'<span style="color:var(--text-muted)">下架</span>'}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  updateSelBanner();
+}
+
+function renderPaginate(){
+  const totalPages = Math.ceil(TOTAL/PAGE_SIZE);
+  const el = document.getElementById('paginate');
+  if(totalPages<=1){el.style.display='none';return;}
+  el.style.display='flex';
+  document.getElementById('pageInfo').textContent = `第${PAGE}/${totalPages}页 (共${TOTAL}条)`;
+  const btns = document.getElementById('pageBtns');
+  btns.innerHTML = '';
+  const range = 2;
+  for(let i=Math.max(1,PAGE-range);i<=Math.min(totalPages,PAGE+range);i++){
+    const b=document.createElement('button');
+    b.textContent=i;b.className=i===PAGE?'active':'';
+    b.onclick=()=>loadProducts(i);
+    btns.appendChild(b);
+  }
+}
+
+function debounceSearch(){clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadProducts(1),300);}
+
+async function loadCategories(){
+  try{
+    const r=await fetch('http://100.96.54.109:3001/api/products',{headers:authHeaders()});
+    const d=await r.json();
+    const cats = new Set();
+    (d.products||[]).forEach(p=>{if(p.category)cats.add(p.category);});
+    const sel = document.getElementById('catFilter');
+    cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+  }catch{}
+}
+
+// ================== SELECTION ==================
+function toggleSel(id){
+  if(SEL[id]) delete SEL[id];
+  else SEL[id] = ALL_PRODS.find(p=>p._id===id);
+  renderProducts();
+  updateSelBanner();
+  updateBtn();
+}
+
+function selectAll(el){
+  ALL_PRODS.forEach(p=>{
+    if(el.checked) SEL[p._id]=p;
+    else delete SEL[p._id];
+  });
+  renderProducts();
+  updateSelBanner();
+  updateBtn();
+}
+
+function clearSelection(){SEL={};renderProducts();updateSelBanner();updateBtn();}
+
+function batchImportIds(){
+  const raw = document.getElementById('batchIds').value.trim();
+  if(!raw) return;
+  const ids = raw.split(/[,，\s]+/).filter(Boolean);
+  // Fetch each product by ID
+  ids.forEach(async id=>{
+    try{
+      const r=await fetch(`http://100.96.54.109:3001/api/products/${id}`,{headers:authHeaders()});
+      if(r.ok){const p=await r.json();SEL[p._id]=p;renderProducts();updateSelBanner();updateBtn();}
+    }catch{}
+  });
+  document.getElementById('batchIds').value='';
+}
+
+function updateSelBanner(){
+  const cnt = Object.keys(SEL).length;
+  const banner = document.getElementById('selBanner');
+  banner.style.display = cnt>0?'flex':'none';
+  document.getElementById('selCount').textContent = cnt;
+}
+
+function updateBtn(){
+  const cnt = Object.keys(SEL).length;
+  const pc = getPlatforms().length;
+  const btn = document.getElementById('publishBtn');
+  const hint = document.getElementById('publishHint');
+  btn.disabled = cnt===0||pc===0;
+  hint.textContent = cnt>0?`(${cnt}个商品 → ${pc}个平台)`:'' ;
+}
+
+// ================== PLATFORMS ==================
+function toggleChip(el){
+  el.classList.toggle('selected');
+  updateBtn();
+}
+function getPlatforms(){return[...document.querySelectorAll('.chip.selected')].map(e=>e.dataset.key);}
+
+// ================== PUBLISH ==================
+async function startPublish(){
+  const products = Object.values(SEL);
+  const platforms = getPlatforms();
+  if(!products.length||!platforms.length)return;
+  const btn = document.getElementById('publishBtn');
+  const prog = document.getElementById('publishProgress');
+  btn.disabled = true;
+  btn.textContent = '⏳ 正在铺货...';
+  prog.innerHTML = '';
+  let success = 0, fail = 0;
+  for(let i=0;i<products.length;i++){
+    const p = products[i];
+    try{
+      prog.innerHTML += `<div style="font-size:12px;color:var(--text-muted);padding:4px 0">📤 [${i+1}/${products.length}] ${p.title.slice(0,30)}... <span class="spinner" style="width:14px;height:14px;vertical-align:middle"></span></div>`;
+      const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({productId:p._id,platforms})});
+      const d = await r.json();
+      if(d.success){
+        success++;
+        prog.innerHTML = prog.innerHTML.replace(/<div[^>]*>📤.*?<\/div>$/, `<div style="font-size:12px;color:var(--accent-green);padding:4px 0">✅ [${i+1}/${products.length}] ${p.title.slice(0,30)}... 任务已创建</div>`);
+      } else {
+        fail++;
+        prog.innerHTML = prog.innerHTML.replace(/<div[^>]*>📤.*?<\/div>$/, `<div style="font-size:12px;color:var(--accent-red);padding:4px 0">❌ [${i+1}/${products.length}] ${p.title.slice(0,30)}... ${d.error||'失败'}</div>`);
+      }
+    }catch(e){
+      fail++;
+      prog.innerHTML += `<div style="font-size:12px;color:var(--accent-red);padding:4px 0">❌ [${i+1}/${products.length}] ${p.title.slice(0,30)}... ${e.message}</div>`;
+    }
+  }
+  btn.disabled = false;
+  btn.textContent = '🚀 一键铺货';
+  prog.innerHTML += `<div style="padding:8px 0;font-weight:600">✅ 完成: ${success} 成功, ❌ ${fail} 失败</div>`;
+  loadStats();
+}
+
+// ================== STATS ==================
+async function loadStats(){
+  try{
+    const r=await fetch('/api/publish/health');
+    const d=await r.json();const s=d.state||{};
+    document.getElementById('totalTasks').textContent = s.totalTasks||0;
+    document.getElementById('totalRecords').textContent = s.totalRecords||0;
+  }catch{}
+}
+async function loadMinioStats(){
+  try{
+    const r=await fetch('/api/publish/minio-stats');
+    const d=await r.json();
+    document.getElementById('minioTotal').textContent = d.total||0;
+    const folders = {products:'📷 产品',contract:'📄 合同',license:'📋 许可证',shops:'🏪 店铺',dispatch:'🚚 配送'};
+    document.getElementById('minioFolders').innerHTML = Object.entries(folders).map(([k,n])=>`<tr><td>${n}</td><td style="text-align:right;font-weight:600">${d.folders?.[k]||0}</td></tr>`).join('');
+  }catch{}
+}
+
+// ================== TABS ==================
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${t}"]`).classList.add('active');
+  document.getElementById('tabTasks').style.display = t==='tasks'?'block':'none';
+  document.getElementById('tabRecords').style.display = t==='records'?'block':'none';
+}
+
+async function lookupTask(){
+  const tid=document.getElementById('lookupTid').value.trim();
+  const res=document.getElementById('taskResult');
+  if(!tid){res.innerHTML='<div style="color:var(--text-muted);font-size:12px">输入 taskId</div>';return;}
+  try{
+    const r=await fetch(`/api/publish/status/${tid}`);
+    if(!r.ok){res.innerHTML='<div style="color:var(--accent-red)">任务不存在</div>';return;}
+    const t=await r.json();
+    res.innerHTML=`<div style="font-size:12px;background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm)">
+      <div>商品: <strong>${t.productId}</strong> | 状态: <span class="status-badge ${t.status}">${t.status}</span></div>
+      <div style="margin-top:6px">${Object.entries(t.results||{}).map(([k,r])=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)">
+        <span class="platform-tag ${k}">${PLATFORMS[k]||k}</span> → <span class="status-badge ${r.status}">${r.status}</span>
+        ${r.platformProductId?' | 平台ID: '+r.platformProductId:''}
+        ${r.errorMessage?'<br><span style="color:var(--accent-red)">'+r.errorMessage.substring(0,50)+'</span>':''}
+      </div>`).join('')}</div></div>`;
+  }catch(e){res.innerHTML=`<div style="color:var(--accent-red)">${e.message}</div>`;}
+}
+
+async function loadRecords(){
+  const pid=document.getElementById('recordPid').value.trim();
+  const res=document.getElementById('recordsResult');
+  if(!pid){res.innerHTML='<div style="color:var(--text-muted);font-size:12px">输入商品ID</div>';return;}
+  try{
+    const r=await fetch(`/api/publish/record/${pid}`);
+    if(!r.ok){res.innerHTML='<div style="color:var(--accent-red)">查询失败</div>';return;}
+    const d=await r.json();
+    if(!d.records?.length){res.innerHTML='<div class="empty-state"><div class="icon">📭</div>暂无记录</div>';return;}
+    res.innerHTML=`<table class="log-table"><thead><tr><th>时间</th><th>平台</th><th>状态</th><th>平台ID</th></tr></thead><tbody>
+      ${d.records.slice(0,20).map(r=>`<tr>
+        <td>${new Date(r.createdAt).toLocaleString('zh-CN')}</td>
+        <td><span class="platform-tag ${r.platform}">${PLATFORMS[r.platform]||r.platform}</span></td>
+        <td><span class="status-badge ${r.status}">${r.status}</span></td>
+        <td>${r.platformProductId||'-'}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }catch(e){res.innerHTML=`<span style="color:var(--accent-red)">${e.message}</span>`;}
+}
 </script>
 </body>
 </html>
