@@ -71,4 +71,62 @@ router.get("/excel", async (req, res) => {
   }
 });
 
+
+/**
+ * GET /api/export/count-files
+ * 统计 MinIO 各目录文件数量（供 dashboard 显示图床文件数）
+ */
+router.get('/count-files', async (req, res) => {
+  try {
+    const { listFiles } = await import('../services/minio.js');
+    const folders = ['products', 'contract', 'license', 'shops', 'dispatch'];
+    const counts = {};
+    let total = 0;
+    for (const folder of folders) {
+      try {
+        const files = await listFiles(folder);
+        counts[folder] = files.length;
+        total += files.length;
+      } catch (err) {
+        counts[folder] = 0;
+      }
+    }
+    res.json({ total, folders: counts });
+  } catch (err) {
+    console.error('count-files error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 export default router;
+
+/**
+ * GET /api/export/count-files
+ * 统计 MinIO 各目录文件数量（供 dashboard 显示图床文件数）
+ * 不需要 auth
+ */
+router.get('/count-files', async (req, res) => {
+  try {
+    const { listFiles } = await import('../services/minio.js');
+    const folders = ['products', 'contract', 'license', 'shops', 'dispatch'];
+    const counts = {};
+    let total = 0;
+
+    for (const folder of folders) {
+      try {
+        const files = await listFiles(folder);
+        counts[folder] = files.length;
+        total += files.length;
+      } catch (err) {
+        counts[folder] = 0;
+        console.warn('count-files error for', folder, err.message);
+      }
+    }
+
+    res.json({ total, folders: counts });
+  } catch (err) {
+    console.error('count-files error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
