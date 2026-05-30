@@ -23,7 +23,7 @@ router.post('/reorder', async (req, res) => {
 router.get('/shop-names', async (req, res) => {
   try {
     const db = req.app.locals.SupplierRead.db;
-    const names = await db.collection('products').distinct('supplier_name', { supplier_name: { $ne: null, $ne: '' } });
+    const names = await db.collection('products').distinct('sellerName', { sellerName: { $ne: null, $ne: '' } });
     res.json(names.filter(Boolean));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -33,12 +33,12 @@ router.get('/product-stats', async (req, res) => {
   try {
     const db = req.app.locals.SupplierRead.db;
     const pipeline = [
-      { $match: { supplier_name: { $ne: null, $ne: '' } } },
-      { $group: { _id: '$supplier_name', count: { $sum: 1 } } }
+      { $match: { sellerName: { $ne: null, $ne: '' } } },
+      { $group: { _id: '$sellerName', count: { $sum: 1 } } }
     ];
     if (req.query.names) {
-      const names = req.query.names.split(',');
-      pipeline[0].$match.supplier_name = { $in: names };
+      const names = req.query.names.split(',').map(n => n.trim()).filter(Boolean);
+      pipeline[0].$match.sellerName = { $in: names };
     }
     const result = await db.collection('products').aggregate(pipeline).toArray();
     const map = {};

@@ -52,7 +52,6 @@ export default function SupplierList() {
   const nav = useNavigate()
   const timer = useRef()
   const debounceTimers = useRef({})
-  const shopSearchTimers = useRef({})
 
   /* ========== 全屏图片预览模态框 ========== */
   const [previewModal, setPreviewModal] = useState(null)
@@ -113,7 +112,34 @@ export default function SupplierList() {
     setLoading(false)
   }
   const loadProductCounts = async () => {
-    try { const r = await api.get('/api/suppliers/product-stats'); if (r.data && typeof r.data === 'object') setProductCounts(r.data) } catch (e) { console.error(e) }
+    try {
+      const r = await api.get('/api/suppliers/product-stats');
+      if (r.data && typeof r.data === 'object') setProductCounts(r.data);
+      // Also store product-to-supplier lookup for unmatched shop_names
+      // Create a map of supplier_name -> shop_name from items
+      const items_ = items;
+      if (items_.length > 0) {
+        const missing = {};
+        items_.forEach(sup => {
+          if (sup.shop_name && r.data && r.data[sup.shop_name] !== undefined) return;
+          if (sup.name && r.data && r.data[sup.name] !== undefined) {
+            missing[sup.shop_name || sup.name] = r.data[sup.name];
+          }
+          // Also try partial match: check if any sellerName contains shop_name
+          if (r.data && sup.shop_name) {
+            for (const sellerName of Object.keys(r.data)) {
+              if (sellerName.includes(sup.shop_name) || sup.shop_name.includes(sellerName)) {
+                missing[sup.shop_name] = r.data[sellerName];
+                break;
+              }
+            }
+          }
+        });
+        if (Object.keys(missing).length > 0) {
+          setProductCounts(prev => ({ ...prev, ...missing }));
+        }
+      }
+    } catch (e) { console.error(e) }
   }
 
   useEffect(() => { load(); loadProductCounts() }, [])
@@ -137,7 +163,7 @@ export default function SupplierList() {
     setExporting(true)
     try {
       const X = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs')
-      const d = filteredItems.map((r, i) => ({ '序号': i+1, '主体名称': r.name||'', '商家名称': r.shop_name||'', '状态': r.status||'', '联系人': r.contact?.name||'', '联系电话': r.contact?.phone||'', '微信号': r.contact?.wechat||'', '统一社会信用代码': r.company_info?.tax_id||'', '地址': r.company_info?.address||'', '主营业务': r.company_info?.main_business||'', '商品数': productCounts[r.shop_name] ?? r.product_count ?? 0, '营业执照': (r.license_files||[]).length, '合同电子版': (r.contract_files||[]).length, '下发文件': (r.dispatch_files||[]).length, '备注': r.notes||'', '更新时间': r.updatedAt?new Date(r.updatedAt).toLocaleDateString('zh-CN'):'' }))
+      const d = filteredItems.map((r, i) => ({ '序号': i+1, '主体名称': r.name||'', '商家名称': r.shop_name||'', '状态': r.status||'', '联系人': r.contact?.name||'', '联系电话': r.contact?.phone||'', '微信号': r.contact?.wechat||'', '统一社会信用代码': r.company_info?.tax_id||'', '地址': r.company_info?.address||'', '主营业务': r.company_info?.main_business||'', '商品数': productCounts[r.shop_name] ?? productCounts[r.name] ?? r.product_count ?? 0, '营业执照': (r.license_files||[]).length, '合同电子版': (r.contract_files||[]).length, '下发文件': (r.dispatch_files||[]).length, '备注': r.notes||'', '更新时间': r.updatedAt?new Date(r.updatedAt).toLocaleDateString('zh-CN'):'' }))
       const ws = X.utils.json_to_sheet(d); ws['!cols'] = [{ wch:6 },{ wch:20 },{ wch:14 },{ wch:10 },{ wch:12 },{ wch:14 },{ wch:14 },{ wch:22 },{ wch:30 },{ wch:20 },{ wch:8 },{ wch:10 },{ wch:10 },{ wch:10 },{ wch:20 },{ wch:14 }]
       const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, '供应商列表'); X.writeFile(wb, '供应商列表_' + new Date().toISOString().slice(0,10) + '.xlsx')
     } catch (e) { console.error(e); alert('导出失败: ' + e.message) }
@@ -172,11 +198,17 @@ export default function SupplierList() {
 
   const handleShopNameChange = (rowId, newName) => {
     updateItem(rowId, 'shop_name', newName, {})
-    clearTimeout(shopSearchTimers.current[rowId])
-    shopSearchTimers.current[rowId] = setTimeout(async () => {
-      if (!newName) { setProductCounts(p => ({ ...p, [newName]: 0 })); return }
-      try { const r = await api.get('/api/suppliers/product-stats?names=' + encodeURIComponent(newName)); if (r.data && r.data[newName] !== undefined) setProductCounts(p => ({ ...p, [newName]: r.data[newName] })) } catch (e) {}
-    }, 500)
+    if (newName.trim()) {
+      clearTimeout(debounceTimers.current[rowId + '_shop'])
+      debounceTimers.current[rowId + '_shop'] = setTimeout(async () => {
+        try {
+          const r = await api.get('/api/suppliers/product-stats', { params: { names: newName } })
+          if (r.data && typeof r.data === 'object') {
+            setProductCounts(prev => ({ ...prev, ...r.data }))
+          }
+        } catch (e) { console.error(e) }
+      }, 600)
+    }
   }
 
   /* 图片压缩：限制 4MB 以内 */
@@ -250,7 +282,7 @@ export default function SupplierList() {
     const sz = 44
 
     return (
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', minWidth: 100, padding: '2px 0' }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', minWidth: 120, padding: '2px 0', overflow: 'visible' }}>
         {/* 已有文件展示 */}
         {safeFiles.map((f, i) => (
           <div key={i} style={{ position: 'relative', flexShrink: 0 }}
@@ -260,8 +292,8 @@ export default function SupplierList() {
               style={{ display: 'inline-flex', textDecoration: 'none' }}>
               {isImgUrl(f.url) ? (
                 <img src={f.url} alt={f.name}
-                  style={{ width: sz, height: sz, objectFit: 'cover', borderRadius: 4, border: '1px solid #e0e0e0', display: 'block' }}
-                  onError={(e) => { e.target.style.display = 'none' }} />
+                  style={{ width: sz, height: sz, objectFit: 'contain', borderRadius: 4, border: '1px solid #d9d9d9', display: 'block', background: '#fff' }}
+                  onError={(e) => { e.target.src = ''; e.target.style.background = '#f5f5f5'; e.target.style.display = 'block'; e.target.style.border = '2px dashed #ff4d4f'; }} />
               ) : (
                 <FileIcon name={f.name} size={sz} />
               )}
@@ -271,7 +303,7 @@ export default function SupplierList() {
               style={{
                 position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%',
                 border: 'none', background: '#e74c3c', color: '#fff', fontSize: 10, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0, zIndex: 10
+                display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0, zIndex: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
               }}>×</button>
           </div>
         ))}
@@ -397,7 +429,7 @@ export default function SupplierList() {
                   <td style={td}>{renderFiles(r.license_files||[],'license',r)}</td>
                   <td style={td}>{renderFiles(r.contract_files||[],'contract',r)}</td>
                   <td style={td}>{renderFiles(r.dispatch_files||[],'dispatch',r)}</td>
-                  <td style={{...td,textAlign:'center',fontWeight:600,fontSize:13}}>{productCounts[r.shop_name] ?? r.product_count ?? 0}</td>
+                  <td style={{...td,textAlign:'center',fontWeight:600,fontSize:13}}>{productCounts[r.shop_name] ?? productCounts[r.name] ?? r.product_count ?? 0}</td>
                   <td style={td}>{saving('notes') && ' '}<input value={r.notes||''} onChange={e => updateItem(r._id,'notes',e.target.value)} style={inputStyle} placeholder='备注' onClick={e=>e.stopPropagation()} /></td>
                   <td style={{...td,fontSize:11,color:'#999'}}>{fmt(r.updatedAt)}</td>
                   <td style={td}>
@@ -440,4 +472,4 @@ export default function SupplierList() {
   )
 }
 const th = {padding:'6px 8px',borderBottom:'2px solid #e8e8e8',fontWeight:600,fontSize:11,color:'#555',whiteSpace:'nowrap',position:'sticky',top:0,background:'#f7f7f7',userSelect:'none',textAlign:'left'}
-const td = {padding:'4px 6px',borderBottom:'1px solid #f0f0f0',fontSize:12,verticalAlign:'middle',overflow:'visible',height:66}
+const td = {padding:'4px 6px',borderBottom:'1px solid #f0f0f0',fontSize:12,verticalAlign:'middle',overflow:'visible',height:66,minHeight:66}
