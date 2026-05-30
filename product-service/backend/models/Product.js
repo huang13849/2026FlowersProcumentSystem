@@ -25,6 +25,25 @@ const productSchema = new mongoose.Schema({
   origin: String,
   potColorNotes: String,
   stock: { type: Number, default: 0 },
+
+  // ── 多平台发布状态 ──
+  publishStatus: {
+    type: Map,
+    of: new mongoose.Schema({
+      status: { type: String, enum: ['unpublished','publishing','published','reviewing','failed','offline'], default: 'unpublished' },
+      platformProductId: { type: String },
+      publishTime: { type: Date },
+      offlineTime: { type: Date },
+      lastError: { type: String },
+    }, { _id: false }),
+    default: {
+      wechat: { status: 'unpublished' },
+      douyin: { status: 'unpublished' },
+      xiaohongshu: { status: 'unpublished' },
+      taobao: { status: 'unpublished' },
+      jd: { status: 'unpublished' },
+    },
+  },
   weight: Number,
   dropShippingCost: Number,
   dropShippingMarketPrice: Number,

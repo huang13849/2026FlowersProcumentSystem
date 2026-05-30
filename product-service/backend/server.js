@@ -12,6 +12,8 @@ import imageRoutes from './routes/images.js';
 import exportRoutes from './routes/export.js';
 import logRoutes from './routes/logs.js';
 import userRoutes from './routes/users.js';
+import publishTaskRoutes from './routes/publishTasks.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +44,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/publish-tasks', publishTaskRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/users', userRoutes);
 
