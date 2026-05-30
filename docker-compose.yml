@@ -82,3 +82,22 @@ services:
       - product
       - supplier
       - shop
+      - publish
+
+  publish:
+    build: ./publish-service
+    container_name: publish-service
+    restart: unless-stopped
+    ports:
+      - 3005:3005
+    env_file: ./publish-service/.env
+    volumes:
+      - publish_data:/app/data
+    depends_on:
+      - product
+      - minio
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+volumes:
+  publish_data:
