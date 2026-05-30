@@ -82,7 +82,6 @@ services:
       - product
       - supplier
       - shop
-      - publish
 
   publish:
     build: ./publish-service

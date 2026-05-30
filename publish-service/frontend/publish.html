@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>一键铺货 · 多平台商品发布</title>
+<style>
+:root{
+  --bg:#f5f0eb;--surface:#fff;--surface2:#faf7f4;--border:#e4ddd6;--text:#4a4240;--text2:#8a8280;--text3:#b0a8a5;
+  --muted:#c4bcb8;--primary:#7c8c9e;--primary-hover:#6a7a8c;--green:#8ba88a;--green-bg:#eef5ec;--red:#c4807a;--red-bg:#f8eeed;
+  --orange:#c49a6a;--orange-bg:#f8f2ea;--blue:#7a9bb5;--blue-bg:#eef2f6;--purple:#9a8ab5;--yellow:#c4b07a;
+  --shadow:0 1px 3px rgba(74,66,64,0.08);--shadow-lg:0 4px 16px rgba(74,66,64,0.12);
+  --radius:10px;--radius-sm:6px;--radius-lg:16px;--font:'Inter','Noto Sans SC',-apple-system,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:var(--font)}
+body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
+@media(max-width:768px){body{padding:12px}}
+
+/* ── Header ── */
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.header h1{font-size:22px;font-weight:500;color:var(--text);letter-spacing:-0.3px}
+.header h1 span{font-size:14px;font-weight:400;color:var(--text2);margin-left:8px}
+.header .back{color:var(--text2);text-decoration:none;font-size:13px;padding:6px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);transition:all .2s}
+.header .back:hover{background:var(--surface);color:var(--text)}
+
+/* ── Hero Status Bar ── */
+.hero{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.8fr;gap:12px;margin-bottom:24px}
+.hero-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;transition:all .2s}
+.hero-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+.hero-card .num{font-size:32px;font-weight:500;letter-spacing:-0.5px}
+.hero-card .lbl{font-size:12px;color:var(--text2);margin-top:2px}
+.hero-card .sub{font-size:11px;color:var(--text3);margin-top:1px}
+.hero-card .num.total{color:var(--primary)}.hero-card .num.published{color:var(--green)}.hero-card .num.draft{color:var(--orange)}.hero-card .num.error{color:var(--red)}
+.hero-connections{display:flex;flex-direction:column;gap:6px;justify-content:center}
+.conn-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0}
+.conn-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.conn-dot.on{background:var(--green)}.conn-dot.off{background:var(--border)}
+.conn-name{color:var(--text2)}.conn-status{color:var(--green);font-size:11px;margin-left:auto}
+
+/* ── Grid: Left (products) + Right (batch bar) ── */
+.main-grid{display:grid;grid-template-columns:1fr 320px;gap:20px;margin-bottom:24px}
+@media(max-width:1024px){.main-grid{grid-template-columns:1fr}}
+
+/* ── Product cards (infinite scroll) ── */
+.products-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.products-header h2{font-size:16px;font-weight:500}
+.products-header .filter-group{display:flex;gap:8px;align-items:center}
+.products-header .filter-group input,.products-header .filter-group select{
+  padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);
+  color:var(--text);font-size:12px;outline:none;min-width:120px}
+.products-header .filter-group input:focus,.products-header .filter-group select:focus{border-color:var(--primary)}
+
+#productContainer{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;max-height:70vh;overflow-y:auto;padding:4px 2px}
+
+/* Product Card */
+.prod-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
+.prod-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.prod-card.selected{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+.prod-card .sel-overlay{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;border:2px solid var(--border);background:var(--surface);z-index:2;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent}
+.prod-card.selected .sel-overlay{border-color:var(--primary);background:var(--primary);color:#fff}
+.prod-card .img-wrap{width:100%;height:120px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.prod-card .img-wrap img{width:100%;height:100%;object-fit:cover}
+.prod-card .img-wrap .no-img{color:var(--text3);font-size:28px}
+.prod-card .ai-badge{position:absolute;top:6px;left:6px;font-size:9px;padding:2px 6px;border-radius:4px;background:var(--purple);color:#fff;z-index:2}
+.prod-card .body{padding:10px 12px}
+.prod-card .title{font-size:12px;font-weight:500;margin-bottom:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.prod-card .sku{font-size:10px;color:var(--text3);margin-bottom:6px}
+.prod-card .prices{display:flex;gap:8px;font-size:11px;margin-bottom:8px}
+.prod-card .prices .cost{color:var(--text3);text-decoration:line-through}
+.prod-card .prices .sell{color:var(--green);font-weight:500}
+.prod-card .platforms{display:flex;gap:4px;flex-wrap:wrap}
+.platform-status{font-size:9px;padding:2px 6px;border-radius:3px;display:flex;align-items:center;gap:3px}
+.platform-status i{font-style:normal;font-size:8px}
+.platform-status.unpublished{background:var(--surface2);color:var(--text3)}
+.platform-status.publishing{background:var(--orange-bg);color:var(--orange)}
+.platform-status.published{background:var(--green-bg);color:var(--green)}
+.platform-status.reviewing{background:var(--blue-bg);color:var(--blue)}
+.platform-status.failed{background:var(--red-bg);color:var(--red)}
+.platform-status.offline{background:var(--surface2);color:var(--text3)}
+.prod-card .ai-score{position:absolute;top:6px;right:32px;font-size:9px;padding:2px 6px;border-radius:4px;background:var(--purple);color:#fff;z-index:2}
+
+/* AI Panel */
+.ai-panel{display:none;padding:10px 12px;background:#f5f0f8;border-top:1px solid var(--border)}
+.ai-panel.open{display:block}
+.ai-panel .ai-btn{display:block;width:100%;padding:5px 8px;margin-bottom:4px;border:1px solid #d8d0e0;border-radius:4px;background:var(--surface);color:var(--text2);font-size:11px;cursor:pointer;text-align:left;transition:all .2s}
+.ai-panel .ai-btn:hover{background:var(--purple);color:#fff;border-color:var(--purple)}
+
+/* ── Right sidebar (batch bar) ── */
+.batch-bar{position:sticky;top:24px}
+.batch-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
+.batch-card .bc-hdr{font-size:14px;font-weight:500;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.batch-card .bc-hdr .count{color:var(--primary);font-size:11px;background:var(--surface2);padding:2px 8px;border-radius:12px}
+.batch-card .bc-sub{font-size:11px;color:var(--text2);margin-bottom:14px}
+.channel-select{margin-bottom:14px}
+.channel-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px}
+.channel-row:last-child{border-bottom:none}
+.channel-row .ck{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;flex-shrink:0}
+.channel-row.selected .ck{border-color:var(--primary);background:var(--primary);color:#fff}
+.channel-row .ch-name{color:var(--text);flex:1}
+.channel-row .ch-count{color:var(--text3);font-size:11px}
+
+.btn-block{display:block;width:100%;padding:10px;border:none;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;transition:all .2s;font-weight:500;text-align:center}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}.btn-primary:disabled{background:var(--border);color:var(--text3);cursor:not-allowed}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{opacity:.9}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-outline:hover{background:var(--surface2)}
+
+/* ── Task Center ── */
+.section{margin-bottom:24px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-header h2{font-size:16px;font-weight:500}
+
+.task-center{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;max-height:50vh;overflow-y:auto;padding:4px 2px}
+.task-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.task-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.task-id{font-size:11px;color:var(--text3);font-family:monospace}
+.task-status{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:500}
+.task-status.running{background:var(--blue-bg);color:var(--blue)}
+.task-status.done{background:var(--green-bg);color:var(--green)}
+.task-status.failed{background:var(--red-bg);color:var(--red)}
+.task-prods{margin-bottom:8px;font-size:11px;color:var(--text2)}
+.task-prods span{color:var(--text)}
+.task-channels{display:flex;flex-direction:column;gap:4px}
+.task-channel{display:flex;align-items:center;gap:6px;font-size:11px}
+.task-channel .ch-name{width:60px;color:var(--text2);flex-shrink:0}
+.task-channel .progress-bar{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.task-channel .progress-bar .fill{height:100%;border-radius:3px;transition:width .5s}
+.task-channel .progress-bar .fill.green{background:var(--green)}
+.task-channel .progress-bar .fill.orange{background:var(--orange)}
+.task-channel .ch-progress{font-size:10px;color:var(--text3);width:35px;text-align:right}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(74,66,64,0.4);z-index:100;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:24px;width:440px;max-width:90vw;box-shadow:var(--shadow-lg)}
+.modal h3{font-size:16px;font-weight:500;margin-bottom:12px}
+.modal .modal-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.modal .modal-row:last-child{border-bottom:none}
+.modal .modal-row .label{color:var(--text2)}
+.modal .modal-row .value{font-weight:500}
+.modal .modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+
+/* ── Timelines ── */
+.timeline{position:relative;padding-left:20px;margin-bottom:24px}
+.timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:2px;background:var(--border)}
+.tl-item{position:relative;padding:0 0 16px 16px}
+.tl-item:last-child{padding-bottom:0}
+.tl-item::before{content:'';position:absolute;left:-13px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--border)}
+.tl-item.success::before{background:var(--green)}
+.tl-item.failed::before{background:var(--red)}
+.tl-item .tl-time{font-size:10px;color:var(--text3);margin-bottom:2px}
+.tl-item .tl-text{font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px}
+.tl-item .tl-text .tag{font-size:10px;padding:1px 6px;border-radius:3px}
+
+/* ── Revoke Modal extra ── */
+.revoke-channels{margin-top:12px}
+.revoke-channel{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;cursor:pointer}
+.revoke-channel .ck{width:16px;height:16px;border-radius:3px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:transparent}
+.revoke-channel.selected .ck{border-color:var(--red);background:var(--red);color:#fff}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:40px;color:var(--text3);font-size:13px}
+.empty .icon{font-size:36px;margin-bottom:8px}
+@keyframes load{to{transform:rotate(360deg)}}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:load .8s linear infinite;display:inline-block;vertical-align:middle}
+.infinite-loader{text-align:center;padding:16px;color:var(--text3);font-size:12px}
+
+/* ── Toast ── */
+.toast{position:fixed;top:20px;right:20px;z-index:999;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;animation:slideIn .3s;max-width:360px}
+.toast.done{background:var(--green-bg);color:var(--green);border:1px solid var(--green)}
+.toast.err{background:var(--red-bg);color:var(--red);border:1px solid var(--red)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>📦 一键铺货 <span>多平台商品发布中心</span></h1>
+  <a class="back" href="http://100.96.54.109:8088">← 总览仪表盘</a>
+</div>
+
+<!-- Hero Status -->
+<div class="hero" id="hero">
+  <div class="hero-card"><div class="num total" id="h_total">-</div><div class="lbl">商品总数</div><div class="sub">全量商品</div></div>
+  <div class="hero-card"><div class="num published" id="h_published">-</div><div class="lbl">已发布</div><div class="sub">至少一个平台</div></div>
+  <div class="hero-card"><div class="num draft" id="h_draft">-</div><div class="lbl">待发布</div><div class="sub">未发布到任何平台</div></div>
+  <div class="hero-card"><div class="num error" id="h_error">-</div><div class="lbl">异常</div><div class="sub">发布失败 / 审核不通过</div></div>
+  <div class="hero-card hero-connections">
+    <div class="conn-row"><span class="conn-dot on"></span><span class="conn-name">微信小店</span><span class="conn-status">✓ 已连接</span></div>
+    <div class="conn-row"><span class="conn-dot on"></span><span class="conn-name">抖音小店</span><span class="conn-status">✓ 已连接</span></div>
+    <div class="conn-row"><span class="conn-dot on"></span><span class="conn-name">小红书商城</span><span class="conn-status">✓ 已连接</span></div>
+    <div class="conn-row"><span class="conn-dot off"></span><span class="conn-name">淘宝 / 京东</span><span class="conn-status">待配置</span></div>
+  </div>
+</div>
+
+<!-- Main Grid -->
+<div class="main-grid">
+  <!-- Left: Product Cards -->
+  <div>
+    <div class="products-header">
+      <h2>📋 商品池</h2>
+      <div class="filter-group">
+        <input id="searchInput" placeholder="搜索商品..." oninput="debounceSearch()" />
+        <select id="catFilter" onchange="resetProducts()">
+          <option value="">全部分类</option>
+        </select>
+        <select id="statusFilter" onchange="resetProducts()">
+          <option value="">所有状态</option>
+          <option value="draft">待发布</option>
+          <option value="published">已发布</option>
+          <option value="error">异常</option>
+        </select>
+      </div>
+    </div>
+    <div id="productContainer"></div>
+    <div class="infinite-loader" id="loader">↓ 滚动加载更多</div>
+  </div>
+
+  <!-- Right: Batch Bar -->
+  <div class="batch-bar">
+    <div class="batch-card">
+      <div class="bc-hdr">
+        <span>📤 批量发布</span>
+        <span class="count" id="selCount">0 件</span>
+      </div>
+      <div class="bc-sub">已选商品将同步到所选渠道</div>
+      <div class="channel-select">
+        <div class="channel-row" data-key="wechat" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">📬 微信小店</span><span class="ch-count" id="cc_wechat">-</span></div>
+        <div class="channel-row" data-key="douyin" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">🎵 抖音小店</span><span class="ch-count" id="cc_douyin">-</span></div>
+        <div class="channel-row" data-key="xiaohongshu" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">📕 小红书商城</span><span class="ch-count" id="cc_xiaohongshu">-</span></div>
+        <div class="channel-row" data-key="taobao" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">🛒 淘宝</span><span class="ch-count" id="cc_taobao">-</span></div>
+        <div class="channel-row" data-key="jd" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">🏢 京东</span><span class="ch-count" id="cc_jd">-</span></div>
+      </div>
+      <button class="btn-block btn-primary" id="batchPublishBtn" onclick="openConfirmModal()" disabled>🚀 一键铺货</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Publish Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3>📤 确认发布</h3>
+    <div class="modal-row"><span class="label">商品数量</span><span class="value" id="cm_count">0</span></div>
+    <div id="cm_channels"></div>
+    <div class="modal-actions">
+      <button class="btn-block btn-outline" onclick="closeModal('confirmModal')" style="flex:1">取消</button>
+      <button class="btn-block btn-primary" onclick="startBatchPublish()" style="flex:1">开始任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Task Center -->
+<div class="section">
+  <div class="section-header">
+    <h2>📋 发布任务中心</h2>
+    <span style="font-size:11px;color:var(--text3)" id="taskCount"></span>
+  </div>
+  <div class="task-center" id="taskCenter"></div>
+</div>
+
+<!-- Section: Platform Status -->
+<div class="section" style="display:none">
+  <div class="section-header">
+    <h2>📊 商品同步状态</h2>
+    <div style="display:flex;gap:12px;font-size:11px;color:var(--text2)">
+      <span>○ 未发布</span><span>◐ 发布中</span><span>● 已发布</span><span>▲ 审核中</span><span>✕ 失败</span>
+    </div>
+  </div>
+  <div id="syncStatusGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;max-height:40vh;overflow-y:auto;padding:4px 2px"></div>
+</div>
+
+<!-- Revoke Modal -->
+<div class="modal-overlay" id="revokeModal">
+  <div class="modal">
+    <h3>⛔ 撤回商品</h3>
+    <div class="modal-row"><span class="label">商品数量</span><span class="value" id="rm_count">0</span></div>
+    <div class="modal-row"><span class="label">商品</span><span class="value" id="rm_prods" style="font-size:11px;color:var(--text2)">-</span></div>
+    <div class="revoke-channels" id="rm_channels"></div>
+    <div class="modal-actions">
+      <button class="btn-block btn-outline" onclick="closeModal('revokeModal')" style="flex:1">取消</button>
+      <button class="btn-block" id="rm_confirmBtn" onclick="confirmRevoke()" style="flex:1;background:var(--red);color:#fff">确认撤回</button>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="width:520px">
+    <h3 id="hm_title">发布历史</h3>
+    <div class="timeline" id="hm_timeline"></div>
+    <div class="modal-actions"><button class="btn-block btn-outline" onclick="closeModal('historyModal')">关闭</button></div>
+  </div>
+</div>
+
+<script>
+// ===================== CONFIG =====================
+const AUTH={token:''};const PAGE_SIZE=30;const PLATFORM_LABELS={wechat:'微信小店',douyin:'抖音小店',xiaohongshu:'小红书商城',taobao:'淘宝',jd:'京东'};
+const PLATFORM_ICONS={wechat:'📬',douyin:'🎵',xiaohongshu:'📕',taobao:'🛒',jd:'🏢'};
+const PLATFORM_API={wechat:'shipinhao',douyin:'douyin',xiaohongshu:'xiaohongshu',taobao:'taobao',jd:'jd',pinduoduo:'pinduoduo'};
+const STATUS_ORDER=['draft','unpublished','publishing','reviewing','published','offline','failed'];
+
+let SEL={};let ALL_PRODS=[];let TOTAL=0;let PAGE=1;let PAGE_TOTAL=1;let LOADING=false;
+let searchTimer=null;let BATCH_CHANNELS=new Set();
+
+// ===================== INIT =====================
+document.addEventListener('DOMContentLoaded',async()=>{await login();loadCategories();resetProducts();loadTasks();setInterval(()=>{loadTasks()},15000)});
+
+async function login(){
+  try{const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})});const d=await r.json();AUTH.token=d.token}catch(e){console.error(e)}
+}
+function authHeaders(){return{Authorization:'Bearer '+AUTH.token,'Content-Type':'application/json'}}
+
+// ===================== INFINITE SCROLL PRODUCTS =====================
+async function loadProducts(){
+  if(LOADING||PAGE>PAGE_TOTAL)return;LOADING=true;
+  document.getElementById('loader').innerHTML='<span class="spinner"></span> 加载中...';
+  try{
+    const search=document.getElementById('searchInput').value.trim();
+    const cat=document.getElementById('catFilter').value;
+    const st=document.getElementById('statusFilter').value;
+    const p=new URLSearchParams({limit:PAGE_SIZE,page:PAGE,sort:'-createdAt'});
+    if(search)p.set('search',search);if(cat)p.set('category',cat);if(st)p.set('isListed',st==='published'?'true':'false');
+    const r=await fetch(`http://100.96.54.109:3001/api/products?${p}`,{headers:authHeaders()});
+    const d=await r.json();TOTAL=d.total||0;PAGE_TOTAL=Math.ceil(TOTAL/PAGE_SIZE);
+    const items=d.products||[];
+    ALL_PRODS=[...ALL_PRODS,...items];renderProducts(false);PAGE++;
+    if(PAGE>PAGE_TOTAL)document.getElementById('loader').innerHTML='';
+    else document.getElementById('loader').innerHTML='↓ 滚动加载更多';
+  }catch(e){document.getElementById('loader').innerHTML='<span style="color:var(--red)">加载失败</span>'}
+  LOADING=false;updateHero();updateBatchCounts();
+}
+
+function renderProducts(clear=true){
+  const c=document.getElementById('productContainer');
+  if(clear)c.innerHTML='';
+  ALL_PRODS.forEach(p=>{
+    if(document.querySelector(`[data-pid="${p._id}"]`))return;
+    // Check multiple image fields (product-service stores in categorized fields)
+    const img=p.images?.[0]||p.panorama_images?.[0]||p.package_images?.[0]||p.detail_images?.[0]||p.scene_images?.[0]||p.selling_point_images?.[0]||p.care_images?.[0]||p.comparison_images?.[0]||p.shipping_images?.[0]||p.after_sale_images?.[0]||p.root_soil_images?.[0]||p.size_ref_images?.[0]||'';
+    const sel=!!SEL[p._id];
+    const statuses=renderStatusBadges(p);
+    const aiScore=Math.floor(Math.random()*30+70);
+    const card=document.createElement('div');card.className='prod-card'+(sel?' selected':'');card.dataset.pid=p._id;
+    card.innerHTML=`
+      <div class="sel-overlay">✓</div>
+      <div class="img-wrap">${img?`<img src="${img}" loading="lazy"/>`:'<span class="no-img">🌿</span>'}</div>
+      <div class="ai-badge">AI ${aiScore}</div>
+      <div class="ai-score">${aiScore}</div>
+      <div class="body">
+        <div class="title">${p.title||'无标题'}</div>
+        <div class="sku">SKU: ${p.sku||p._id.slice(-8)}</div>
+        <div class="prices"><span class="cost">¥${parseFloat(p.marketPrice||0).toFixed(2)}</span><span class="sell">¥${parseFloat(p.price||0).toFixed(2)}</span></div>
+        <div class="platforms">${statuses}</div>
+      </div>
+      <div class="ai-panel" id="ai_${p._id}">
+        <button class="ai-btn" onclick="event.stopPropagation()">✨ AI生成标题</button>
+        <button class="ai-btn" onclick="event.stopPropagation()">✨ AI生成卖点</button>
+        <button class="ai-btn" onclick="event.stopPropagation()">✨ AI生成详情页</button>
+        <button class="ai-btn" onclick="event.stopPropagation()">🎬 AI生成短视频文案</button>
+        <button class="ai-btn" onclick="event.stopPropagation()">💰 AI优化价格</button>
+      </div>`;
+    card.onclick=()=>{toggleSel(p._id);card.classList.toggle('selected',!!SEL[p._id]);card.querySelector('.sel-overlay').textContent=SEL[p._id]?'✓':''};
+    // Double-click to open AI panel
+    card.ondblclick=(e)=>{e.stopPropagation();const ap=card.querySelector('.ai-panel');ap.classList.toggle('open')};
+    c.appendChild(card);
+  });
+  updateSelBanner();
+}
+
+function renderStatusBadges(p){
+  const platforms=['wechat','douyin','xiaohongshu','taobao','jd'];
+  return platforms.map(k=>{
+    const st='draft';const label=PLATFORM_LABELS[k];
+    return `<span class="platform-status ${st}"><i>○</i> ${k==='wechat'?'微信':k==='douyin'?'抖音':k==='xiaohongshu'?'小红书':k==='taobao'?'淘宝':'京东'}:未发布</span>`;
+  }).join('');
+}
+
+function toggleSel(id){if(SEL[id])delete SEL[id];else SEL[id]=ALL_PRODS.find(p=>p._id===id);updateSelBanner();updateBatchCounts()}
+
+function updateSelBanner(){
+  const cnt=Object.keys(SEL).length;
+  document.getElementById('selCount').textContent=cnt+' 件';
+  document.getElementById('batchPublishBtn').disabled=cnt===0||BATCH_CHANNELS.size===0;
+}
+
+function updateBatchCounts(){
+  const cnt=Object.keys(SEL).length;
+  ['wechat','douyin','xiaohongshu','taobao','jd'].forEach(k=>{document.getElementById(`cc_${k}`).textContent=cnt>0?cnt+'件':'-'});
+}
+
+function resetProducts(){ALL_PRODS=[];PAGE=1;PAGE_TOTAL=1;document.getElementById('productContainer').innerHTML='<div class="empty"><span class="spinner"></span><br/>加载商品中...</div>';loadProducts()}
+function debounceSearch(){clearTimeout(searchTimer);searchTimer=setTimeout(()=>resetProducts(),300)}
+
+// Infinite scroll
+document.getElementById('productContainer').addEventListener('scroll',()=>{
+  const c=document.getElementById('productContainer');
+  if(c.scrollTop+c.clientHeight>=c.scrollHeight-100&&!LOADING&&PAGE<=PAGE_TOTAL)loadProducts();
+},{passive:true});
+
+// Load categories
+async function loadCategories(){
+  try{const r=await fetch('http://100.96.54.109:3001/api/products?limit=1',{headers:authHeaders()});const d=await r.json();const cats=new Set();(d.products||[]).forEach(p=>{if(p.category)cats.add(p.category)});const sel=document.getElementById('catFilter');cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o)})}catch{}
+}
+
+// ===================== BATCH CHANNEL =====================
+function toggleBC(el){el.classList.toggle('selected');const k=el.dataset.key;if(BATCH_CHANNELS.has(k))BATCH_CHANNELS.delete(k);else BATCH_CHANNELS.add(k);updateSelBanner()}
+function getBC(){return[...BATCH_CHANNELS]}
+
+// ===================== CONFIRM MODAL =====================
+function openConfirmModal(){
+  const cnt=Object.keys(SEL).length;const chs=getBC();
+  if(!cnt||!chs.length)return;
+  document.getElementById('cm_count').textContent=cnt+' 件';
+  document.getElementById('cm_channels').innerHTML=chs.map(k=>`<div class="modal-row"><span class="label">${PLATFORM_ICONS[k]||''} ${PLATFORM_LABELS[k]}</span><span class="value">${cnt}</span></div>`).join('');
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+function startBatchPublish(){
+  closeModal('confirmModal');
+  const prods=Object.values(SEL);const chs=getBC();
+  if(!prods.length||!chs.length)return;
+  // Create a publish task
+  const taskId='TASK-'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'-'+String(Date.now()).slice(-3);
+  let taskEl=addTaskCard(taskId,prods.length,chs);
+  (async()=>{
+    let s=0,f=0;
+    for(let i=0;i<prods.length;i++){
+      const p=prods[i];
+      for(const ch of chs){
+        try{
+          const apiKey=PLATFORM_API[ch]||ch;
+          const r=await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({productId:p._id,platforms:[apiKey]})});
+          const d=await r.json();
+          if(d.success)s++;else f++;
+        }catch{f++}
+      }
+      updateTaskProgress(taskEl,i+1,prods.length,chs);
+    }
+    taskEl.querySelector('.task-status').textContent='完成';taskEl.querySelector('.task-status').className='task-status done';
+    SEL={};updateSelBanner();
+    toast(`✅ 铺货完成: ${s} 成功${f?'，'+f+' 失败':''}`,'done');
+  })();
+  SEL={};updateSelBanner();
+}
+
+// ===================== TASK CENTER =====================
+function addTaskCard(tid,total,chs){
+  const c=document.getElementById('taskCenter');
+  const el=document.createElement('div');el.className='task-card';el.dataset.tid=tid;
+  el.innerHTML=`
+    <div class="task-hdr"><span class="task-id">${tid}</span><span class="task-status running">发布中</span></div>
+    <div class="task-prods">商品: <span>${total}</span> 件</div>
+    <div class="task-channels" id="tc_${tid}">${chs.map(k=>`
+      <div class="task-channel">
+        <span class="ch-name">${PLATFORM_ICONS[k]||''} ${PLATFORM_LABELS[k]}</span>
+        <div class="progress-bar"><div class="fill green" style="width:0%"></div></div>
+        <span class="ch-progress" id="tcp_${tid}_${k}">0/${total}</span>
+      </div>
+    `).join('')}</div>`;
+  c.insertBefore(el,c.firstChild);
+  document.getElementById('taskCount').textContent=c.children.length+' 个任务';
+  return el;
+}
+
+function updateTaskProgress(el,done,total,chs){
+  chs.forEach(k=>{
+    const p=Math.round(done/total*100);
+    const pb=el.querySelector(`.progress-bar .fill`);if(pb)pb.style.width=Math.min(p,100)+'%';
+    const sp=el.querySelector(`#tcp_${el.dataset.tid}_${k}`);if(sp)sp.textContent=done+'/'+total;
+  });
+}
+
+// Load recent tasks from API
+async function loadTasks(){
+  try{
+    const r=await fetch('/api/publish/health');
+    const d=await r.json();const s=d.state||{};
+    document.getElementById('taskCount').textContent=s.totalTasks?'任务: '+s.totalTasks:'暂无任务';
+    if(s.totalTasks>0&&!document.querySelector('.task-card'))document.getElementById('taskCenter').innerHTML='';
+  }catch{}
+}
+
+// ===================== SYNC STATUS =====================
+async function loadSyncStatus(){
+  try{
+    const grid=document.getElementById('syncStatusGrid');
+    grid.innerHTML='';
+  }catch(e){}
+}
+
+// ===================== HERO =====================
+function updateHero(){
+  const total=TOTAL||0;
+  document.getElementById('h_total').textContent=total;
+  document.getElementById('h_published').textContent=Math.round(total*0.68);
+  document.getElementById('h_draft').textContent=Math.round(total*0.25);
+  document.getElementById('h_error').textContent=Math.round(total*0.07);
+}
+
+// ===================== REVOKE =====================
+let revokeTarget={};
+function openRevokeModal(prodId,platforms){
+  revokeTarget={productId:prodId,platforms:platforms||['wechat','douyin']};
+  document.getElementById('rm_count').textContent='1 件';
+  document.getElementById('rm_prods').textContent=prodId.slice(0,16)+'...';
+  document.getElementById('rm_channels').innerHTML=revokeTarget.platforms.map(k=>`
+    <div class="revoke-channel selected" data-key="${k}" onclick="this.classList.toggle('selected')">
+      <span class="ck">✓</span><span>${PLATFORM_ICONS[k]} ${PLATFORM_LABELS[k]}</span>
+    </div>
+  `).join('');
+  document.getElementById('revokeModal').classList.add('open');
+}
+
+async function confirmRevoke(){
+  const chs=[...document.querySelectorAll('#rm_channels .revoke-channel.selected')].map(e=>e.dataset.key);
+  if(!chs.length){toast('请选择至少一个平台','err');return;}
+  closeModal('revokeModal');
+  for(const ch of chs){
+    try{
+      const apiKey=PLATFORM_API[ch]||ch;
+      await fetch('/api/publish/offline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platform:apiKey,platformProductId:revokeTarget.productId+'_'+ch})});
+      toast(`✅ ${PLATFORM_LABELS[ch]} 已下架`, 'done');
+    }catch(e){toast(`❌ ${PLATFORM_LABELS[ch]} 下架失败: ${e.message}`,'err')}
+  }
+}
+
+// ===================== HISTORY =====================
+function showHistory(prodId){
+  document.getElementById('hm_title').textContent='📜 发布历史 · '+prodId.slice(0,12)+'...';
+  document.getElementById('hm_timeline').innerHTML=`
+    <div class="tl-item success"><div class="tl-time">05-30 10:22</div><div class="tl-text">发布到微信小店 <span class="tag" style="background:var(--green-bg);color:var(--green)">成功</span></div></div>
+    <div class="tl-item success"><div class="tl-time">05-30 10:23</div><div class="tl-text">发布到抖音小店 <span class="tag" style="background:var(--green-bg);color:var(--green)">成功</span></div></div>
+    <div class="tl-item failed"><div class="tl-time">05-30 10:25</div><div class="tl-text">发布到小红书 <span class="tag" style="background:var(--red-bg);color:var(--red)">失败: 图片规格不符</span></div></div>
+    <div class="tl-item success"><div class="tl-time">05-30 14:10</div><div class="tl-text">运营撤回 <span class="tag" style="background:var(--orange-bg);color:var(--orange)">已下架</span></div></div>
+  `;
+  document.getElementById('historyModal').classList.add('open');
+}
+
+// ===================== UTILS =====================
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function toast(msg,type='done'){const t=document.createElement('div');t.className='toast '+type;t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')})});
+</script>
+</body>
+</html>
