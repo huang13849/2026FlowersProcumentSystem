@@ -9,55 +9,127 @@ class ProductClient {
   constructor() {
     this.baseUrl = config.productService.baseUrl;
     this.timeout = config.productService.timeoutMs;
+    this._token = null;
+    this._tokenExpiry = 0;
+    this._authInProgress = null;  // 防止并发登录
+
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: this.timeout,
       headers: { 'Content-Type': 'application/json' },
     });
+
+    // 响应拦截器：401 时自动重登录
+    this.client.interceptors.response.use(
+      response => response,
+      async error => {
+        const originalRequest = error.config;
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          await this._ensureAuth();
+          originalRequest.headers['Authorization'] = 'Bearer ' + this._token;
+          return this.client(originalRequest);
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  /**
+   * 登录获取 JWT token
+   */
+  async _login() {
+    const username = config.productService.username;
+    const password = config.productService.password;
+
+    if (!username || !password) {
+      throw new Error('product-service 未配置登录凭据 (PRODUCT_SERVICE_USERNAME / PRODUCT_SERVICE_PASSWORD)');
+    }
+
+    const response = await axios({
+      method: 'POST',
+      url: this.baseUrl + '/api/auth/login',
+      headers: { 'Content-Type': 'application/json' },
+      data: { username, password },
+      timeout: 10000,
+    });
+
+    const token = response.data?.token;
+    if (!token) {
+      throw new Error('product-service 登录失败: 未返回 token');
+    }
+
+    this._token = token;
+    this._tokenExpiry = Date.now() + 7 * 24 * 3600 * 1000; // JWT 配置了 7 天过期
+    console.log('[ProductClient] 登录成功，已获取 JWT token');
+    return token;
+  }
+
+  /**
+   * 确保已登录，如 token 过期则重新登录
+   */
+  async _ensureAuth() {
+    if (this._token && Date.now() < this._tokenExpiry - 60000) {
+      return this._token;
+    }
+    // 防止并发多次登录
+    if (this._authInProgress) {
+      return this._authInProgress;
+    }
+    this._authInProgress = this._login().finally(() => {
+      this._authInProgress = null;
+    });
+    return this._authInProgress;
+  }
+
+  /**
+   * 设置请求头（带 auth token）
+   */
+  async _getHeaders() {
+    const token = await this._ensureAuth();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token,
+    };
   }
 
   /**
    * 获取单个商品完整数据
-   * GET /api/products/:id（注意 products 是复数，匹配 product-service 实际路由）
-   * @param {string} productId
-   * @returns {Promise<Object>} 商品结构化数据
+   * GET /api/products/:id
    */
   async getProductById(productId) {
     try {
-      const { data } = await this.client.get(`/api/products/${productId}`);
+      const headers = await this._getHeaders();
+      const { data } = await this.client.get('/api/products/' + productId, { headers });
       return this.normalizeProduct(data);
     } catch (err) {
-      console.error(`[ProductClient] 获取商品失败 productId=${productId}:`, err.message);
-      throw new Error(`无法获取商品 ${productId}: ${err.message}`);
+      console.error('[ProductClient] 获取商品失败 productId=' + productId + ':', err.message);
+      throw new Error('无法获取商品 ' + productId + ': ' + err.message);
     }
   }
 
   /**
    * 批量获取商品数据
-   * GET /api/products?ids=...
-   * @param {string[]} productIds
-   * @returns {Promise<Object[]>}
+   * GET /api/products
    */
   async getProductBatch(productIds) {
     try {
-      // 实际使用 product-service 的批量查询
-      // 现有 routes 支持 GET /api/products?page=1&limit=50&search=...
-      const { data } = await this.client.get(`/api/products`, {
-        params: { limit: 50, _ids: productIds.join(',') }
+      const headers = await this._getHeaders();
+      const { data } = await this.client.get('/api/products', {
+        params: { limit: 50, _ids: productIds.join(',') },
+        headers,
       });
       return (Array.isArray(data?.products) ? data.products : []).map(p => this.normalizeProduct(p));
     } catch (err) {
-      console.error(`[ProductClient] 批量获取商品失败:`, err.message);
-      throw new Error(`无法批量获取商品: ${err.message}`);
+      console.error('[ProductClient] 批量获取商品失败:', err.message);
+      throw new Error('无法批量获取商品: ' + err.message);
     }
   }
 
   /**
    * 标准化商品数据结构
-   * 适配 product-service 可能的不同返回格式
    */
   normalizeProduct(raw) {
-    // 兼容 { data: { ... } } 或直接返回对象
     const product = raw?.data || raw;
 
     return {
@@ -72,20 +144,15 @@ class ProductClient {
       category: product.category || product.categories || '',
       specs: product.specs || product.specifications || product.skuList || [],
       delivery: product.delivery || product.deliveryFrom || product.shippingFrom || '',
-      // 营销卖点
       sellingPoints: product.sellingPoints || product.highlights || [],
-      // 售后保障
       afterSales: product.afterSales || product.warranty || '',
-      // 养护教程
       careGuide: product.careGuide || product.maintenanceGuide || '',
-      // 场景应用
       sceneApplication: product.sceneApplication || product.usageScenarios || '',
     };
   }
 
   /**
-   * 检查 product-service 健康状态
-   * @returns {Promise<boolean>}
+   * 健康检查
    */
   async healthCheck() {
     try {

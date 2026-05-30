@@ -31,6 +31,10 @@ app.use(morgan('short'));
 
 // ==================== 路由 ====================
 
+// 前端页面（publish.html）
+app.get('/', (req, res) => res.sendFile(require('path').join(__dirname, '..', 'frontend', 'publish.html')));
+app.use(express.static(require('path').join(__dirname, '..', 'frontend')));
+
 // 发布服务主路由
 app.use('/api/publish', publishRoutes);
 

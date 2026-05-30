@@ -419,28 +419,55 @@ function startBatchPublish(){
   closeModal('confirmModal');
   const prods=Object.values(SEL);const chs=getBC();
   if(!prods.length||!chs.length)return;
-  // Create a publish task
-  const taskId='TASK-'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'-'+String(Date.now()).slice(-3);
-  let taskEl=addTaskCard(taskId,prods.length,chs);
+  const batchTaskId='BATCH-'+String(Date.now());
+  const taskEl=addTaskCard(batchTaskId,prods.length,chs);
+  let totalOps=prods.length*chs.length, doneOps=0, successCount=0, failCount=0;
   (async()=>{
-    let s=0,f=0;
     for(let i=0;i<prods.length;i++){
       const p=prods[i];
       for(const ch of chs){
+        const apiKey=PLATFORM_API[ch]||ch;
         try{
-          const apiKey=PLATFORM_API[ch]||ch;
           const r=await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({productId:p._id,platforms:[apiKey]})});
           const d=await r.json();
-          if(d.success)s++;else f++;
-        }catch{f++}
+          if(d.success && d.taskId){
+            const realResult=await pollTaskResult(d.taskId);
+            if(realResult.success)successCount++;else failCount++;
+          } else {
+            failCount++;
+          }
+        }catch(e){failCount++}
+        doneOps++;
+        updateTaskProgress(taskEl,doneOps,totalOps,chs);
       }
-      updateTaskProgress(taskEl,i+1,prods.length,chs);
     }
+    const totalMsg='铺货完成: '+successCount+' 成功'+(failCount?', '+failCount+' 失败':'');
+    const type=failCount?(successCount?'warn':'err'):'done';
     taskEl.querySelector('.task-status').textContent='完成';taskEl.querySelector('.task-status').className='task-status done';
     SEL={};updateSelBanner();
-    toast(`✅ 铺货完成: ${s} 成功${f?'，'+f+' 失败':''}`,'done');
+    toast(totalMsg,type);
   })();
   SEL={};updateSelBanner();
+}
+
+/** 轮询任务状态直到完成 */
+async function pollTaskResult(taskId,maxWaitMs){
+  maxWaitMs=maxWaitMs||120000;
+  const start=Date.now();
+  while(Date.now()-start<maxWaitMs){
+    await new Promise(function(r){setTimeout(r,2000)});
+    try{
+      const r=await fetch('/api/publish/status/'+taskId);
+      const d=await r.json();
+      if(d.status==='completed'||d.status==='failed'){
+        const results=d.results||{};
+        var allOk=true;
+        for(var k in results){if(results[k].status!=='success')allOk=false;}
+        return {success:allOk,detail:d};
+      }
+    }catch(e){}
+  }
+  return {success:false,detail:{error:'timeout'}};
 }
 
 // ===================== TASK CENTER =====================

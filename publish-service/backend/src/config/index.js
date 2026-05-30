@@ -13,6 +13,8 @@ const config = {
     // 实际 product-service (backend/server.js) 默认是 PORT=3000,
     // 但 docker-compose 中映射为 3001:3000
     // 容器间通信用 http://product-service:3001
+    username: process.env.PRODUCT_SERVICE_USERNAME || 'admin',
+    password: process.env.PRODUCT_SERVICE_PASSWORD || 'admin123',
     timeoutMs: 15000,
   },
 
