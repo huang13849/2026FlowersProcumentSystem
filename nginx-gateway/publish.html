@@ -3,27 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>一键铺货 - 多平台发布</title>
+<title>一键铺货 - 多平台商品发布</title>
 <style>
-:root {
-  --bg-primary: #0b172b;
-  --bg-secondary: #121e34;
-  --bg-card: #19243b;
-  --bg-hover: #1e2d48;
-  --text-primary: #e8eaed;
-  --text-secondary: #9aa0b0;
-  --text-muted: #5e6a82;
-  --accent-purple: #a78bfa;
-  --accent-blue: #60a5fa;
-  --accent-green: #34d399;
-  --accent-pink: #f472b6;
-  --accent-orange: #fb923c;
-  --accent-cyan: #22d3ee;
-  --border: #1e2d48;
-  --shadow: rgba(0,0,0,0.3);
-  --radius: 12px;
-  --radius-sm: 8px;
-}
+:root{--bg-primary:#0b172b;--bg-secondary:#121e34;--bg-card:#19243b;--bg-hover:#1e2d48;--text-primary:#e8eaed;--text-secondary:#9aa0b0;--text-muted:#5e6a82;--accent-purple:#a78bfa;--accent-blue:#60a5fa;--accent-green:#34d399;--accent-pink:#f472b6;--accent-orange:#fb923c;--accent-cyan:#22d3ee;--border:#1e2d48;--shadow:rgba(0,0,0,0.3);--radius:12px;--radius-sm:8px}
 *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
 body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh}
 .header{background:var(--bg-card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
@@ -40,32 +22,26 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh}
 .form-group input,.form-group select{width:100%;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:13px;outline:none}
 .form-group input:focus,.form-group select:focus{border-color:var(--accent-blue)}
 .platform-checkboxes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.platform-checkbox{display:flex;align-items:center;gap:8px;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:all 0.2s;font-size:13px}
-.platform-checkbox:hover{border-color:var(--accent-blue);background:var(--bg-hover)}
-.platform-checkbox input{display:none}
+.platform-checkbox{display:flex;align-items:center;gap:8px;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:all .2s;font-size:13px;user-select:none}
+.platform-checkbox:hover{border-color:var(--accent-blue)}
 .platform-checkbox .check{width:16px;height:16px;border-radius:4px;border:1px solid var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
-.platform-checkbox input:checked + .check{background:var(--accent-blue);border-color:var(--accent-blue)}
 .platform-checkbox.selected{border-color:var(--accent-blue);background:rgba(96,165,250,0.1)}
-.btn{padding:10px 20px;border:none;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;transition:all 0.2s;font-weight:500}
+.platform-checkbox.selected .check{background:var(--accent-blue);border-color:var(--accent-blue)}
+.platform-checkbox.selected .check::after{content:"✓";color:#fff}
+.btn{padding:10px 20px;border:none;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;transition:all .2s;font-weight:500;display:inline-flex;align-items:center;gap:6px}
 .btn-primary{background:var(--accent-blue);color:#fff}
 .btn-primary:hover{background:#4b8fe0;transform:translateY(-1px)}
 .btn-primary:disabled{background:var(--text-muted);cursor:not-allowed;transform:none}
 .btn-success{background:var(--accent-green);color:#0b172b}
 .btn-warning{background:var(--accent-orange);color:#0b172b}
-.btn-danger{background:#ef4444;color:#fff}
 .btn-sm{padding:6px 12px;font-size:12px}
-.task-item{padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:8px;font-size:13px}
-.task-item .task-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.task-item .task-id{font-size:11px;color:var(--text-muted)}
-.task-item .task-platforms{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
-.platform-tag{padding:2px 6px;border-radius:4px;font-size:10px;background:var(--bg-hover)}
+.platform-tag{padding:2px 8px;border-radius:4px;font-size:10px;background:var(--bg-hover)}
 .platform-tag.douyin{background:rgba(34,211,238,0.2);color:var(--accent-cyan)}
 .platform-tag.xiaohongshu{background:rgba(244,114,182,0.2);color:var(--accent-pink)}
 .platform-tag.pinduoduo{background:rgba(251,146,60,0.2);color:var(--accent-orange)}
 .platform-tag.shipinhao{background:rgba(167,139,250,0.2);color:var(--accent-purple)}
 .status-badge{padding:2px 8px;border-radius:10px;font-size:11px}
 .status-badge.waiting{background:rgba(96,165,250,0.2);color:var(--accent-blue)}
-.status-badge.processing,.status-badge.publishing{background:rgba(251,146,60,0.2);color:var(--accent-orange)}
 .status-badge.success{background:rgba(52,211,153,0.2);color:var(--accent-green)}
 .status-badge.failed{background:rgba(239,68,68,0.2);color:#ef4444}
 .status-badge.retrying{background:rgba(167,139,250,0.2);color:var(--accent-purple)}
@@ -73,27 +49,30 @@ table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
 th{color:var(--text-muted);font-weight:500}
 td{color:var(--text-secondary)}
-.tab-bar{display:flex;gap:2px;margin-bottom:16px;background:var(--bg-secondary);border-radius:var(--radius-sm);padding:2px}
-.tab{flex:1;padding:8px;text-align:center;border:none;background:transparent;color:var(--text-muted);cursor:pointer;border-radius:6px;font-size:13px}
-.tab.active{background:var(--bg-card);color:var(--text-primary)}
+.result-box{padding:12px;border-radius:var(--radius-sm);margin-top:12px;font-size:13px}
+.result-box.success{border:1px solid var(--accent-green);color:var(--accent-green);background:rgba(52,211,153,0.05)}
+.result-box.error{border:1px solid #ef4444;color:#ef4444;background:rgba(239,68,68,0.05)}
+.loading{text-align:center;padding:40px;color:var(--text-muted)}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent-blue);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stat-item{padding:8px;background:var(--bg-secondary);border-radius:6px;margin-bottom:8px;text-align:center}
+.stat-item .num{font-size:22px;font-weight:700;color:var(--accent-blue)}
+.stat-item .label{font-size:11px;color:var(--text-muted)}
 .empty-state{text-align:center;padding:40px;color:var(--text-muted);font-size:13px}
 .empty-state .icon{font-size:48px;margin-bottom:12px}
-pre{background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);font-size:11px;overflow-x:auto;max-height:200px;color:var(--text-secondary);white-space:pre-wrap}
-.loading{text-align:center;padding:40px;color:var(--text-muted)}
-@keyframes spin{to{transform:rotate(360deg)}}
-.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent-blue);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block}
 </style>
 </head>
 <body>
 <div class="header">
-  <h1>📦 一键铺货 · 多平台发布</h1>
+  <h1>📦 一键铺货 · 多平台商品发布</h1>
   <a class="back" href="http://100.96.54.109:8088">← 返回仪表盘</a>
 </div>
 <div class="container">
   <div class="grid">
     <div>
+      <!-- 发布表单 -->
       <div class="card">
-        <h3>📤 发布商品</h3>
+        <h3>📤 发布商品 | 一键铺货</h3>
         <div class="form-group">
           <label>商品 ID</label>
           <input id="productId" type="text" placeholder="输入商品ID" />
@@ -102,262 +81,146 @@ pre{background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);f
           <label>选择发布平台</label>
           <div class="platform-checkboxes" id="platformCheckboxes"></div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:16px">
-          <button class="btn btn-primary" id="publishBtn" disabled>🚀 一键铺货</button>
-          <button class="btn btn-warning btn-sm" onclick="clearForm()">清空</button>
+        <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="publishBtn" disabled onclick="doPublish()">🚀 一键铺货</button>
+          <button class="btn btn-success btn-sm" onclick="quickPublish(['douyin','xiaohongshu'])">抖店+小红书</button>
+          <button class="btn btn-sm" style="background:var(--accent-orange);color:#0b172b" onclick="quickPublish(['pinduoduo'])">拼多多</button>
+          <button class="btn btn-sm" style="background:var(--accent-purple);color:#fff" onclick="quickPublish(['shipinhao'])">视频号</button>
+          <button class="btn btn-sm" style="background:var(--accent-green);color:#0b172b" onclick="quickPublish(['douyin','xiaohongshu','pinduoduo','shipinhao'])">所有平台</button>
         </div>
-        <div id="publishResult" style="display:none;margin-top:12px"></div>
+        <div id="publishResult"></div>
       </div>
+      
+      <!-- 任务查询 -->
       <div class="card">
-        <div class="tab-bar">
-          <button class="tab active" onclick="switchTab('tasks')">发布任务</button>
-          <button class="tab" onclick="switchTab('records')">历史记录</button>
+        <h3>🔍 查询发布状态</h3>
+        <div style="display:flex;gap:8px">
+          <input id="lookupTaskId" type="text" placeholder="输入 taskId 查询发布状态" style="flex:1" />
+          <button class="btn btn-primary btn-sm" onclick="lookupTask()">查询</button>
         </div>
-        <div id="tab-tasks"><div id="taskList"></div></div>
-        <div id="tab-records" style="display:none">
-          <div class="form-group">
-            <label>查询商品同步记录</label>
-            <div style="display:flex;gap:8px">
-              <input id="recordProductId" type="text" placeholder="输入商品ID" style="flex:1" />
-              <button class="btn btn-primary btn-sm" onclick="loadRecords()">查询</button>
-            </div>
-          </div>
-          <div id="recordsList"></div>
-        </div>
+        <div id="lookupResult"></div>
+      </div>
+
+      <!-- 发布统计 -->
+      <div class="card">
+        <h3>📊 发布统计</h3>
+        <div id="taskStats"><div class="loading"><span class="spinner"></span> 加载中...</div></div>
       </div>
     </div>
+
     <div>
-      <div class="card">
-        <h3>📋 快速操作</h3>
-        <div style="display:grid;gap:8px">
-          <button class="btn btn-primary btn-sm" onclick="quickPublish(['douyin','xiaohongshu'])">快速发布到抖店+小红书</button>
-          <button class="btn btn-primary btn-sm" onclick="quickPublish(['pinduoduo'])">快速发布到拼多多</button>
-          <button class="btn btn-primary btn-sm" onclick="quickPublish(['shipinhao'])">快速发布到视频号</button>
-          <button class="btn btn-primary btn-sm" onclick="quickPublish(['douyin','xiaohongshu','pinduoduo','shipinhao'])">发布到所有平台</button>
-          <button class="btn btn-warning btn-sm" onclick="openRetryDialog()">🔄 重试失败任务</button>
-        </div>
-      </div>
+      <!-- 图床文件统计 -->
       <div class="card">
         <h3>🖼️ 图床文件统计</h3>
         <div id="minioStats"><div class="loading"><span class="spinner"></span> 加载中...</div></div>
-      </div>
-      <div class="card">
-        <h3>📊 发布统计</h3>
-        <div id="publishStats"><div class="loading"><span class="spinner"></span> 加载中...</div></div>
       </div>
     </div>
   </div>
 </div>
 
-<div id="retryDialog" style="display:none">
-  <script type="module">
-  const PUBLISH_BASE = '/api/publish';
-  const PLATFORMS = {
-    douyin: { name: '抖店', emoji: '<span class="platform-tag douyin">🎵</span>' },
-    xiaohongshu: { name: '小红书', emoji: '<span class="platform-tag xiaohongshu">📕</span>' },
-    pinduoduo: { name: '拼多多', emoji: '<span class="platform-tag pinduoduo">🛒</span>' },
-    shipinhao: { name: '视频号', emoji: '<span class="platform-tag shipinhao">🎬</span>' },
-  };
-  
-  document.addEventListener('DOMContentLoaded', async () => {
-    initPlatforms();
-    loadStatus();
-    loadMinioStats();
-    loadPublishStats();
-    setInterval(() => { loadStatus(); loadPublishStats(); }, 15000);
-  });
-  
-  function initPlatforms() {
-    const c = document.getElementById('platformCheckboxes');
-    c.innerHTML = Object.keys(PLATFORMS).map(k => `
-      <label class="platform-checkbox" data-key="${k}">
-        <input type="checkbox" value="${k}" onchange="this.closest('label').classList.toggle('selected',this.checked);updateBtn()"/>
-        <span class="check">✓</span>
-        <span>${PLATFORMS[k].emoji} ${PLATFORMS[k].name}</span>
-      </label>
-    `).join('');
-    document.getElementById('productId').addEventListener('input', updateBtn);
-  }
-  
-  function getSelected() {
-    return [...document.querySelectorAll('#platformCheckboxes input:checked')].map(i => i.value);
-  }
-  function updateBtn() {
-    const btn = document.getElementById('publishBtn');
-    btn.disabled = !document.getElementById('productId').value.trim() || getSelected().length === 0;
-  }
-  
-  async function loadStatus() {
-    try {
-      const r = await fetch(PUBLISH_BASE + '/platforms', { signal: AbortSignal.timeout(5000) });
-      const d = await r.json();
-      d.platforms.forEach(p => {
-        const el = document.querySelector(`.platform-checkbox[data-key="${p.key}"]`);
-        if (el && !p.configured) el.style.opacity = '0.5';
-      });
-    } catch {}
-  }
-  
-  window.publishProduct = async function() {
-    const pid = document.getElementById('productId').value.trim();
-    const platforms = getSelected();
-    if (!pid || !platforms.length) return;
-    const btn = document.getElementById('publishBtn');
-    const res = document.getElementById('publishResult');
-    btn.disabled = true; btn.textContent = '⏳ 发布中...';
-    res.style.display = 'block'; res.innerHTML = '<div class="loading"><span class="spinner"></span> 提交发布请求...</div>';
-    try {
-      const r = await fetch(PUBLISH_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:pid,platforms}) });
-      const d = await r.json();
-      if (d.success) {
-        res.innerHTML = '<div style="color:var(--accent-green);padding:8px 0">✅ 任务已创建: '+d.taskId+'</div>' +
-          '<button class="btn btn-primary btn-sm" onclick="checkTask(\''+d.taskId+'\')" style="margin-top:8px">查看状态</button>';
-        loadStatus();
-      } else {
-        res.innerHTML = '<div style="color:#ef4444">❌ '+(d.error||'发布失败')+'</div>';
-      }
-    } catch(err) {
-      res.innerHTML = '<div style="color:#ef4444">❌ 请求失败: '+err.message+'</div>';
+<script>
+const PBASE = '/api/publish';
+const PLATFORMS = {douyin:'抖店',xiaohongshu:'小红书',pinduoduo:'拼多多',shipinhao:'视频号'};
+
+// 初始化平台选择框
+function initPlatforms(){
+  const c = document.getElementById('platformCheckboxes');
+  c.innerHTML = Object.entries(PLATFORMS).map(([k,n]) =>
+    `<label class="platform-checkbox" data-key="${k}" onclick="togglePlatform(this)"><span class="check"></span><span class="platform-tag ${k}">${n}</span></label>`
+  ).join('');
+  document.getElementById('productId').addEventListener('input', updateBtn);
+}
+
+function togglePlatform(el){el.classList.toggle('selected');updateBtn();}
+function getPlatforms(){return[...document.querySelectorAll('.platform-checkbox.selected')].map(e=>e.dataset.key);}
+function updateBtn(){document.getElementById('publishBtn').disabled=!document.getElementById('productId').value.trim()||getPlatforms().length===0;}
+
+// 一键铺货
+async function doPublish(){
+  const pid=document.getElementById('productId').value.trim(),plats=getPlatforms();
+  if(!pid||!plats.length)return;
+  const btn=document.getElementById('publishBtn'),res=document.getElementById('publishResult');
+  btn.disabled=true;btn.textContent='⏳ 发布中...';
+  res.innerHTML='<div class="loading"><span class="spinner"></span> 正在创建发布任务...</div>';
+  try{
+    const r=await fetch(PBASE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({productId:pid,platforms:plats})});
+    const d=await r.json();
+    if(d.success){
+      res.innerHTML='<div class="result-box success">✅ 任务已创建<br>taskId: <code>'+d.taskId+'</code></div><button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="document.getElementById(\'lookupTaskId\').value=\''+d.taskId+'\';lookupTask()">查看发布状态 →</button>';
+      loadTaskStats();
+    } else {
+      res.innerHTML='<div class="result-box error">❌ '+(d.error||'发布失败')+'</div>';
     }
-    btn.disabled = false; btn.textContent = '🚀 一键铺货';
-  };
-  
-  window.quickPublish = async function(platforms) {
-    document.getElementById('productId').value = '60f7b3c5a9e1f2a3b4c5d6e7';
-    document.querySelectorAll('#platformCheckboxes input').forEach(i => { i.checked = false; i.closest('label').classList.remove('selected'); });
-    platforms.forEach(p => { const i = document.querySelector('#platformCheckboxes input[value="'+p+'"]'); if(i) { i.checked=true; i.closest('label').classList.add('selected'); }});
-    updateBtn();
-    window.publishProduct();
-  };
-  
-  window.clearForm = function() {
-    document.getElementById('productId').value = '';
-    document.querySelectorAll('#platformCheckboxes input').forEach(i => { i.checked=false; i.closest('label').classList.remove('selected'); });
-    updateBtn();
-    document.getElementById('publishResult').style.display='none';
-  };
-  
-  async function loadStatus() {
-    try {
-      const r = await fetch(PUBLISH_BASE+'/health', { signal:AbortSignal.timeout(5000) });
-      const d = await r.json();
-      const container = document.getElementById('taskList');
-      if ((d.state?.totalTasks||0) === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="icon">📭</div>暂无发布任务</div>';
-        return;
-      }
-      container.innerHTML = '<div class="task-item" style="border-color:var(--accent-blue)"><div class="task-header"><span style="color:var(--text-primary);font-weight:600">📊 发布统计</span></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><div>总任务: <strong>'+d.state.totalTasks+'</strong></div>' +
-        Object.entries(d.state.statusCounts||{}).map(([k,v]) => '<div><span class="status-badge '+k+'">'+k+'</span>: '+v+'</div>').join('') + '</div>' +
-        '<div style="margin-top:8px;display:flex;gap:8px">' +
-        '<input id="lookupTaskId" type="text" placeholder="输入 taskId 查询" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px"/>' +
-        '<button class="btn btn-primary btn-sm" onclick="lookupTask()">查询</button></div>' +
-        '<div id="lookupResult" style="margin-top:8px"></div></div>';
-    } catch {
-      document.getElementById('taskList').innerHTML = '<div class="empty-state"><div class="icon">🔌</div>无法连接发布服务</div>';
-    }
-  }
-  
-  window.lookupTask = async function() {
-    const tid = document.getElementById('lookupTaskId').value.trim();
-    const res = document.getElementById('lookupResult');
-    if (!tid) return;
-    try {
-      const r = await fetch(PUBLISH_BASE+'/status/'+tid);
-      if (!r.ok) { res.innerHTML='<span style="color:#ef4444">任务不存在</span>'; return; }
-      const t = await r.json();
-      res.innerHTML = '<div style="font-size:12px"><div>商品: <strong>'+t.productId+'</strong></div>' +
-        '<div>状态: <span class="status-badge '+t.status+'">'+t.status+'</span></div>' +
-        '<div>平台: '+t.platforms.map(p => '<span class="platform-tag '+p+'">'+(PLATFORMS[p]?.name||p)+'</span>').join(' ')+'</div>'+
-        '<div style="margin-top:8px">' +
-        Object.entries(t.results||{}).map(([k,r]) => '<div style="padding:4px 0;border-bottom:1px solid var(--border)">'+
-          (PLATFORMS[k]?.name||k)+': <span class="status-badge '+r.status+'">'+r.status+'</span>'+
-          (r.platformProductId ? ' ID: '+r.platformProductId : '')+
-          (r.errorMessage ? '<br/><span style="color:#ef4444;font-size:10px">'+r.errorMessage+'</span>' : '')+'</div>').join('')+
-        '</div></div>';
-    } catch(err) { res.innerHTML='<span style="color:#ef4444">查询失败: '+err.message+'</span>'; }
-  };
-  
-  window.checkTask = function(taskId) {
-    document.getElementById('lookupTaskId').value = taskId;
-    lookupTask();
-    switchTab('tasks');
-  };
-  
-  window.loadRecords = async function() {
-    const pid = document.getElementById('recordProductId').value.trim();
-    const c = document.getElementById('recordsList');
-    if (!pid) { c.innerHTML='<div class="empty-state"><div class="icon">🔍</div>请输入商品ID</div>'; return; }
-    try {
-      const r = await fetch(PUBLISH_BASE+'/record/'+pid);
-      if (!r.ok) { c.innerHTML='<div style="color:#ef4444">查询失败</div>'; return; }
-      const d = await r.json();
-      if (!d.records?.length) { c.innerHTML='<div class="empty-state"><div class="icon">📭</div>暂无同步记录</div>'; return; }
-      c.innerHTML = '<table><thead><tr><th>时间</th><th>平台</th><th>状态</th><th>平台ID</th><th>错误</th></tr></thead><tbody>' +
-        d.records.map(r => '<tr><td>'+new Date(r.createdAt).toLocaleString('zh-CN')+'</td>'+
-          '<td><span class="platform-tag '+r.platform+'">'+(PLATFORMS[r.platform]?.name||r.platform)+'</span></td>'+
-          '<td><span class="status-badge '+r.status+'">'+r.status+'</span></td>'+
-          '<td>'+(r.platformProductId||'-')+'</td>'+
-          '<td>'+(r.errorMessage ? '<span style="color:#ef4444">'+r.errorMessage.substring(0,20)+'</span>' : '-')+'</td></tr>').join('')+
-        '</tbody></table>';
-    } catch(err) { c.innerHTML='<span style="color:#ef4444">查询失败: '+err.message+'</span>'; }
-  };
-  
-  window.switchTab = function(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('.tab[onclick*="'+tab+'"]')?.classList.add('active');
-    document.getElementById('tab-tasks').style.display = tab==='tasks'?'block':'none';
-    document.getElementById('tab-records').style.display = tab==='records'?'block':'none';
-  };
-  
-  async function loadMinioStats() {
-    const c = document.getElementById('minioStats');
-    try {
-      const r = await fetch('http://100.96.54.109:3001/api/health', { signal:AbortSignal.timeout(3000) });
-      // We'll try multiple ways to get MinIO counts
-      let totalCount = '?', folderCounts = {};
-      
-      // Try product-service export/count-files endpoint
-      try {
-        const cr = await fetch('http://100.96.54.109:3001/api/export/count-files', { signal:AbortSignal.timeout(3000) });
-        if (cr.ok) {
-          const cd = await cr.json();
-          totalCount = cd.total || 0;
-          folderCounts = cd.folders || {};
-        }
-      } catch {}
-      
-      c.innerHTML = '<div style="font-size:13px;color:var(--text-secondary)">' +
-        '<div style="margin-bottom:8px;padding:8px;background:var(--bg-secondary);border-radius:6px">' +
-        '<div style="font-size:24px;font-weight:700;color:var(--text-primary)">'+totalCount+'</div>' +
-        '<div style="font-size:11px;color:var(--text-muted)">图床文件总数</div></div>' +
-        '<table style="width:100%"><thead><tr><th>目录</th><th style="text-align:right">文件数</th></tr></thead><tbody>' +
-        '<tr><td>📷 产品图片</td><td id="count-products" style="text-align:right">'+(folderCounts.products||'?')+'</td></tr>' +
-        '<tr><td>📄 合同文件</td><td id="count-contract" style="text-align:right">'+(folderCounts.contract||'?')+'</td></tr>' +
-        '<tr><td>📋 许可证</td><td id="count-license" style="text-align:right">'+(folderCounts.license||'?')+'</td></tr>' +
-        '<tr><td>🏪 店铺资料</td><td id="count-shops" style="text-align:right">'+(folderCounts.shops||'?')+'</td></tr>' +
-        '<tr><td>🚚 配送文件</td><td id="count-dispatch" style="text-align:right">'+(folderCounts.dispatch||'?')+'</td></tr>' +
-        '</tbody></table></div>';
-    } catch {
-      c.innerHTML = '<div class="empty-state"><div class="icon">🔌</div>无法加载图床数据</div>';
-    }
-  }
-  
-  async function loadPublishStats() {
-    const c = document.getElementById('publishStats');
-    try {
-      const r = await fetch(PUBLISH_BASE+'/health', { signal:AbortSignal.timeout(5000) });
-      const d = await r.json();
-      const s = d.state || {};
-      c.innerHTML = '<div style="font-size:13px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-        '<div style="padding:8px;background:var(--bg-secondary);border-radius:6px"><div style="font-size:20px;font-weight:700;color:var(--accent-blue)">'+(s.totalTasks||0)+'</div><div style="font-size:11px;color:var(--text-muted)">总发布任务</div></div>' +
-        '<div style="padding:8px;background:var(--bg-secondary);border-radius:6px"><div style="font-size:20px;font-weight:700;color:var(--accent-green)">'+(s.totalRecords||0)+'</div><div style="font-size:11px;color:var(--text-muted)">同步记录</div></div></div>' +
-        '<div style="margin-top:8px;font-size:11px;color:var(--text-muted)">队列: '+(d.queue?.queueLength||0)+' 待处理 · '+(d.queue?.activeCount||0)+' 执行中</div></div>';
-    } catch {
-      c.innerHTML = '<div class="empty-state"><div class="icon">🔌</div>无法加载发布统计</div>';
-    }
-  }
-  </script>
-</div>
+  }catch(e){res.innerHTML='<div class="result-box error">❌ 请求失败: '+e.message+'</div>';}
+  btn.disabled=false;btn.textContent='🚀 一键铺货';
+}
+
+window.quickPublish = function(plats){
+  document.getElementById('productId').value='60f7b3c5a9e1f2a3b4c5d6e7';
+  document.querySelectorAll('.platform-checkbox').forEach(e=>e.classList.remove('selected'));
+  plats.forEach(p=>{const e=document.querySelector('.platform-checkbox[data-key="'+p+'"]');if(e)e.classList.add('selected');});
+  updateBtn();
+  doPublish();
+};
+
+// 查询任务状态
+async function lookupTask(){
+  const tid=document.getElementById('lookupTaskId').value.trim(),res=document.getElementById('lookupResult');
+  if(!tid){res.innerHTML='<div style="color:var(--text-muted);font-size:12px;margin-top:8px">请输入 taskId</div>';return;}
+  res.innerHTML='<div class="loading"><span class="spinner"></span> 查询中...</div>';
+  try{
+    const r=await fetch(PBASE+'/status/'+tid);
+    if(!r.ok){res.innerHTML='<div class="result-box error">❌ 任务不存在</div>';return;}
+    const t=await r.json();
+    res.innerHTML='<div style="margin-top:8px;font-size:13px">'+
+      '<div style="padding:12px;background:var(--bg-secondary);border-radius:var(--radius-sm)">'+
+      '<div>商品: <strong>'+t.productId+'</strong></div>'+
+      '<div>状态: <span class="status-badge '+t.status+'">'+t.status+'</span></div>'+
+      '<div>平台: '+t.platforms.map(p=>'<span class="platform-tag '+p+'">'+(PLATFORMS[p]||p)+'</span>').join(' ')+'</div>'+
+      (t.results?Object.entries(t.results).map(([k,r])=>'<div style="margin-top:6px;padding:6px;border:1px solid var(--border);border-radius:6px">'+
+        (PLATFORMS[k]||k)+': <span class="status-badge '+r.status+'">'+r.status+'</span>'+
+        (r.platformProductId?' | ID: '+r.platformProductId:'')+
+        (r.errorMessage?'<br><span style="color:#ef4444;font-size:11px">'+r.errorMessage+'</span>':'')+
+        '</div>').join(''):'')+
+      '</div></div>';
+  }catch(e){res.innerHTML='<div class="result-box error">❌ 查询失败: '+e.message+'</div>';}
+}
+
+// 发布统计
+async function loadTaskStats(){
+  const c=document.getElementById('taskStats');
+  try{
+    const r=await fetch(PBASE+'/health');
+    const d=await r.json();const s=d.state||{};
+    c.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+      '<div class="stat-item"><div class="num">'+(s.totalTasks||0)+'</div><div class="label">总发布任务</div></div>'+
+      '<div class="stat-item"><div class="num" style="color:var(--accent-green)">'+(s.totalRecords||0)+'</div><div class="label">同步记录</div></div></div>'+
+      (d.queue?'<div style="margin-top:8px;font-size:11px;color:var(--text-muted);text-align:center">队列: '+(d.queue.queueLength||0)+' 待处理 · '+(d.queue.activeCount||0)+' 执行中</div>':'');
+  }catch{c.innerHTML='<div class="empty-state"><div class="icon">🔌</div>无法连接发布服务</div>';}
+}
+
+// 图床文件统计
+async function loadMinioStats(){
+  const c=document.getElementById('minioStats');
+  try{
+    const r=await fetch(PBASE+'/minio-stats');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    const folders=[{k:'products',e:'📷产品图片'},{k:'contract',e:'📄合同'},{k:'license',e:'📋许可证'},{k:'shops',e:'🏪店铺'},{k:'dispatch',e:'🚚配送'}];
+    c.innerHTML='<div class="stat-item"><div class="num" style="color:var(--accent-purple)">'+(d.total||0)+'</div><div class="label">图床文件总数</div></div>'+
+      '<table style="width:100%;margin-top:8px"><thead><tr><th>目录</th><th style="text-align:right">文件数</th></tr></thead><tbody>'+
+      folders.map(f=>'<tr><td>'+f.e+'</td><td style="text-align:right;font-weight:600">'+(d.folders?.[f.k]||0)+'</td></tr>').join('')+
+      '</tbody></table>';
+  }catch{c.innerHTML='<div class="empty-state"><div class="icon">🔌</div>无法加载图床数据</div>';}
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded',()=>{
+  initPlatforms();
+  loadTaskStats();
+  loadMinioStats();
+  setInterval(()=>{loadTaskStats();loadMinioStats();},15000);
+});
+</script>
 </body>
 </html>
