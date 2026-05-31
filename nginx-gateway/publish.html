@@ -455,8 +455,6 @@ function stG(tid,p,m,e){var c=document.querySelector('[data-t="'+tid+'"]');if(!c
 function rdL(){var el=document.getElementById('tlc');var ce=document.getElementById('tc');if(!el)return;if(!TASK_LIST.length){el.innerHTML='<div class="empty" style="padding:32px"><span style="color:var(--text3)">no tasks</span></div>';if(ce)ce.textContent='0';return;}if(ce)ce.textContent=TASK_LIST.length+'';el.innerHTML=TASK_LIST.map(function(t){var h='';for(var s=1;s<=4;s++){var cl='ms-c';if(s<t.step)cl+=' ok';else if(s===t.step){if(t.err)cl+=' fail';else cl+=' act';}h+='<div class="'+cl+'">'+(s<t.step?'\u2713':s)+'</div>';if(s<4)h+='<div class="ms-n'+(s<t.step?' ok':'')+'"></div>';}return'<div class="ms-cd" data-t="'+t.id+'"><div class="ms-h"><span class="ms-t">'+esc(t.title)+'</span>'+(t.pid?'<span class="ms-p">'+t.pid+'</span>':'')+'<span class="ms-mt">'+new Date(t.time).toLocaleTimeString()+'</span></div><div class="ms-s">'+h+'</div><div class="ms-pb"><div class="ms-b"><div class="ms-f'+(t.err?' err':(t.pct>=100?' ok':''))+'" style="width:'+t.pct+'%"></div></div><div class="ms-g">'+esc(t.msg||'')+'</div></div></div>';}).join('');}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 async function pollTaskResult(id,m){return{success:false,detail:{error:'dep'}};}
-eturn {success:false,detail:{error:'timeout'}};
-}
 
 // ===================== TASK CENTER =====================
 function addTaskCard(tid,total,chs){
