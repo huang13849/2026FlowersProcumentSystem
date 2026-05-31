@@ -45,6 +45,7 @@ export function ImageCell({ images = [], maxCount = 2, onPaste, onRemove }) {
   const cellRef = useRef(null)
   const [previewUrl, setPreviewUrl] = useState(null)
 
+  const fileInputRef = useRef(null)
   const handlePaste = useCallback((e) => {
     const items = e.clipboardData?.items
     if (!items) return
@@ -75,11 +76,24 @@ export function ImageCell({ images = [], maxCount = 2, onPaste, onRemove }) {
   return (
     <div
       ref={cellRef}
+      contentEditable
+      suppressContentEditableWarning={true}
       tabIndex={0}
       style={{ display: 'flex', gap: 4, flexWrap: 'wrap', minWidth: 140, minHeight: 50, outline: 'none', cursor: 'pointer' }}
-      title="点击后按 Ctrl+V 粘贴图片"
+      title="双击上传或 Ctrl+V 粘贴图片"
+      onDoubleClick={() => fileInputRef.current?.click()}
     >
       {previewUrl && <ImagePreview src={previewUrl} onClose={() => setPreviewUrl(null)} />}
+      <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = () => onPaste(reader.result, file.name);
+            reader.readAsDataURL(file);
+          }
+          e.target.value = "";
+        }} />
       {images.map((img, i) => (
         <div key={i} style={{ position: 'relative', width: 60, height: 60 }}>
           <img src={img.url} alt="" onClick={() => setPreviewUrl(img.url)}
