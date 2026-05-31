@@ -328,8 +328,8 @@ router.post('/publish', async (req, res) => {
       extra_service: { seven_day_return: 0, freight_insurance: 0, damage_guarantee: 1 },
       deliver_method: 0,
       brand_id: '2100000000',
-      express_info: { template_id: process.env.WECHAT_FREIGHT_TEMPLATE_ID || '' },
-      after_sale_info: { after_sale_address_id: process.env.WECHAT_AFTER_SALE_ADDRESS_ID || '' },
+      express_info: {},
+      after_sale_info: {},
       skus: (product.specs && product.specs.length > 0)
         ? product.specs.map(function(s, i) {
             return {
