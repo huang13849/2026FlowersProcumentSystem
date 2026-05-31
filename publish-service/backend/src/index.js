@@ -17,6 +17,7 @@ const morgan = require('morgan');
 const config = require('./config');
 const { initAdapters } = require('./adapter');
 const publishRoutes = require('./api/publish');
+const migrationRoutes = require('./api/migration');
 
 // 初始化平台适配器
 initAdapters();
@@ -37,6 +38,7 @@ app.use(express.static(require('path').join(__dirname, '..', 'frontend')));
 
 // 发布服务主路由
 app.use('/api/publish', publishRoutes);
+app.use('/api/publish/migration', migrationRoutes);
 
 // 健康检查（根路径）
 app.get('/health', (req, res) => {

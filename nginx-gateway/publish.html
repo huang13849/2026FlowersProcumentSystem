@@ -169,6 +169,24 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
 .toast.done{background:var(--green-bg);color:var(--green);border:1px solid var(--green)}
 .toast.err{background:var(--red-bg);color:var(--red);border:1px solid var(--red)}
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.ms-cd{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:10px}
+.ms-h{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.ms-t{font-size:14px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-p{font-size:11px;color:var(--text3);background:var(--surface2);padding:2px 8px;border-radius:4px}
+.ms-mt{font-size:11px;color:var(--text3)}
+.ms-s{display:flex;align-items:center;margin-bottom:10px}
+.ms-c{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;background:var(--surface);color:var(--text3)}
+.ms-c.act{background:var(--blue);border-color:var(--blue);color:#fff}
+.ms-c.ok{background:var(--green);border-color:var(--green);color:#fff}
+.ms-c.fail{background:var(--red);border-color:var(--red);color:#fff}
+.ms-n{height:2px;flex:1;background:var(--border);margin:0 4px}
+.ms-n.ok{background:var(--green)}
+.ms-pb{display:flex;align-items:center;gap:12px}
+.ms-b{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.ms-f{height:100%;border-radius:3px;background:var(--blue)}
+.ms-f.ok{background:var(--green)}
+.ms-f.err{background:var(--red)}
 </style>
 </head>
 <body>
@@ -216,6 +234,15 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
     <div class="infinite-loader" id="loader">↓ 滚动加载更多</div>
   </div>
 
+  <!-- Task List -->
+  <div style="margin:12px 0">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:15px;font-weight:500">📋 Tasks</span>
+      <span id="tc" style="font-size:12px;color:var(--text2)">0</span>
+      <button class="btn-xs" onclick="TASK_LIST=[];rdL()" style="margin-left:auto">清空</button>
+    </div>
+    <div id="tlc"></div>
+  </div>
   <!-- Right: Batch Bar -->
   <div class="batch-bar">
     <div class="batch-card">
@@ -415,58 +442,20 @@ function openConfirmModal(){
   document.getElementById('confirmModal').classList.add('open');
 }
 
-function startBatchPublish(){
-  closeModal('confirmModal');
-  const prods=Object.values(SEL);const chs=getBC();
-  if(!prods.length||!chs.length)return;
-  const batchTaskId='BATCH-'+String(Date.now());
-  const taskEl=addTaskCard(batchTaskId,prods.length,chs);
-  let totalOps=prods.length*chs.length, doneOps=0, successCount=0, failCount=0;
-  (async()=>{
-    for(let i=0;i<prods.length;i++){
-      const p=prods[i];
-      for(const ch of chs){
-        const apiKey=PLATFORM_API[ch]||ch;
-        try{
-          const r=await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({productId:p._id,platforms:[apiKey]})});
-          const d=await r.json();
-          if(d.success && d.taskId){
-            const realResult=await pollTaskResult(d.taskId);
-            if(realResult.success)successCount++;else failCount++;
-          } else {
-            failCount++;
-          }
-        }catch(e){failCount++}
-        doneOps++;
-        updateTaskProgress(taskEl,doneOps,totalOps,chs);
-      }
-    }
-    const totalMsg='铺货完成: '+successCount+' 成功'+(failCount?', '+failCount+' 失败':'');
-    const type=failCount?(successCount?'warn':'err'):'done';
-    taskEl.querySelector('.task-status').textContent='完成';taskEl.querySelector('.task-status').className='task-status done';
-    SEL={};updateSelBanner();
-    toast(totalMsg,type);
-  })();
-  SEL={};updateSelBanner();
+var TASK_LIST=[];var MIG_CACHE={};
+function startBatchPublish(){closeModal("confirmModal");const ps=Object.values(SEL);const cs=getBC();if(!ps.length||!cs.length)return;(async()=>{for(let i=0;i<ps.length;i++){const p=ps[i];for(const c of cs){await run4(p,c);}}SEL={};updateSelBanner();})();SEL={};updateSelBanner();}
+async function run4(p,c){var tid=p._id+"-"+Date.now();addL(tid,p.title||"ok",1,"start",0);stP(tid,1,"do");stG(tid,5,"Step1");try{var r=await fetch("/api/publish/migration/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId:p._id})});var d=await r.json();if(!d.success)throw new Error(d.error||"fail");MIG_CACHE[d.taskId]=d;stP(tid,1,"ok");stG(tid,15,"done");}catch(e){stP(tid,1,"fail");stG(tid,0,"F:"+e.message,1);return;}
+stP(tid,2,"do");stG(tid,20,"Step2");try{var r=await fetch("/api/publish/migration/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:d.taskId})});var d=await r.json();if(!d.success&&d.status!=="skipped")throw new Error(d.error||"fail");stP(tid,2,"ok");stG(tid,40,"ok");}catch(e){stP(tid,2,"fail");stG(tid,20,"F:"+e.message,1);return;}
+stP(tid,3,"do");stG(tid,50,"Step3");try{var r=await fetch("/api/publish/migration/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:d.taskId})});var d=await r.json();if(!d.success)throw new Error(d.error||"fail");stP(tid,3,"ok");stG(tid,65,"ok");}catch(e){stP(tid,3,"fail");stG(tid,50,"F:"+e.message,1);return;}
+stP(tid,4,"do");stG(tid,80,"Step4");try{var r=await fetch("/api/publish/migration/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:d.taskId})});var d=await r.json();if(!d.success)throw new Error(d.error||"fail");stP(tid,4,"ok");stG(tid,100,"OK");addL(tid,p.title,4,"ok",100,0,d.productId);}catch(e){stP(tid,4,"fail");stG(tid,80,"F:"+e.message,1);}
 }
-
-async function pollTaskResult(taskId,maxWaitMs){
-  maxWaitMs=maxWaitMs||120000;
-  const start=Date.now();
-  while(Date.now()-start<maxWaitMs){
-    await new Promise(function(r){setTimeout(r,2000)});
-    try{
-      const r=await fetch('/api/publish/status/'+taskId);
-      const d=await r.json();
-      if(d.status==='completed'||d.status==='failed'){
-        const results=d.results||{};
-        var allOk=true;
-        for(var k in results){if(results[k].status!=='success')allOk=false;}
-        return {success:allOk,detail:d};
-      }
-    }catch(e){}
-  }
-  return {success:false,detail:{error:'timeout'}};
+function addL(t,tl,s,m,p,e,i){var x=TASK_LIST.findIndex(function(t){return t.id===t});var o={id:t,title:tl,step:s||1,msg:m||'',pct:p||0,err:!!e,pid:i||'',time:new Date()};if(x>=0)TASK_LIST[x]=o;else TASK_LIST.unshift(o);rdL();}
+function stP(tid,s,st){var c=document.querySelector('[data-t="'+tid+'"]');if(!c)return;var cs=c.querySelectorAll('.ms-c');var ns=c.querySelectorAll('.ms-n');for(var i=0;i<cs.length;i++){cs[i].className='ms-c';if(i+1<s)cs[i].classList.add('ok');else if(i+1===s)cs[i].classList.add(st==='fail'?'fail':(st==='do'?'act':'ok'));}for(var j=0;j<ns.length;j++){ns[j].className='ms-n';if(cs[j]&&cs[j].classList.contains('ok'))ns[j].classList.add('ok');}}
+function stG(tid,p,m,e){var c=document.querySelector('[data-t="'+tid+'"]');if(!c)return;var f=c.querySelector('.ms-f');var g=c.querySelector('.ms-g');if(f){f.style.width=p+'%';f.style.background=e?'var(--red)':(p>=100?'var(--green)':'var(--blue)');}if(g){g.textContent=m;g.style.color=e?'var(--red)':'var(--text)';}}
+function rdL(){var el=document.getElementById('tlc');var ce=document.getElementById('tc');if(!el)return;if(!TASK_LIST.length){el.innerHTML='<div class="empty" style="padding:32px"><span style="color:var(--text3)">no tasks</span></div>';if(ce)ce.textContent='0';return;}if(ce)ce.textContent=TASK_LIST.length+'';el.innerHTML=TASK_LIST.map(function(t){var h='';for(var s=1;s<=4;s++){var cl='ms-c';if(s<t.step)cl+=' ok';else if(s===t.step){if(t.err)cl+=' fail';else cl+=' act';}h+='<div class="'+cl+'">'+(s<t.step?'\u2713':s)+'</div>';if(s<4)h+='<div class="ms-n'+(s<t.step?' ok':'')+'"></div>';}return'<div class="ms-cd" data-t="'+t.id+'"><div class="ms-h"><span class="ms-t">'+esc(t.title)+'</span>'+(t.pid?'<span class="ms-p">'+t.pid+'</span>':'')+'<span class="ms-mt">'+new Date(t.time).toLocaleTimeString()+'</span></div><div class="ms-s">'+h+'</div><div class="ms-pb"><div class="ms-b"><div class="ms-f'+(t.err?' err':(t.pct>=100?' ok':''))+'" style="width:'+t.pct+'%"></div></div><div class="ms-g">'+esc(t.msg||'')+'</div></div></div>';}).join('');}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function pollTaskResult(id,m){return{success:false,detail:{error:'dep'}};}
+eturn {success:false,detail:{error:'timeout'}};
 }
 
 // ===================== TASK CENTER =====================
