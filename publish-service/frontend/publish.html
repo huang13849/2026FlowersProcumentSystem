@@ -259,7 +259,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
 </div>
 
 <!-- Section: Platform Status -->
-<div class="section">
+<div class="section" style="display:none">
   <div class="section-header">
     <h2>📊 商品同步状态</h2>
     <div style="display:flex;gap:12px;font-size:11px;color:var(--text2)">
@@ -303,7 +303,7 @@ let SEL={};let ALL_PRODS=[];let TOTAL=0;let PAGE=1;let PAGE_TOTAL=1;let LOADING=
 let searchTimer=null;let BATCH_CHANNELS=new Set();
 
 // ===================== INIT =====================
-document.addEventListener('DOMContentLoaded',async()=>{await login();loadCategories();resetProducts();loadTasks();loadSyncStatus();setInterval(()=>{loadTasks();loadSyncStatus()},15000)});
+document.addEventListener('DOMContentLoaded',async()=>{await login();loadCategories();resetProducts();loadTasks();setInterval(()=>{loadTasks()},15000)});
 
 async function login(){
   try{const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})});const d=await r.json();AUTH.token=d.token}catch(e){console.error(e)}
@@ -450,6 +450,7 @@ function startBatchPublish(){
   SEL={};updateSelBanner();
 }
 
+/** 轮询任务状态直到完成 */
 async function pollTaskResult(taskId,maxWaitMs){
   maxWaitMs=maxWaitMs||120000;
   const start=Date.now();
@@ -509,29 +510,9 @@ async function loadTasks(){
 // ===================== SYNC STATUS =====================
 async function loadSyncStatus(){
   try{
-    const r=await fetch('http://100.96.54.109:3001/api/products?limit=10',{headers:authHeaders()});
-    const d=await r.json();const prods=d.products||[];
-    const platforms=['wechat','douyin','xiaohongshu','taobao','jd'];
     const grid=document.getElementById('syncStatusGrid');
-    grid.innerHTML=prods.slice(0,6).map(p=>`
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-        <div style="font-size:12px;font-weight:500;margin-bottom:8px">${p.title?.slice(0,30)||'无标题'}</div>
-        <div style="display:flex;flex-direction:column;gap:4px;font-size:11px">
-          ${platforms.map(k=>`
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <span>${PLATFORM_ICONS[k]} ${PLATFORM_LABELS[k]}</span>
-              <span style="display:flex;align-items:center;gap:4px">
-                <span class="platform-status draft">○ 未发布</span>
-              </span>
-            </div>
-          `).join('')}
-        </div>
-        <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
-          <button class="btn-block btn-outline" style="font-size:10px;padding:4px 8px;width:auto;flex:none" onclick="showHistory('${p._id}')">📜 记录</button>
-        </div>
-      </div>
-    `).join('');
-  }catch{}
+    grid.innerHTML='';
+  }catch(e){}
 }
 
 // ===================== HERO =====================
@@ -588,302 +569,6 @@ function toast(msg,type='done'){const t=document.createElement('div');t.classNam
 
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')})});
-</script>
-
-<!-- ============================================================ -->
-<!-- 一键搬家 · 4步上货  -->
-<!-- ============================================================ -->
-<div id="migrationSection" class="section" style="display:none">
-  <div class="section-title">
-    <span style="font-size:18px;margin-right:8px">🚚</span>一键搬家（淘宝/拼多多 → 微信小店）
-    <button class="btn-sm" onclick="showSection('publish')" style="margin-left:auto;font-size:12px">← 返回发布中心</button>
-  </div>
-
-  <!-- 步骤条 -->
-  <div class="steps-bar" id="stepsBar">
-    <div class="step-item active" data-step="1">
-      <div class="step-circle">1</div>
-      <div class="step-label">解析源商品</div>
-      <div class="step-status" id="step1Status">等待</div>
-    </div>
-    <div class="step-connector"></div>
-    <div class="step-item" data-step="2">
-      <div class="step-circle">2</div>
-      <div class="step-label">微信资产转换</div>
-      <div class="step-status" id="step2Status">等待</div>
-    </div>
-    <div class="step-connector"></div>
-    <div class="step-item" data-step="3">
-      <div class="step-circle">3</div>
-      <div class="step-label">类目资质校验</div>
-      <div class="step-status" id="step3Status">等待</div>
-    </div>
-    <div class="step-connector"></div>
-    <div class="step-item" data-step="4">
-      <div class="step-circle">4</div>
-      <div class="step-label">提交小店上架</div>
-      <div class="step-status" id="step4Status">等待</div>
-    </div>
-  </div>
-
-  <!-- 输入区域 -->
-  <div class="mig-input-area" id="migInputArea">
-    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-      <input id="migUrl" type="text" placeholder="粘贴淘宝/拼多多商品链接..." style="flex:1;min-width:300px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px">
-      <button class="btn-primary" onclick="startMigration()" style="padding:10px 24px">🚀 开始搬家</button>
-    </div>
-    <div style="margin-top:8px;font-size:12px;color:var(--text2)">支持淘宝/天猫/拼多多商品链接。首次使用会解析为模拟数据（对接真实爬虫后自动生效）</div>
-  </div>
-
-  <!-- 商品预览 -->
-  <div id="migPreview" class="mig-preview" style="display:none">
-    <div class="preview-header">
-      <span style="font-size:16px;font-weight:500">📦 商品预览</span>
-      <button class="btn-sm" onclick="editPreviewTitle()">编辑标题</button>
-    </div>
-    <div style="display:grid;grid-template-columns:120px 1fr;gap:8px 16px;padding:12px 0;font-size:14px">
-      <span style="color:var(--text2)">标题</span>
-      <span id="previewTitle" style="font-weight:500">-</span>
-      <span style="color:var(--text2)">来源</span>
-      <span id="previewSource">-</span>
-      <span style="color:var(--text2)">价格</span>
-      <span id="previewPrice">-</span>
-      <span style="color:var(--text2)">库存</span>
-      <span id="previewStock">-</span>
-      <span style="color:var(--text2)">规格</span>
-      <span id="previewSpecs">-</span>
-      <span style="color:var(--text2)">图片</span>
-      <span id="previewImages">-</span>
-    </div>
-  </div>
-
-  <!-- 进度日志 -->
-  <div id="migProgress" class="mig-progress" style="display:none">
-    <div class="progress-bar-bg">
-      <div class="progress-bar-fill" id="migProgressFill" style="width:0%"></div>
-    </div>
-    <div class="progress-msg" id="migProgressMsg">准备中...</div>
-    <div class="progress-sub" id="migProgressSub"></div>
-  </div>
-
-  <!-- 步骤日志 -->
-  <div id="migLog" class="mig-log" style="display:none;margin-top:12px">
-    <div style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:8px">📋 执行日志</div>
-    <div id="migLogContent"></div>
-  </div>
-</div>
-
-<!-- 迁移CSS -->
-<style>
-.steps-bar{display:flex;align-items:flex-start;justify-content:center;gap:0;margin:24px 0 32px;padding:0 20px}
-.step-item{display:flex;flex-direction:column;align-items:center;position:relative;flex:1;max-width:160px}
-.step-circle{width:40px;height:40px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;color:var(--text3);transition:all .3s}
-.step-item.active .step-circle{background:var(--blue);border-color:var(--blue);color:#fff}
-.step-item.done .step-circle{background:var(--green);border-color:var(--green);color:#fff}
-.step-item.failed .step-circle{background:var(--red);border-color:var(--red);color:#fff}
-.step-label{font-size:12px;margin-top:8px;color:var(--text2);text-align:center;white-space:nowrap}
-.step-status{font-size:11px;margin-top:4px;color:var(--text3);text-align:center}
-.step-item.active .step-status{color:var(--blue)}
-.step-item.done .step-status{color:var(--green)}
-.step-item.failed .step-status{color:var(--red)}
-.step-connector{flex:1;height:2px;background:var(--border);margin-top:19px;min-width:20px;max-width:80px}
-.step-item.done ~ .step-connector{background:var(--green)}
-.mig-preview{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:16px 0}
-.mig-preview .preview-header{display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.progress-bar-bg{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
-.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:4px;transition:width .5s ease}
-.progress-msg{font-size:14px;margin-top:8px;font-weight:500}
-.progress-sub{font-size:12px;color:var(--text2);margin-top:4px}
-.mig-log{max-height:300px;overflow-y:auto;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px}
-.mig-log .log-entry{padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap:8px}
-.mig-log .log-time{color:var(--text3);white-space:nowrap}
-.mig-log .log-msg{flex:1}
-.mig-log .log-msg.ok{color:var(--green)}
-.mig-log .log-msg.err{color:var(--red)}
-.mig-log .log-msg.info{color:var(--blue)}
-</style>
-
-<script>
-
-/* ============================================================ */
-/* 一键搬家 · 4步上货 JS 逻辑 */
-/* ============================================================ */
-var MIG = { taskId: null, data: null, wechatImages: [] };
-
-function showSection(name){
-  document.querySelectorAll('.section').forEach(function(s){s.style.display='none'});
-  document.getElementById(name==='publish'?'publishSection':'migrationSection').style.display='block';
-}
-
-function addLog(msg, type){
-  var el=document.getElementById('migLogContent');
-  if(!el)return;
-  var d=new Date();
-  var t=d.toTimeString().slice(0,8);
-  var div=document.createElement('div');
-  div.className='log-entry';
-  div.innerHTML='<span class="log-time">'+t+'</span><span class="log-msg '+type+'">'+msg+'</span>';
-  el.appendChild(div);
-  el.scrollTop=el.scrollHeight;
-}
-
-function setStep(step, status, msg){
-  var items=document.querySelectorAll('.step-item');
-  items.forEach(function(it){
-    var s=parseInt(it.getAttribute('data-step'));
-    it.className='step-item';
-    if(s<step)it.classList.add('done');
-    if(s===step)it.classList.add(status==='failed'?'failed':(status==='doing'?'active':'done'));
-  });
-  var stEl=document.getElementById('step'+step+'Status');
-  if(stEl)stEl.textContent=msg||(status==='done'?'✓ 完成':(status==='failed'?'✗ 失败':(status==='doing'?'进行中':'等待')));
-  if(msg)addLog('步骤'+step+': '+msg, status==='done'?'ok':(status==='failed'?'err':'info'));
-}
-
-function setProgress(pct, msg, sub){
-  var fill=document.getElementById('migProgressFill');
-  var msgEl=document.getElementById('migProgressMsg');
-  var subEl=document.getElementById('migProgressSub');
-  if(fill)fill.style.width=Math.min(pct,100)+'%';
-  if(msgEl)msgEl.textContent=msg||'';
-  if(subEl)subEl.textContent=sub||'';
-}
-
-async function startMigration(){
-  var urlInput=document.getElementById('migUrl');
-  var url=urlInput&&urlInput.value.trim();
-  if(!url){alert('请粘贴商品链接');return;}
-
-  // Reset
-  MIG={taskId:null,data:null,wechatImages:[]};
-  document.getElementById('migPreview').style.display='none';
-  document.getElementById('migProgress').style.display='block';
-  document.getElementById('migLog').style.display='block';
-  document.getElementById('migLogContent').innerHTML='';
-  setProgress(0,'准备开始...','');
-  for(var s=1;s<=4;s++)setStep(s,'waiting','等待');
-
-  // ======= 步骤1: 解析源商品 =======
-  setStep(1,'doing','正在抓取源站数据...');
-  setProgress(5,'正在解析源商品...','正在抓取 '+url.slice(0,50)+'...');
-  addLog('请求解析: '+url,'info');
-
-  try{
-    var r1=await fetch('/api/publish/migration/parse-source',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({url:url})
-    });
-    var d1=await r1.json();
-    if(!d1.success){throw new Error(d1.error||'解析失败');}
-    MIG.taskId=d1.taskId;
-    MIG.data=d1.data;
-    setStep(1,'done','✓ 解析完成');
-    addLog('源商品: '+d1.data.title,'ok');
-  }catch(e){
-    setStep(1,'failed','✗ 失败: '+e.message);
-    setProgress(0,'解析失败',e.message);
-    addLog('❌ '+e.message,'err');
-    return;
-  }
-
-  // 显示预览
-  showPreview(MIG.data);
-  setProgress(15,'源商品解析完成','请确认商品信息');
-
-  // 模拟用户确认（自动继续）
-  await sleep(1500);
-
-  // ======= 步骤2: 微信资产转换 =======
-  setStep(2,'doing','正在转换图片资产...');
-  setProgress(25,'正在上传图片到微信CDN...','图片数量: '+(MIG.data.raw_images||[]).length+' 张');
-
-  try{
-    var r2=await fetch('/api/publish/migration/convert-assets',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({taskId:MIG.taskId, images:MIG.data.raw_images||[]})
-    });
-    var d2=await r2.json();
-    if(!d2.success){throw new Error(d2.error||'转换失败');}
-    MIG.wechatImages=d2.wechat_images||[];
-    var convMsg=d2.success+'/'+d2.total+' 张成功'+(d2.failed?', '+d2.failed+' 张失败':'');
-    setStep(2,'done','✓ '+convMsg);
-    if(MIG.wechatImages.length>0){
-      setProgress(50,'图片上传完成',convMsg);
-    }else{
-      setStep(2,'failed','✗ 所有图片上传失败');
-      return;
-    }
-  }catch(e){
-    setStep(2,'failed','✗ 失败: '+e.message);
-    setProgress(25,'图片上传失败',e.message);
-    return;
-  }
-
-  await sleep(1000);
-
-  // ======= 步骤3: 校验类目资质 =======
-  setStep(3,'doing','正在校验类目资质...');
-  setProgress(60,'正在匹配微信类目并校验资质...','');
-
-  try{
-    var r3=await fetch('/api/publish/migration/check-qual',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({taskId:MIG.taskId})
-    });
-    var d3=await r3.json();
-    if(!d3.success||!d3.allowed){throw new Error(d3.error||'该类目无权限');}
-    setStep(3,'done','✓ 校验通过');
-    setProgress(75,'资质校验通过','类目: '+(d3.category?d3.category.name:'盆景/盆栽'));
-  }catch(e){
-    setStep(3,'failed','✗ 失败: '+e.message);
-    setProgress(60,'资质校验失败',e.message);
-    return;
-  }
-
-  await sleep(1000);
-
-  // ======= 步骤4: 提交小店上架 =======
-  setStep(4,'doing','正在提交微信官审...');
-  setProgress(85,'正在提交商品到微信小店...','');
-
-  try{
-    var r4=await fetch('/api/publish/migration/submit',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({taskId:MIG.taskId})
-    });
-    var d4=await r4.json();
-    if(!d4.success){throw new Error(d4.error||'上架失败');}
-    setStep(4,'done','🎉 上架成功!');
-    setProgress(100,'上架成功!','商品ID: '+(d4.product_id||'待审核'));
-    addLog('🎉 商品已成功提交到微信小店!','ok');
-  }catch(e){
-    setStep(4,'failed','✗ 失败: '+e.message);
-    setProgress(85,'上架失败',e.message);
-    return;
-  }
-}
-
-function showPreview(data){
-  document.getElementById('migPreview').style.display='block';
-  document.getElementById('previewTitle').textContent=data.title||'-';
-  document.getElementById('previewSource').textContent=data.source||'-';
-  document.getElementById('previewPrice').textContent='¥'+(data.price||'?');
-  document.getElementById('previewStock').textContent=(data.stock||0)+' 件';
-  document.getElementById('previewSpecs').textContent=(data.specs||[]).map(function(s){return s.name+':'+s.value}).join(', ')||'无规格';
-  document.getElementById('previewImages').textContent=(data.raw_images||[]).length+' 张';
-}
-
-function editPreviewTitle(){
-  var el=document.getElementById('previewTitle');
-  var newTitle=prompt('修改商品标题:', el.textContent);
-  if(newTitle&&newTitle.trim()){
-    el.textContent=newTitle.trim();
-    if(MIG.data)MIG.data.title=newTitle.trim();
-  }
-}
-
-function sleep(ms){return new Promise(function(r){setTimeout(r,ms)});}
-
 </script>
 </body>
 </html>
