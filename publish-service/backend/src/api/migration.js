@@ -328,8 +328,8 @@ router.post('/publish', async (req, res) => {
       extra_service: { seven_day_return: 0, freight_insurance: 0, damage_guarantee: 1 },
       deliver_method: 0,
       brand_id: '2100000000',
-      express_info: {},
-      after_sale_info: {},
+      express_info: { template_id: "905443892004" },
+      after_sale_info: { after_sale_address_id: "62961836002" },
       skus: (product.specs && product.specs.length > 0)
         ? product.specs.map(function(s, i) {
             return {

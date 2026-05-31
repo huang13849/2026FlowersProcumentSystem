@@ -172,7 +172,9 @@ class ShipinhaoAdapter extends BasePlatformAdapter {
         damage_guarantee: 1,
       },
       deliver_method: 0,       // 快递发货
-      brand_id: '2100000000',  // 无品牌
+      brand_id: "2100000000",
+      express_info: { template_id: "905443892004" },
+      after_sale_info: { after_sale_address_id: "62961836002" },  // 无品牌
       skus: this._buildSkus(product, priceCents),
       out_product_id: String(product.id),
       listing: 0,              // 不直接上架，先创建草稿
