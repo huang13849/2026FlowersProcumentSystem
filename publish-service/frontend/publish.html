@@ -394,7 +394,7 @@ function renderProducts(clear=true){
   updateSelBanner();
 }
 
-function renderStatusBadges(p){
+function renderStatusBadges(p){return "";
   const platforms=['wechat','douyin','xiaohongshu','taobao','jd'];
   return platforms.map(k=>{
     const st='draft';const label=PLATFORM_LABELS[k];
