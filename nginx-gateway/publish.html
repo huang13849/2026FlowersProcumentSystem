@@ -330,7 +330,7 @@ let SEL={};let ALL_PRODS=[];let TOTAL=0;let PAGE=1;let PAGE_TOTAL=1;let LOADING=
 let searchTimer=null;let BATCH_CHANNELS=new Set();
 
 // ===================== INIT =====================
-document.addEventListener('DOMContentLoaded',async()=>{await login();loadCategories();resetProducts();loadTasks();loadSyncStatus();setInterval(()=>{loadTasks();loadSyncStatus()},15000)});
+document.addEventListener("DOMContentLoaded",async()=>{await login();loadCategories();await resetProducts();loadTasks();loadSyncStatus();setInterval(()=>{loadTasks();loadSyncStatus()},15000)});
 
 async function login(){
   try{const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})});const d=await r.json();AUTH.token=d.token}catch(e){console.error(e)}
