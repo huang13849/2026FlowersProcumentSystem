@@ -98,10 +98,7 @@ router.post('/start', async (req, res) => {
 
 function collectImages(product) {
   var urls = [];
-  var fields = ['images','head_imgs','main_images','panorama_images','package_images',
-                'detail_images','scene_images','selling_point_images',
-                'care_images','comparison_images','shipping_images','after_sale_images',
-                'root_soil_images','size_ref_images'];
+  var fields = ['scene_images','detail_images','panorama_images','images','head_imgs','main_images','package_images','selling_point_images','care_images','comparison_images','shipping_images','after_sale_images','root_soil_images','size_ref_images'];
   for (var i = 0; i < fields.length; i++) {
     var f = product[fields[i]];
     if (f && Array.isArray(f)) {
@@ -318,10 +315,10 @@ router.post('/publish', async (req, res) => {
       title: title,
       head_imgs: wechatImages.slice(0, 9),
       desc_info: {
-        desc: (product.description || '') + (product.careGuide ? '\n[养护]' + product.careGuide : ''),
+        desc: (product.description || '') + (product.careGuide ? '\n[养护]' + product.careGuide : '') + (product.sceneApplication ? '\n[场景]' + product.sceneApplication : ''),
         imgs: wechatImages.slice(0, 20),
       },
-      cats: [{ cat_id: leafCatId }],
+      cats_v2: [{ cat_id: leafCatId }],
       attrs: [
         { attr_key: '冠幅', attr_value: '30CM以下' },
         { attr_key: '整体高度（含盆高和植物高度）', attr_value: '11cm-20cm' },
@@ -331,6 +328,8 @@ router.post('/publish', async (req, res) => {
       extra_service: { seven_day_return: 0, freight_insurance: 0, damage_guarantee: 1 },
       deliver_method: 0,
       brand_id: '2100000000',
+      express_info: { template_id: process.env.WECHAT_FREIGHT_TEMPLATE_ID || '' },
+      after_sale_info: { after_sale_address_id: process.env.WECHAT_AFTER_SALE_ADDRESS_ID || '' },
       skus: (product.specs && product.specs.length > 0)
         ? product.specs.map(function(s, i) {
             return {
