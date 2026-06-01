@@ -30,6 +30,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     { header: "重量",         key: "weight",            width: 8 },
     { header: "成本价",       key: "costPrice",         width: 10 },
     { header: "销售价",       key: "sellPrice",         width: 10 },
+    { header: "划线价(参考)", key: "retailMarkupPrice",  width: 10 },
     { header: "甲方税率",     key: "taxRateA",          width: 8 },
     { header: "乙方税率",     key: "taxRateB",          width: 8 },
     { header: "利润",         key: "profit",            width: 10 },
@@ -98,6 +99,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell("weight").value = p.weight ?? "";
     row.getCell("costPrice").value = costP || "";
     row.getCell("sellPrice").value = sellP || "";
+    row.getCell("retailMarkupPrice").value = p.retailMarkupPrice || "";
     row.getCell("profit").value = pft ? pft.toFixed(1) : "";
     row.getCell("profitRate").value = pftRate ? pftRate.toFixed(0) + "%" : "";
     row.getCell("taxRateA").value = p.taxRateA ?? "";
@@ -114,12 +116,12 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
       { key: "detail_images",      col: 2,  label: "细节特写" },
       { key: "root_soil_images",   col: 3,  label: "根系盆土" },
       { key: "size_ref_images",    col: 4,  label: "尺寸参考" },
-      { key: "scene_images",       col: 20, label: "场景应用" },
-      { key: "selling_point_images", col: 21, label: "品种卖点" },
-      { key: "care_images",         col: 22, label: "养护教程" },
-      { key: "comparison_images",   col: 23, label: "规格对比" },
-      { key: "shipping_images",     col: 24, label: "发货售后" },
-      { key: "after_sale_images",   col: 25, label: "售后保障" },
+      { key: "scene_images",       col: 21, label: "场景应用" },
+      { key: "selling_point_images", col: 22, label: "品种卖点" },
+      { key: "care_images",         col: 23, label: "养护教程" },
+      { key: "comparison_images",   col: 24, label: "规格对比" },
+      { key: "shipping_images",     col: 25, label: "发货售后" },
+      { key: "after_sale_images",   col: 26, label: "售后保障" },
     ];
     const fallbacks = p.images || [];
     for (const { key, col } of allImgCols) {
@@ -148,6 +150,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     // Alignment
     row.getCell("stock").alignment = { horizontal: "right" };
     row.getCell("costPrice").alignment = { horizontal: "right" };
+    row.getCell("retailMarkupPrice").alignment = { horizontal: "right" };
     row.getCell("sellPrice").alignment = { horizontal: "right" };
     row.getCell("profit").alignment = { horizontal: "right" };
     row.getCell("profitRate").alignment = { horizontal: "right" };
