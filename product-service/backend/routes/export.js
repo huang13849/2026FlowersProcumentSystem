@@ -59,7 +59,7 @@ router.get("/csv", async (req, res) => {
 router.get("/excel", async (req, res) => {
   try {
     const query = buildQuery(req);
-    const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+    const limit = Math.min(parseInt(req.query.limit) || 500, 5000);
     const products = await Product.find(query).sort("-updatedAt").limit(limit).lean();
     const buffer = await exportToExcel(products);
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

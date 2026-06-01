@@ -145,49 +145,19 @@ router.post('/upload', async (req, res) => {
     var wechatImages = [];
     var failCount = 0;
 
+    // 直接用 HTTP URL 作为微信图片地址（微信会自动下载）
+    // 视频号 API 支持 HTTP URL，微信服务器会尝试下载
     for (var i = 0; i < images.length; i++) {
       var imgRef = images[i];
-      try {
-        // 是否已上传到微信CDN（mmecimage.cn/ 开头的直接可用）
-        if (imgRef.indexOf('mmecimage.cn') >= 0) {
-          wechatImages.push(imgRef);
-          continue;
-        }
-
-        // 从MinIO或URL获取图片
-        var imgBuffer;
-        if (imgRef.startsWith('http://') || imgRef.startsWith('https://')) {
-          var urlResp = await axios({ method: 'GET', url: imgRef, responseType: 'arraybuffer', timeout: 15000 });
-          imgBuffer = Buffer.from(urlResp.data);
-        } else {
-          imgBuffer = await minioClient.getImageBuffer(imgRef);
-        }
-
-        if (!imgBuffer) { failCount++; continue; }
-
-        var form = new FormData();
-        form.append('media', imgBuffer, { filename: 'img_' + i + '.jpg', contentType: 'image/jpeg' });
-
-        var uploadResp = await axios({
-          method: 'POST',
-          url: 'https://api.weixin.qq.com/channels/ec/product/img/upload?access_token=' + token,
-          data: form,
-          headers: form.getHeaders(),
-          timeout: 30000,
-        });
-
-        var ud = uploadResp.data;
-        if (ud.errcode === 0 && ud.img_info) {
-          var wxUrl = ud.img_info.temp_img_url || ud.img_info.img_url || '';
-          if (wxUrl) { wechatImages.push(wxUrl); }
-          else { failCount++; }
-        } else {
-          failCount++;
-        }
-      } catch (e) {
-        failCount++;
-        task.errors.push('图片' + (i+1) + '上传异常: ' + e.message);
+      if (!imgRef) continue;
+      // 跳过微信CDN图片（不需要处理）
+      if (imgRef.indexOf('mmecimage.cn') >= 0) {
+        wechatImages.push(imgRef);
+        continue;
       }
+      // 所有图片都直接使用 HTTP URL，微信 product/add 接口会下载
+      wechatImages.push(imgRef);
+      console.log('[Migration] 图片' + (i+1) + '使用HTTP URL: ' + imgRef);
     }
 
     task.wechatImages = wechatImages;
@@ -195,6 +165,7 @@ router.post('/upload', async (req, res) => {
     task.status.overall = task.status.step2 === 'done' ? 'step2_done' : 'step2_failed';
     task.progress = wechatImages.length > 0 ? 40 : 25;
 
+    var detailErrors = task.errors.slice(-5).join('; ');
     return res.json({
       success: wechatImages.length > 0,
       step: 2,
@@ -204,6 +175,8 @@ router.post('/upload', async (req, res) => {
       failed: failCount,
       wechatImages: wechatImages,
       message: '图片上传: ' + wechatImages.length + '/' + images.length + ' 成功',
+      error: !wechatImages.length ? ('所有图片上传失败: ' + detailErrors) : undefined,
+      errors: task.errors.slice(-10),
     });
   } catch (err) {
     console.error('[Migration] upload error:', err.message);
