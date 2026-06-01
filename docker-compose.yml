@@ -70,6 +70,15 @@ services:
     depends_on:
       - ollama
 
+
+  contract:
+    build: ./contract-service
+    container_name: contract-service
+    restart: unless-stopped
+    ports:
+      - 3006:3006
+    env_file: ./contract-service/.env
+
   gateway:
     build: ./nginx-gateway
     container_name: nginx-gateway

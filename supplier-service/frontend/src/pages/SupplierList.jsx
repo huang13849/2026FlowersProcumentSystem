@@ -433,7 +433,7 @@ export default function SupplierList() {
                   <td style={td}>{saving('notes') && ' '}<input value={r.notes||''} onChange={e => updateItem(r._id,'notes',e.target.value)} style={inputStyle} placeholder='备注' onClick={e=>e.stopPropagation()} /></td>
                   <td style={{...td,fontSize:11,color:'#999'}}>{fmt(r.updatedAt)}</td>
                   <td style={td}>
-                    <button onClick={e=>{e.stopPropagation();goProducts(r)}} onMouseDown={e=>e.stopPropagation()} style={{padding:'3px 8px',border:'1px solid #1890ff',background:'#e6f7ff',color:'#1890ff',borderRadius:4,cursor:'pointer',fontSize:11,marginRight:4}}>商品</button>
+                    <button onClick={e=>{e.stopPropagation();window.open("http://100.96.54.109:3006/"+"?supplierId="+r._id+"&name="+encodeURIComponent(r.name),"_blank")}} style={{padding:"3px 8px",border:"1px solid #52c41a",background:"#f6ffed",color:"#52c41a",borderRadius:4,cursor:"pointer",fontSize:11,marginRight:4}}>合同</button><button onClick={e=>{e.stopPropagation();goProducts(r)}} onMouseDown={e=>e.stopPropagation()} style={{padding:'3px 8px',border:'1px solid #1890ff',background:'#e6f7ff',color:'#1890ff',borderRadius:4,cursor:'pointer',fontSize:11,marginRight:4}}>商品</button>
                     <button onClick={e=>handleDelete(e,r._id)} onMouseDown={e=>e.stopPropagation()} style={{padding:'2px 6px',border:'none',borderRadius:4,cursor:'pointer',fontSize:14,background:'transparent'}}>{String.fromCharCode(0x1f5d1)}</button>
                   </td>
                 </tr>
