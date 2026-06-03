@@ -1,23 +1,25 @@
 /**
- * 视频号小店平台适配器（v3 - 全功能版）
- * 支持4级类目、运费模板、售后地址、图片上传
+ * 视频号小店平台适配器（v4 - 修复版）
+ * 
+ * 修复内容：
+ * 1. 图片上传改用正确的 /shop/ec/basics/img/upload 接口
+ * 2. upload_type=0 (二进制流), resp_type=1 (返回mmecimage链接)
+ * 3. 大图自动压缩到10MB以内
+ * 4. 运费模板和售后地址从配置读取
+ * 5. head_imgs 至少需要3张，不足时自动补齐
  */
 const BasePlatformAdapter = require('./BasePlatformAdapter');
+let sharp;
+try { sharp = require('sharp'); } catch(e) { sharp = null; }
 const config = require('../config');
 const axios = require('axios');
 
 // ============================================================
 // 微信小店分类映射
 // 类目路径: 农资园艺(一级) > 花卉绿植(二级) > 绿植盆栽(三级) > 盆景/盆栽(四级)
-// 注意：请通过 WeChat API 查询具体 cat_id
-// 类目ID示例（需替换为真实ID）:
-//   L1 农资园艺 = ?
-//   L2 花卉绿植 = ?
-//   L3 绿植盆栽 = ?
-//   L4 盆景/盆栽 = ?
 // 由于API超配额，暂用已知ID:
 //   546003 - 盆景/盆栽 (leaf)
-// 用 cats_v2 格式支持多级类目
+//   546011 - 鲜切花 (leaf)
 // ============================================================
 const WECHAT_CATEGORY_MAP = {
   '土': '546003',
@@ -26,6 +28,7 @@ const WECHAT_CATEGORY_MAP = {
   '肥料': '546003',
   '花盆': '546003',
   '盆器': '546003',
+  '盆栽': '546003',
   '种子': '546003',
   '绿植': '546003',
   '园艺绿植': '546003',
@@ -36,33 +39,10 @@ const WECHAT_CATEGORY_MAP = {
   '水培': '546003',
   '多肉': '546003',
   '盆景': '546003',
-  '盆栽': '546003',
   '植物': '546003',
   '浇灌设备': '546003',
   '通用': '546003',
 };
-
-/**
- * 收集产品中所有非空图片URL
- */
-function collectAllImages(product) {
-  var urls = [];
-  var fields = ['images', 'head_imgs', 'main_images', 'panorama_images', 'package_images',
-                'detail_images', 'scene_images', 'selling_point_images',
-                'care_images', 'comparison_images', 'shipping_images', 'after_sale_images',
-                'root_soil_images', 'size_ref_images'];
-  for (var i = 0; i < fields.length; i++) {
-    var f = product[fields[i]];
-    if (f && Array.isArray(f)) {
-      for (var j = 0; j < f.length; j++) {
-        if (f[j] && typeof f[j] === 'string' && f[j].length > 5) {
-          urls.push(f[j]);
-        }
-      }
-    }
-  }
-  return urls;
-}
 
 class ShipinhaoAdapter extends BasePlatformAdapter {
   constructor() {
@@ -70,6 +50,7 @@ class ShipinhaoAdapter extends BasePlatformAdapter {
     this.appId = this.appKey;
     this._cachedToken = null;
     this._tokenExpiry = 0;
+    this._imageUploadUrl = 'https://api.weixin.qq.com/shop/ec/basics/img/upload';
   }
 
   async _getAccessToken() {
@@ -110,20 +91,7 @@ class ShipinhaoAdapter extends BasePlatformAdapter {
   }
 
   /**
-   * 构建4级类目路径
-   * cats_v2 格式支持多级
-   * 由于API超配额，使用单级类目（4级叶子节点）
-   * TODO: 查询全量类目树获取完整4级路径ID后替换
-   */
-  _buildCategoryPath(catId) {
-    // 使用 cats_v2 格式：1级 > 2级 > 3级 > 4级 的 cat_id 数组
-    // 目前只知道叶子节点 catId，上级ID需API查询
-    // 先使用单级格式，让WeChat自动补全（部分版本支持）
-    return [parseInt(catId)];
-  }
-
-  /**
-   * 构建默认属性
+   * 构建默认属性 - 根据类目
    */
   _buildAttrs(catId) {
     var attrsMap = {
@@ -132,14 +100,15 @@ class ShipinhaoAdapter extends BasePlatformAdapter {
         { attr_key: '整体高度（含盆高和植物高度）', attr_value: '11cm-20cm' },
         { attr_key: '植物类别', attr_value: '观叶植物' },
         { attr_key: '发货苗情', attr_value: '不开花植物' },
-        { attr_key: '产地', attr_value: '国产' },
       ],
       '546011': [
         { attr_key: '品种', attr_value: '混合花材' },
-        { attr_key: '产地', attr_value: '浙江杭州' },
+        { attr_key: '产地', attr_value: '云南昆明' },
+        { attr_key: '植物类别', attr_value: '观叶植物' },
+        { attr_key: '发货苗情', attr_value: '完全开放' },
       ],
     };
-    return attrsMap[catId] || [];
+    return attrsMap[catId] || attrsMap['546003'];
   }
 
   mapProductToPlatform(product) {
@@ -155,26 +124,30 @@ class ShipinhaoAdapter extends BasePlatformAdapter {
     var priceFloat = product.price || product.sellPrice || product.salesPrice || 0;
     var priceCents = Math.round(priceFloat * 100);
 
+    // 读取配置中的运费模板和售后地址
+    var freightTemplateId = config.platforms.shipinhao.freightTemplateId || '905443892004';
+    var afterSaleAddressId = config.platforms.shipinhao.afterSaleAddressId || '62961836002';
+
     // 构建请求体（产品图片由 publishProduct 阶段上传后填入）
     return {
       title: title,
-      head_imgs: [],           // 由 publishProduct 填入上传后的图片URL
+      head_imgs: [],           // 由 publishProduct 填入上传后的mmecimage链接
       desc_info: {
         desc: this._buildDescription(product),
-        imgs: [],              // 由 publishProduct 填入上传后的图片URL
+        imgs: [],              // 由 publishProduct 填入上传后的mmecimage链接
       },
-      cats_v2: this._buildCategoryPath(catId),
+      cats_v2: [{ cat_id: catId }],
       attrs: this._buildAttrs(catId),
       spu_code: String(product.id),
       extra_service: {
         seven_day_return: 0,
         freight_insurance: 0,
-        damage_guarantee: 1,
+        damage_guarantee: 1,   // 该类目必须支持坏损包退
       },
       deliver_method: 0,       // 快递发货
-      brand_id: "2100000000",
-      express_info: { template_id: "905443892004" },
-      after_sale_info: { after_sale_address_id: "62961836002" },  // 无品牌
+      brand_id: '2100000000',  // 无品牌
+      express_info: { template_id: freightTemplateId },
+      after_sale_info: { after_sale_address_id: afterSaleAddressId },
       skus: this._buildSkus(product, priceCents),
       out_product_id: String(product.id),
       listing: 0,              // 不直接上架，先创建草稿
@@ -214,47 +187,125 @@ class ShipinhaoAdapter extends BasePlatformAdapter {
 
   /**
    * 发布商品到视频号
-   * 步骤：上传图片 → 填写head_imgs/desc_info → API发布
+   * 步骤：上传图片到微信CDN → 填写head_imgs/desc_info → API发布
    */
   async publishProduct(product, mappedProduct, imageMap) {
-    // 如果有图片已上传到微信CDN，填入head_imgs和desc_info.imgs
+    // 合并图片：优先使用 mappedProduct 中已设置的图片（migration流程），其次用 imageMap（通用流程）
+    var urls = [];
     if (imageMap && imageMap.size > 0) {
-      var urls = [];
       imageMap.forEach(function(val, key) {
         if (val && val.url) urls.push(val.url);
       });
-      mappedProduct.head_imgs = urls.slice(0, 9);
-      if (mappedProduct.desc_info && mappedProduct.desc_info.imgs) {
-        mappedProduct.desc_info.imgs = urls.slice(0, 20);
-      }
     }
+
+    // head_imgs：如果mappedProduct已有图片，保留；否则用imageMap填充
+    var headImgs = (mappedProduct.head_imgs && mappedProduct.head_imgs.length > 0)
+      ? mappedProduct.head_imgs
+      : urls.slice(0, 9);
+    // 至少3张，不足时补齐
+    while (headImgs.length < 3 && headImgs.length > 0) {
+      headImgs.push(headImgs[headImgs.length % headImgs.length]);
+    }
+    mappedProduct.head_imgs = headImgs;
+
+    // desc_info.imgs：如果已有图片，保留；否则用imageMap填充
+    var descImgs = (mappedProduct.desc_info && mappedProduct.desc_info.imgs && mappedProduct.desc_info.imgs.length > 0)
+      ? mappedProduct.desc_info.imgs
+      : urls.slice(0, 20);
+    if (descImgs.length === 0 && headImgs.length > 0) {
+      descImgs = [headImgs[0]];
+    }
+    if (mappedProduct.desc_info) {
+      mappedProduct.desc_info.imgs = descImgs;
+    }
+
+    console.log('[Shipinhao] 发布商品: head_imgs=' + mappedProduct.head_imgs.length + ', desc_imgs=' + (mappedProduct.desc_info.imgs ? mappedProduct.desc_info.imgs.length : 0));
 
     var result = await this._request('POST', '/product/add', mappedProduct);
     return {
-      platformProductId: result && (result.product_id || (result.data && result.data.product_id)) || '',
+      platformProductId: result && result.data && result.data.product_id ? String(result.data.product_id) : 
+                         (result && result.product_id ? String(result.product_id) : ''),
       rawResponse: result,
     };
   }
 
   async offlineProduct(platformProductId) {
-    var result = await this._request('POST', '/product/listing', { product_id: platformProductId, listing_type: 2 });
-    return result && (result.errcode === 0 || result.code === 0);
+    var result = await this._request('POST', '/product/delisting', { product_id: platformProductId });
+    return result && (result.errcode === 0);
   }
 
   /**
    * 上传图片到微信CDN
-   * POST /img/upload
-   * 返回的url需填入head_imgs/desc_info.imgs
+   * 使用正确的 /shop/ec/basics/img/upload 接口
+   * upload_type=0: 二进制流上传
+   * resp_type=1: 返回 mmecimage.cn 链接（永久有效）
    */
   async uploadImage(imageBuffer, fileName) {
+    var token = await this._getAccessToken();
     var FormData = require('form-data');
     var form = new FormData();
-    form.append('media', imageBuffer, { filename: fileName || 'product.jpg', contentType: 'image/jpeg' });
-    var result = await this._request('POST', '/img/upload', form, { headers: form.getHeaders() });
-    return {
-      platformId: result && (result.img_id || result.media_id || ''),
-      url: result && (result.url || result.img_url || ''),
-    };
+    
+    // 如果图片超过10MB（resp_type=1限制），自动压缩
+    var buffer = imageBuffer;
+    if (buffer.length > 2 * 1024 * 1024 && sharp) {
+      console.warn('[Shipinhao] 图片 ' + fileName + ' 超过2MB (' + Math.round(buffer.length / 1024 / 1024) + 'MB)，自动压缩...');
+      try {
+        buffer = await sharp(imageBuffer)
+          .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 85 })
+          .toBuffer();
+        console.log('[Shipinhao] 压缩后: ' + Math.round(buffer.length / 1024) + 'KB');
+      } catch (compressErr) {
+        console.error('[Shipinhao] 压缩失败:', compressErr.message);
+        throw new Error('图片超过2MB且压缩失败: ' + Math.round(imageBuffer.length / 1024 / 1024) + 'MB');
+      }
+    } else if (buffer.length > 2 * 1024 * 1024) {
+      throw new Error('图片超过2MB限制(无压缩库): ' + Math.round(buffer.length / 1024 / 1024) + 'MB');
+    }
+
+    // 确定content-type
+    var ext = (fileName || '').toLowerCase().split('.').pop();
+    var contentType = 'image/jpeg';
+    if (ext === 'png') contentType = 'image/png';
+    else if (ext === 'webp') contentType = 'image/webp';
+    else if (ext === 'bmp') contentType = 'image/bmp';
+
+    form.append('media', buffer, { 
+      filename: fileName || 'product.jpg', 
+      contentType: contentType 
+    });
+
+    var uploadUrl = this._imageUploadUrl 
+      + '?access_token=' + token 
+      + '&upload_type=0'   // 二进制流上传
+      + '&resp_type=1'     // 返回图片链接（mmecimage.cn格式）
+      + '&height=800&width=800';
+
+    try {
+      var resp = await axios({
+        method: 'POST',
+        url: uploadUrl,
+        data: form,
+        headers: form.getHeaders(),
+        timeout: 30000,
+      });
+      var body = resp.data;
+      if (body.errcode && body.errcode !== 0) {
+        throw new Error('图片上传失败: errcode=' + body.errcode + ' ' + (body.errmsg || ''));
+      }
+      var imgUrl = body.pic_file && body.pic_file.img_url || '';
+      var mediaId = body.pic_file && body.pic_file.media_id || '';
+      console.log('[Shipinhao] 图片上传成功: ' + (imgUrl || mediaId));
+      return {
+        platformId: mediaId,
+        url: imgUrl,  // mmecimage.cn/p/{appid}/{imgKey} 格式
+      };
+    } catch (err) {
+      if (err.response) {
+        console.error('[Shipinhao] 图片上传HTTP错误:', err.response.status, err.response.data);
+      }
+      throw err;
+    }
   }
 
   _truncate(str, len) { return str ? (str.length > len ? str.substring(0, len) : str) : ''; }

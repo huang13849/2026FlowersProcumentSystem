@@ -12,7 +12,7 @@ export async function connectDB() {
   const opts = {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
-    readPreference: 'secondary',  // Read from secondaries by default
+    readPreference: 'primary',  // Read from secondaries by default
     maxPoolSize: 20,
   };
 

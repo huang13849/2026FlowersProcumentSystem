@@ -3,10 +3,8 @@ import multer from "multer";
 import Product from "../models/Product.js";
 import { uploadFile, deleteFile } from "../services/minio.js";
 import AuditLog from "../models/AuditLog.js";
-import { auth } from "../middleware/auth.js";
 
 const router = Router();
-router.use(auth);
 
 const upload = multer({
   storage: multer.memoryStorage(),

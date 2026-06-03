@@ -10,9 +10,6 @@ const config = {
 
   productService: {
     baseUrl: process.env.PRODUCT_SERVICE_URL || 'http://product-service:3001',
-    // 实际 product-service (backend/server.js) 默认是 PORT=3000,
-    // 但 docker-compose 中映射为 3001:3000
-    // 容器间通信用 http://product-service:3001
     username: process.env.PRODUCT_SERVICE_USERNAME || 'admin',
     password: process.env.PRODUCT_SERVICE_PASSWORD || 'admin123',
     timeoutMs: 15000,
@@ -51,6 +48,9 @@ const config = {
       appKey: process.env.SHIPINHAO_APP_KEY || '',
       appSecret: process.env.SHIPINHAO_APP_SECRET || '',
       apiBase: 'https://api.weixin.qq.com/channels/ec',
+      // 微信小店配置
+      freightTemplateId: process.env.WECHAT_FREIGHT_TEMPLATE_ID || '905443892004',
+      afterSaleAddressId: process.env.WECHAT_AFTER_SALE_ADDRESS_ID || '62961836002',
     },
   },
 

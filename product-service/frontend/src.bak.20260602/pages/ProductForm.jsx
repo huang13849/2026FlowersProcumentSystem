@@ -59,22 +59,16 @@ export default function ProductForm() {
     detailFileRef.current.value = '';
   };
 
-  const computedCostPrice = () => {
-    return Number(form.settlementPrice || 0) + Number(form.shippingFee || 0);
-  };
-
   const save = async () => {
     if (!form.title) return alert('请输入商品标题');
     if (!form.sellerName) return alert('请输入商家名称');
     try {
-      const payload = {
-        ...form,
-        costPrice: computedCostPrice(),
+      await api.post('/products', { 
+        ...form, 
         main_images: mainImages,
         detail_images: detailImages,
         images: [...mainImages, ...detailImages]
-      };
-      await api.post('/products', payload);
+      });
       nav('/');
     } catch (e) { alert('保存失败: ' + (e.response?.data?.error || e.message)); }
   };
@@ -83,10 +77,7 @@ export default function ProductForm() {
     ['title','商品标题','text',true], ['productId','SKU','text'], ['category','分类','text'],
     ['sellerName','商家名称','text',true], ['flowerName','花卉名称','text'], ['specSize','规格尺寸','text'],
     ['potColorNotes','备注','text'], ['deliveryMethod','履约方式','text'], ['origin','发货地','text'],
-    ['weight','重量(kg)','number'], ['stock','库存','number'],
-    ['settlementPrice','结算价','number'],
-    ['shippingFee','运费','number'],
-    ['costPrice','成本价','number'],
+    ['weight','重量(kg)','number'], ['stock','库存','number'], ['costPrice','成本价','number'],
     ['sellPrice','销售价','number'], ['profit','利润','number'],
   ];
 
@@ -122,17 +113,13 @@ export default function ProductForm() {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-        {fields.map(([k, label, type, required, readonly]) => {
-          const isComputed = k === 'costPrice';
-          return (
+        {fields.map(([k, label, type, required]) => (
           <div key={k}>
-            <label style={{ fontSize:12, color: isComputed ? '#999' : '#555' }}>{label}{required?' *':''}</label>
-            <input type={type} value={isComputed ? computedCostPrice() || '' : (form[k] ?? '')}
-              onChange={e => { if (readonly || isComputed) return; set(k, type==='number' ? (e.target.value===''?'':Number(e.target.value)) : e.target.value); }}
-              readOnly={readonly || isComputed}
-              style={{ width:'100%', padding:'6px 8px', border: isComputed ? '1px dashed #d9d9d9' : '1px solid #d9d9d9', borderRadius:4, fontSize:13, background: isComputed ? '#fafafa' : '#fff', color: isComputed ? '#8c8c8c' : '#333' }} />
+            <label style={{ fontSize:12, color:'#555' }}>{label}{required?' *':''}</label>
+            <input type={type} value={form[k] ?? ''} onChange={e => set(k, type==='number' ? (e.target.value===''?'':Number(e.target.value)) : e.target.value)}
+              style={{ width:'100%', padding:'6px 8px', border:'1px solid #d9d9d9', borderRadius:4, fontSize:13 }} />
           </div>
-        );})}
+        ))}
       </div>
 
       <div style={{ marginTop:16, display:'flex', gap:8 }}>

@@ -47,6 +47,8 @@ const productSchema = new mongoose.Schema({
   weight: Number,
   dropShippingCost: Number,
   dropShippingMarketPrice: Number,
+  settlementPrice: { type: Number, default: 0 },
+  shippingFee: { type: Number, default: 0 },
   costPrice: Number,
   sellPrice: Number,
   taxRateA: { type: Number, default: 0 },

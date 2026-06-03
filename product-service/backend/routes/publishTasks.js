@@ -16,10 +16,8 @@
 import { Router } from 'express';
 import ProductPublishTask from '../models/ProductPublishTask.js';
 import Product from '../models/Product.js';
-import { auth } from '../middleware/auth.js';
 
 const router = Router();
-router.use(auth);
 
 // ── 生成任务 ID ──
 function generateTaskId() {

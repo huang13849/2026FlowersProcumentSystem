@@ -28,6 +28,8 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     { header: "发货地",       key: "origin",            width: 10 },
     { header: "库存",         key: "stock",             width: 8 },
     { header: "重量",         key: "weight",            width: 8 },
+    { header: "结算价",       key: "settlementPrice",   width: 10 },
+    { header: "运费",         key: "shippingFee",       width: 8 },
     { header: "成本价",       key: "costPrice",         width: 10 },
     { header: "销售价",       key: "sellPrice",         width: 10 },
     { header: "划线价(参考)", key: "retailMarkupPrice",  width: 10 },
@@ -83,7 +85,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.height = imgH + 4;
 
     // Calculate derived fields
-    const costP = Number(p.costPrice || 0);
+    const costP = Number(p.settlementPrice || 0) + Number(p.shippingFee || 0);
     const sellP = Number(p.sellPrice || 0);
     const pft = sellP - costP;
     const pftRate = costP > 0 ? ((pft / costP) * 100) : 0;
@@ -97,6 +99,8 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell("origin").value = p.origin || "";
     row.getCell("stock").value = p.stock || 0;
     row.getCell("weight").value = p.weight ?? "";
+    row.getCell("settlementPrice").value = Number(p.settlementPrice || 0) || "";
+    row.getCell("shippingFee").value = Number(p.shippingFee || 0) || "";
     row.getCell("costPrice").value = costP || "";
     row.getCell("sellPrice").value = sellP || "";
     row.getCell("retailMarkupPrice").value = p.retailMarkupPrice || "";
@@ -149,6 +153,8 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     }
     // Alignment
     row.getCell("stock").alignment = { horizontal: "right" };
+    row.getCell("settlementPrice").alignment = { horizontal: "right" };
+    row.getCell("shippingFee").alignment = { horizontal: "right" };
     row.getCell("costPrice").alignment = { horizontal: "right" };
     row.getCell("retailMarkupPrice").alignment = { horizontal: "right" };
     row.getCell("sellPrice").alignment = { horizontal: "right" };
@@ -171,7 +177,7 @@ export function exportToCSV(products) {
     "productId", "title", "category", "sellerName", "flowerName",
     "contactPerson", "specSize", "deliveryMethod", "origin",
     "potColorNotes", "stock", "weight", "dropShippingCost",
-    "dropShippingMarketPrice", "costPrice", "sellPrice",
+    "dropShippingMarketPrice", "settlementPrice", "shippingFee", "costPrice", "sellPrice",
     "retailMarkupPrice", "profit", "platformPriceDiff",
     "couponInfo", "retailProfit", "description", "batchMinQty",
     "batchShipping", "batchUnitPrice", "listedStore", "salesVolume",

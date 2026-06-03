@@ -5,5 +5,8 @@ api.interceptors.request.use(cfg => {
   if (token) cfg.headers.Authorization = `Bearer ${token}`;
   return cfg;
 });
-// No 401 redirect - auth removed
+api.interceptors.response.use(r => r, e => {
+  if (e.response?.status === 401) { localStorage.removeItem('token'); window.location.hash = '#/login'; }
+  return Promise.reject(e);
+});
 export default api;

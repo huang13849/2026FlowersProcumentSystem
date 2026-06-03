@@ -103,7 +103,12 @@ class ImageUploadService {
       try {
         var u = new URL(imageRef);
         var path = u.pathname.replace(/^\//, '');
-        // 如果是 MinIO URL，路径已经是 bucket/object 格式
+        // Strip bucket name from path (URL format: /bucket/object)
+        // e.g. /supply-chain/products/xxx.jpg -> products/xxx.jpg
+        var bucket = require('../config').minio.bucket;
+        if (path.startsWith(bucket + '/')) {
+          path = path.substring(bucket.length + 1);
+        }
         return path || null;
       } catch (e) {
         return null;

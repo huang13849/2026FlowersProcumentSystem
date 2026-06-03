@@ -11,7 +11,7 @@ services:
     volumes:
       - /home/huangfra-ubun-master/picgo/uploads:/app/uploads
     healthcheck:
-      test: ["CMD-SHELL", "node -e "require('http').get({host:'localhost',port:3000,path:'/api/health',timeout:5000},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))""]
+      test: ["CMD-SHELL", "node -e \"require('http').get({host:'localhost',port:3000,path:'/api/health',timeout:5000},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
       interval: 30s
       timeout: 10s
       start_period: 15s

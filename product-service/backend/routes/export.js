@@ -2,10 +2,8 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import { exportToCSV, exportToExcel } from "../services/exporter.js";
-import { auth } from "../middleware/auth.js";
 
 const router = Router();
-router.use(auth);
 
 /**
  * Build a MongoDB query from the same filter params that the frontend uses.

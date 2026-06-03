@@ -45,12 +45,8 @@ const COLUMNS = [
   { field: 'stock',        label: '库存',     width: 55,  type: 'number', editable: true },
   // 13: 重量
   { field: 'weight',       label: '重量',     width: 50,  type: 'number', editable: true },
-  // 14: 结算价
-  { field: 'settlementPrice', label: '结算价',   width: 70,  type: 'money',  editable: true },
-  // 15: 运费
-  { field: 'shippingFee',    label: '运费',     width: 60,  type: 'money',  editable: true },
-  // 16: 成本价 = 结算价 + 运费（自动计算）
-  { field: 'costPrice',      label: '成本价',   width: 70,  type: 'money',  editable: false },
+  // 14: 成本价
+  { field: 'costPrice',    label: '成本价',   width: 70,  type: 'money',  editable: true },
   // 15: 销售价
   { field: 'sellPrice',    label: '销售价',   width: 70,  type: 'money',  editable: true },
   // 16: 甲方税率
@@ -185,14 +181,7 @@ export default function ProductList() {
     const isNewRow = product._id && product._id.startsWith('_new_');
 
     // Optimistic update
-    const updateProduct = (p) => {
-      if (p._id !== product._id) return p;
-      const updated = { ...p, [field]: value };
-      if (field === 'settlementPrice' || field === 'shippingFee') {
-        updated.costPrice = computedCostPrice(updated);
-      }
-      return updated;
-    };
+    const updateProduct = (p) => p._id === product._id ? { ...p, [field]: value } : p;
     setAllProducts(prev => prev.map(updateProduct));
 
     try {
@@ -205,9 +194,6 @@ export default function ProductList() {
           const cur = prev.find(p => p._id === product._id);
           if (!cur) return prev.map(p => p._id === product._id ? { ...p, [field]: value } : p);
           const payload = { ...cur, [field]: value };
-          if (field === 'settlementPrice' || field === 'shippingFee') {
-            payload.costPrice = computedCostPrice(payload);
-          }
           delete payload._id;
           delete payload._v;
           delete payload.updatedAt;
@@ -222,13 +208,7 @@ export default function ProductList() {
           return prev.map(p => p._id === product._id ? { ...p, [field]: value } : p);
         });
       } else {
-        const patch = { [field]: value };
-        if (field === 'settlementPrice' || field === 'shippingFee') {
-          const currentProduct = allProducts.find(p => p._id === product._id);
-          const updatedProduct = { ...currentProduct, [field]: value };
-          patch.costPrice = computedCostPrice(updatedProduct);
-        }
-        await api.put('/products/' + product._id, patch);
+        await api.put('/products/' + product._id, { [field]: value });
       }
     } catch {
       setAllProducts(prev => prev.map(p => p._id === product._id ? product : p));
@@ -243,16 +223,9 @@ export default function ProductList() {
   };
 
   // ── Helpers ──
-  // ── Compute costPrice from settlementPrice + shippingFee ──
-  const computedCostPrice = (p) => {
-    const sp = Number(p.settlementPrice || 0);
-    const sf = Number(p.shippingFee || 0);
-    return sp + sf;
-  };
-
   const profit = p => {
     const s = Number(p.sellPrice || 0);
-    const c = computedCostPrice(p);
+    const c = Number(p.costPrice || 0);
     const ta = Number(p.taxRateA || 0);
     const tb = Number(p.taxRateB || 0);
     // 甲方税 = 销售价/(1+甲方税率) * 甲方税率
@@ -263,6 +236,9 @@ export default function ProductList() {
   };
   const profitRate = p => {
     const s = Number(p.sellPrice || 0);
+    const c = Number(p.costPrice || 0);
+    const ta = Number(p.taxRateA || 0);
+    const tb = Number(p.taxRateB || 0);
     const pft = profit(p);
     // 利润率 = (售价 - 成本 - (甲方税 - 乙方税)) / 销售价
     return s > 0 ? (pft / s) * 100 : 0;
@@ -481,9 +457,9 @@ export default function ProductList() {
         const validIds = [...selected].filter(id => !id.startsWith("_new_"));
         if (validIds.length > 0) params.set("ids", validIds.join(","));
       }
-      
+      const token = localStorage.getItem('token');
       const resp = await fetch('/api/export/excel?' + params.toString(), {
-        
+        headers: { Authorization: 'Bearer ' + (token || '') },
       });
       if (!resp.ok) throw new Error('导出失败: ' + resp.statusText);
       const blob = await resp.blob();
@@ -614,7 +590,7 @@ export default function ProductList() {
           } else {
             // 新建
             const id = '_new_' + Date.now();
-            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, settlementPrice: 0, shippingFee: 0, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, ecommerceReferenceUrl: '' }, ...p]);
+            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, ecommerceReferenceUrl: '' }, ...p]);
             setNewRowId(id);
           }
         }}
@@ -865,8 +841,7 @@ export default function ProductList() {
                     }
 
                     // ── Display cell ──
-                    const effectiveVal = col.field === 'costPrice' ? computedCostPrice(p) : val;
-                    const displayVal = effectiveVal ?? '';
+                    const displayVal = val ?? '';
                     const isMonetary = col.type === 'money';
                     const isPercent = col.type === 'percent';
 
@@ -874,10 +849,9 @@ export default function ProductList() {
                       <td key={ci} style={{
                         ...tdS,
                         cursor: col.editable ? 'pointer' : 'default',
-                        background: isEditing ? '#e6f7ff' : (col.field === 'costPrice' ? '#fafafa' : 'transparent'),
-                        fontWeight: col.field === 'title' ? 600 : (col.field === 'costPrice' ? 500 : 'normal'),
-                        color: col.field === '_profit' ? (profit(p) >= 0 ? '#52c41a' : '#ff4d4f') : (col.field === 'costPrice' ? '#8c8c8c' : '#333'),
-                        fontStyle: col.field === 'costPrice' ? 'italic' : 'normal',
+                        background: isEditing ? '#e6f7ff' : 'transparent',
+                        fontWeight: col.field === 'title' ? 600 : 'normal',
+                        color: col.field === '_profit' ? (profit(p) >= 0 ? '#52c41a' : '#ff4d4f') : '#333',
                         textAlign: ['number','money','profit','profitRate','percent'].includes(col.type) ? 'right' : 'left',
                       }} onClick={() => col.editable && startEdit(ri, ci, val)}>
                         <div style={{

@@ -1,15 +1,16 @@
 import { Router } from 'express';
 import Product from '../models/Product.js';
 import AuditLog from '../models/AuditLog.js';
-import { auth, requireRole } from '../middleware/auth.js';
 import { uploadFile as minioUpload, deleteFile as minioDelete } from "../services/minio.js";
 
 const router = Router();
 
-router.use(auth);
+// Auth middleware removed - no login required
 
-async function log(user, action, details = {}) {
-  await AuditLog.create({ action, userId: user._id, username: user.username, ...details });
+async function log(action, details = {}) {
+  try {
+    await AuditLog.create({ action, username: 'admin', ...details });
+  } catch (e) { console.warn('Audit log failed:', e.message); }
 }
 
 // List / Search
@@ -46,7 +47,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const product = await Product.create(req.body);
-    await log(req.user, 'create_product', { productId: product.productId, title: product.title });
+    await log('create_product', { productId: product.productId, title: product.title });
     res.status(201).json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -58,7 +59,7 @@ router.put('/:id', async (req, res) => {
   try {
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!product) return res.status(404).json({ error: '商品不存在' });
-    await log(req.user, 'update_product', { productId: product.productId, title: product.title, changes: Object.keys(req.body) });
+    await log('update_product', { productId: product.productId, title: product.title, changes: Object.keys(req.body) });
     res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -66,10 +67,20 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete
+router.delete('/:id', async (req, res) => {
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) return res.status(404).json({ error: '商品不存在' });
+    await log('delete_product', { productId: product.productId, title: product.title });
+    res.json({ message: '已删除' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Copy product (deep copy including MinIO images) ──
 router.post('/:id/copy', async (req, res) => {
   try {
-    // minioUpload already imported at top
     const original = await Product.findById(req.params.id);
     if (!original) return res.status(404).json({ error: '商品不存在' });
 
@@ -119,19 +130,8 @@ router.post('/:id/copy', async (req, res) => {
     copyData.isListed = false;
 
     const product = await Product.create(copyData);
-    await log(req.user, 'copy_product', { originalId: original._id.toString(), newId: product._id.toString(), title: product.title });
+    await log('copy_product', { originalId: original._id.toString(), newId: product._id.toString(), title: product.title });
     res.status(201).json(product);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.delete('/:id', requireRole('admin'), async (req, res) => {
-  try {
-    const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) return res.status(404).json({ error: '商品不存在' });
-    await log(req.user, 'delete_product', { productId: product.productId, title: product.title });
-    res.json({ message: '已删除' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -156,8 +156,6 @@ router.post('/batch', async (req, res) => {
       case 'delete':
         const toDelete = await Product.find({ _id: { $in: ids } }).lean();
         result = await Product.deleteMany({ _id: { $in: ids } });
-        // Fire-and-forget MinIO cleanup of all image arrays
-        // minioDelete already imported at top
         for (const p of toDelete) {
           const allUrls = new Set();
           const imgFields = ['panorama_images','package_images','detail_images','root_soil_images','size_ref_images','scene_images','selling_point_images','care_images','comparison_images','shipping_images','after_sale_images','images'];
@@ -172,7 +170,7 @@ router.post('/batch', async (req, res) => {
       default:
         return res.status(400).json({ error: '未知操作' });
     }
-    await log(req.user, `batch_${action}`, { ids, count: result.modifiedCount || result.deletedCount });
+    await log(`batch_${action}`, { ids, count: result.modifiedCount || result.deletedCount });
     res.json({ message: `操作完成`, modifiedCount: result.modifiedCount, deletedCount: result.deletedCount });
   } catch (err) {
     res.status(500).json({ error: err.message });

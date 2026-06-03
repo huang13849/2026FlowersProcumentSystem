@@ -1,10 +1,7 @@
 import { Router } from 'express';
 import User from '../models/User.js';
-import { auth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
-router.use(auth);
-router.use(requireRole('admin'));
 
 router.get('/', async (req, res) => {
   try {

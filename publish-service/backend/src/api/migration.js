@@ -1,38 +1,21 @@
 /**
- * Migration API —— 4步发布流程（替代原一键铺货异步任务）
+ * Migration API —— 4步发布流程（修复版）
  *
- * POST /api/publish/migration/start   —— 鉴权+解析商品
- * POST /api/publish/migration/upload  —— 上传图片到微信CDN
- * POST /api/publish/migration/verify  —— 校验类目资质
- * POST /api/publish/migration/publish —— 提交微信小店上架
- * GET  /api/publish/migration/list    —— 获取已铺货商品列表
+ * 修复内容：
+ * 1. 图片上传改用 /shop/ec/basics/img/upload（upload_type=0, resp_type=1）
+ * 2. 图片URL必须是 mmecimage.cn 格式才能通过 product/add 验证
+ * 3. head_imgs 至少3张，desc_info.imgs 至少1张
+ * 4. damage_guarantee=1 是该类目必填项
  */
 const { Router } = require('express');
+let sharp;
+try { sharp = require('sharp'); } catch(e) { sharp = null; }
 const axios = require('axios');
 const config = require('../config');
 const { getAdapter } = require('../adapter');
+const minioClient = require('../client/MinioImageClient');
 
 const router = Router();
-
-// ============================================================
-// token 获取（与 ShipinhaoAdapter 共享逻辑）
-// ============================================================
-async function getShipinhaoToken() {
-  var cfg = config.platforms.shipinhao;
-  if (!cfg.appKey || !cfg.appSecret) return null;
-  try {
-    var resp = await axios({
-      method: 'POST',
-      url: 'https://api.weixin.qq.com/cgi-bin/stable_token',
-      data: { grant_type: 'client_credential', appid: cfg.appKey, secret: cfg.appSecret, force_refresh: false },
-      timeout: 10000,
-    });
-    return resp.data && resp.data.access_token;
-  } catch (e) {
-    console.error('[Migration] token error:', e.message);
-    return null;
-  }
-}
 
 // 迁移任务状态（内存中，后续可持久化）
 var migrationTasks = new Map();
@@ -49,7 +32,6 @@ router.post('/start', async (req, res) => {
     var { productId } = req.body;
     if (!productId) return res.status(400).json({ error: '缺少 productId' });
 
-    // 从product-service获取商品
     var productClient = require('../client/ProductClient');
     var product;
     try {
@@ -115,6 +97,9 @@ function collectImages(product) {
  * 步骤2: 上传图片到微信CDN
  * POST /api/publish/migration/upload
  * Body: { taskId }
+ * 
+ * 使用正确的 /shop/ec/basics/img/upload 接口
+ * upload_type=0 (二进制流), resp_type=1 (返回mmecimage链接)
  * ==========================================
  */
 router.post('/upload', async (req, res) => {
@@ -137,27 +122,72 @@ router.post('/upload', async (req, res) => {
       return res.json({ success: true, step: 2, status: 'skipped', message: '无图片，跳过上传', wechatImages: [] });
     }
 
-    var token = await getShipinhaoToken();
-    if (!token) return res.status(503).json({ error: '无法获取微信access_token，请稍后重试' });
-
-    var FormData = require('form-data');
-    var minioClient = require('../client/MinioImageClient');
+    // 获取平台适配器（使用其 uploadImage 方法）
+    var adapter = getAdapter('shipinhao');
+    
     var wechatImages = [];
     var failCount = 0;
+    var maxImages = Math.min(images.length, 20); // 最多上传20张（head_imgs 9 + detail_imgs）
 
-    // 直接用 HTTP URL 作为微信图片地址（微信会自动下载）
-    // 视频号 API 支持 HTTP URL，微信服务器会尝试下载
-    for (var i = 0; i < images.length; i++) {
+    for (var i = 0; i < maxImages; i++) {
       var imgRef = images[i];
       if (!imgRef) continue;
-      // 跳过微信CDN图片（不需要处理）
+      
+      // 跳过已经是微信CDN的图片
       if (imgRef.indexOf('mmecimage.cn') >= 0) {
         wechatImages.push(imgRef);
         continue;
       }
-      // 所有图片都直接使用 HTTP URL，微信 product/add 接口会下载
-      wechatImages.push(imgRef);
-      console.log('[Migration] 图片' + (i+1) + '使用HTTP URL: ' + imgRef);
+
+      try {
+        // 从MinIO下载图片
+        var objectName = extractObjectName(imgRef);
+        if (!objectName) {
+          console.warn('[Migration] 无法解析图片引用: ' + imgRef);
+          failCount++;
+          continue;
+        }
+
+        var buffer = await minioClient.getImageBuffer(objectName);
+        
+        // 如果图片超过10MB，自动压缩（微信resp_type=1限制10MB）
+        if (buffer.length > 2 * 1024 * 1024 && sharp) {
+          console.log('[Migration] 图片' + (i+1) + '超过2MB (' + Math.round(buffer.length/1024/1024) + 'MB)，自动压缩...');
+          try {
+            buffer = await sharp(buffer)
+              .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+              .jpeg({ quality: 85 })
+              .toBuffer();
+            console.log('[Migration] 压缩后: ' + Math.round(buffer.length/1024) + 'KB');
+          } catch (compressErr) {
+            console.warn('[Migration] 压缩失败: ' + compressErr.message);
+            failCount++;
+            task.errors.push('图片' + (i+1) + '压缩失败: ' + compressErr.message);
+            continue;
+          }
+        } else if (buffer.length > 2 * 1024 * 1024) {
+          console.warn('[Migration] 图片' + (i+1) + '超过10MB且无压缩库，跳过');
+          failCount++;
+          task.errors.push('图片' + (i+1) + '超过2MB限制');
+          continue;
+        }
+
+        // 上传到微信CDN（通过适配器的 uploadImage 方法）
+        var fileName = task.productId + '_' + i + '.jpg';
+        var result = await adapter.uploadImage(buffer, fileName);
+        
+        if (result.url) {
+          wechatImages.push(result.url);
+          console.log('[Migration] 图片' + (i+1) + '/' + maxImages + '上传成功: ' + result.url);
+        } else {
+          failCount++;
+          console.warn('[Migration] 图片' + (i+1) + '上传返回空URL');
+        }
+      } catch (err) {
+        failCount++;
+        task.errors.push('图片' + (i+1) + '上传失败: ' + err.message);
+        console.error('[Migration] 图片' + (i+1) + '上传失败:', err.message);
+      }
     }
 
     task.wechatImages = wechatImages;
@@ -174,7 +204,7 @@ router.post('/upload', async (req, res) => {
       uploaded: wechatImages.length,
       failed: failCount,
       wechatImages: wechatImages,
-      message: '图片上传: ' + wechatImages.length + '/' + images.length + ' 成功',
+      message: '图片上传: ' + wechatImages.length + '/' + maxImages + ' 成功',
       error: !wechatImages.length ? ('所有图片上传失败: ' + detailErrors) : undefined,
       errors: task.errors.slice(-10),
     });
@@ -183,6 +213,29 @@ router.post('/upload', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * 从图片引用中提取 MinIO object name
+ */
+function extractObjectName(imageRef) {
+  if (!imageRef) return null;
+  var bucket = config.minio.bucket;
+  if (imageRef.startsWith('http://') || imageRef.startsWith('https://')) {
+    try {
+      var u = new URL(imageRef);
+      var path = u.pathname.replace(/^\//, '');
+      // Strip bucket name from path (URL format: /bucket/object)
+      // e.g. /supply-chain/products/xxx.jpg -> products/xxx.jpg
+      if (path.startsWith(bucket + '/')) {
+        path = path.substring(bucket.length + 1);
+      }
+      return path || null;
+    } catch (e) {
+      return null;
+    }
+  }
+  return imageRef;
+}
 
 /**
  * ==========================================
@@ -207,8 +260,8 @@ router.post('/verify', async (req, res) => {
     var category = product.category || '';
     var leafCatId = '546003';
 
-    // 检查类目权限（简单方式：直接调detail接口看是否能查到）
-    var token = await getShipinhaoToken();
+    var adapter = getAdapter('shipinhao');
+    var token = await adapter._getAccessToken();
     var allowed = false;
     var catName = '盆景/盆栽';
     var requiredAttrs = [];
@@ -277,45 +330,24 @@ router.post('/publish', async (req, res) => {
     var wechatImages = task.wechatImages || [];
     var leafCatId = '546003';
 
-    // 构建微信商品payload
-    var priceCents = Math.round((product.price || product.sellPrice || 0) * 100);
-    var title = product.title || '';
-    if (title.replace(/[\s]/g, '').length < 5) {
-      title = (title + ' - 林草二十年').substring(0, 60);
-    }
+    // 使用适配器构建完整 payload
+    var adapter = getAdapter('shipinhao');
+    var mappedProduct = adapter.mapProductToPlatform(product);
 
-    var payload = {
-      title: title,
-      head_imgs: wechatImages.slice(0, 9),
-      desc_info: {
-        desc: (product.description || '') + (product.careGuide ? '\n[养护]' + product.careGuide : '') + (product.sceneApplication ? '\n[场景]' + product.sceneApplication : ''),
-        imgs: wechatImages.slice(0, 20),
-      },
-      cats_v2: [{ cat_id: leafCatId }],
-      attrs: [
-        { attr_key: '冠幅', attr_value: '30CM以下' },
-        { attr_key: '整体高度（含盆高和植物高度）', attr_value: '11cm-20cm' },
-        { attr_key: '植物类别', attr_value: '观叶植物' },
-        { attr_key: '发货苗情', attr_value: '不开花植物' },
-      ],
-      extra_service: { seven_day_return: 0, freight_insurance: 0, damage_guarantee: 1 },
-      deliver_method: 0,
-      brand_id: '2100000000',
-      express_info: { template_id: "905443892004" },
-      after_sale_info: { after_sale_address_id: "62961836002" },
-      skus: (product.specs && product.specs.length > 0)
-        ? product.specs.map(function(s, i) {
-            return {
-              out_sku_id: product.id + '_' + i,
-              sale_price: Math.round((s.price || product.price || 0) * 100) || 100,
-              stock_num: s.stock || 999,
-              sku_attrs: [{ attr_key: '规格', attr_value: s.value || s.name || '默认' }],
-            };
-          })
-        : [{ out_sku_id: product.id + '_default', sale_price: priceCents || 100, stock_num: product.stock || 999 }],
-      out_product_id: String(product.id),
-      listing: 0,
-    };
+    // 填入微信CDN图片
+    // head_imgs 至少3张
+    var headImgs = wechatImages.slice(0, 9);
+    while (headImgs.length < 3 && headImgs.length > 0) {
+      headImgs.push(headImgs[headImgs.length % headImgs.length]);
+    }
+    mappedProduct.head_imgs = headImgs;
+
+    // desc_info.imgs 至少1张
+    var descImgs = wechatImages.slice(0, 20);
+    if (descImgs.length === 0 && headImgs.length > 0) {
+      descImgs = [headImgs[0]];
+    }
+    mappedProduct.desc_info.imgs = descImgs;
 
     // 调微信API
     var productId = '';
@@ -323,8 +355,7 @@ router.post('/publish', async (req, res) => {
     var errorMsg = '';
 
     try {
-      var adapter = getAdapter('shipinhao');
-      var result = await adapter.publishProduct(product, payload, null);
+      var result = await adapter.publishProduct(product, mappedProduct, null);
       productId = result.platformProductId;
       success = !!productId;
       if (!success) errorMsg = '返回商品ID为空';
@@ -373,7 +404,6 @@ router.get('/list', (req, res) => {
       completedAt: t.completedAt,
     });
   });
-  // 按创建时间倒序
   tasks.sort(function(a, b) { return b.createdAt.localeCompare(a.createdAt); });
   return res.json({ total: tasks.length, tasks: tasks });
 });

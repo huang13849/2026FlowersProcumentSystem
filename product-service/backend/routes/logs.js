@@ -1,10 +1,7 @@
 import { Router } from 'express';
 import AuditLog from '../models/AuditLog.js';
-import { auth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
-router.use(auth);
-router.use(requireRole('admin', 'auditor'));
 
 router.get('/', async (req, res) => {
   try {
