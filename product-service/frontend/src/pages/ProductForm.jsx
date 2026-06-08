@@ -84,8 +84,10 @@ export default function ProductForm() {
     ['sellerName','商家名称','text',true], ['flowerName','花卉名称','text'], ['specSize','规格尺寸','text'],
     ['potColorNotes','备注','text'], ['deliveryMethod','履约方式','text'], ['origin','发货地','text'],
     ['weight','重量(kg)','number'], ['stock','库存','number'],
+    ['minOrder','起订量','number'],
     ['settlementPrice','结算价','number'],
     ['shippingFee','运费','number'],
+    ['shipping_description','运费说明','select'],
     ['costPrice','成本价','number'],
     ['sellPrice','销售价','number'], ['profit','利润','number'],
   ];
@@ -127,10 +129,20 @@ export default function ProductForm() {
           return (
           <div key={k}>
             <label style={{ fontSize:12, color: isComputed ? '#999' : '#555' }}>{label}{required?' *':''}</label>
+            {k === 'shipping_description' ? (
+              <select value={form[k] || ''} onChange={e => set(k, e.target.value)}
+                style={{ width:'100%', padding:'6px 8px', border:'1px solid #d9d9d9', borderRadius:4, fontSize:13, background:'#fff' }}>
+                <option value="">请选择</option>
+                <option value="free_shipping">包邮</option>
+                <option value="per_plant">不包邮，按颗计费</option>
+                <option value="per_kg">不包邮，按KG计费</option>
+              </select>
+            ) : (
             <input type={type} value={isComputed ? computedCostPrice() || '' : (form[k] ?? '')}
               onChange={e => { if (readonly || isComputed) return; set(k, type==='number' ? (e.target.value===''?'':Number(e.target.value)) : e.target.value); }}
               readOnly={readonly || isComputed}
               style={{ width:'100%', padding:'6px 8px', border: isComputed ? '1px dashed #d9d9d9' : '1px solid #d9d9d9', borderRadius:4, fontSize:13, background: isComputed ? '#fafafa' : '#fff', color: isComputed ? '#8c8c8c' : '#333' }} />
+            )}
           </div>
         );})}
       </div>

@@ -127,6 +127,7 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
       <a class="nav-item" href="http://100.96.54.109:3004"><span class="icon">🏪</span><span>店铺注册</span><span class="badge">3004</span></a>
       <a class="nav-item" href="/ai"><span class="icon">🤖</span><span>AI 助手</span><span class="badge">3003</span></a>
       <a class="nav-item" href="http://100.96.54.109:3005"><span class="icon">📦</span><span>一键铺货</span><span class="badge">3005</span></a>
+      <a class="nav-item" href="/price"><span class="icon">💰</span><span>价格指数</span><span class="badge">3009</span></a>
       <a class="nav-item" href="http://100.96.54.109:9001"><span class="icon">🖼️</span><span>MinIO 图床</span><span class="badge">9001</span></a>
     </div>
     <div class="sidebar-footer">
@@ -229,6 +230,16 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
           </div>
           <span class="arrow">→</span>
         </a>
+        <a class="service-card" href="/price">
+          <div class="icon">💰</div>
+          <h3>花卉价格指数</h3>
+          <p>远程 Postgres + Redis 缓存 · 采集平台/品类/等级筛选 · 分页展示</p>
+          <div class="meta">
+            <span class="tag">价格服务</span>
+            <span style="color:var(--text-muted)">:3009</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
         <a class="service-card" href="http://100.96.54.109:9001" target="_blank">
           <div class="icon">🖼️</div>
           <h3>MinIO 对象存储</h3>
@@ -246,6 +257,7 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
         <div class="sys-panel">
           <h3>🔌 系统服务状态</h3>
           <div id="serviceStatus">
+            <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>价格服务</div><span class="status-text">检测中...</span></div>
             <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>商品服务</div><span class="status-text">检测中...</span></div>
             <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>供应商服务</div><span class="status-text">检测中...</span></div>
             <div class="sys-item"><div class="name"><span class="dot" style="background:var(--accent-green)"></span>AI 服务</div><span class="status-text">检测中...</span></div>
@@ -285,9 +297,9 @@ document.getElementById("startTime").textContent = new Date().toLocaleTimeString
 // Health check all services
 async function checkServices() {
   const services = [
+    { name: "价格服务", url: "http://100.96.54.109:3009/api/prices/health", key: "price" },
     { name: "商品服务", url: "http://100.96.54.109:3001/api/health", key: "product" },
     { name: "供应商服务", url: "http://100.96.54.109:3002/api/health", key: "supplier" },
-    { name: "店铺注册", url: "http://100.96.54.109:3004/api/health", key: "shop" },
     { name: "AI 服务", url: "http://100.96.54.109:3003/api/ai/health", key: "ai" },
     { name: "MinIO API", url: "http://100.96.54.109:9000/minio/health/live", key: "minio" },
     { name: "Ollama LLM", url: "http://100.96.54.109:11434/api/tags", key: "ollama" },

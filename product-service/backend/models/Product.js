@@ -25,6 +25,7 @@ const productSchema = new mongoose.Schema({
   origin: String,
   potColorNotes: String,
   stock: { type: Number, default: 0 },
+  minOrder: { type: Number, default: 1 },
 
   // ── 多平台发布状态 ──
   publishStatus: {
@@ -67,6 +68,8 @@ const productSchema = new mongoose.Schema({
   listedStore: String,
   salesVolume: { type: Number, default: 0 },
   createdBy: { type: String, default: "admin" },
+
+  shipping_description: { type: String, default: null }, // V2.0: 运费说明
 
   supplier_id: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", index: true, sparse: true },
   ecommerceReferenceUrl: String,

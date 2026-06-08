@@ -108,3 +108,23 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+
+// ── V2.0: 高德地址转经纬度 ──
+const axios = require('axios');
+router.post('/geocode', async (req, res) => {
+  try {
+    const { address } = req.body;
+    if (!address) return res.status(400).json({ error: '缺少address参数' });
+    const key = process.env.GAODE_KEY || '';
+    if (!key) return res.status(400).json({ error: '未配置高德地图API密钥(GAODE_KEY)' });
+    const r = await axios.get('https://restapi.amap.com/v3/geocode/geo', {
+      params: { key, address, city: '', output: 'JSON' }
+    });
+    if (r.data.status !== '1' || !r.data.geocodes?.length) {
+      return res.status(400).json({ error: '地址解析失败', detail: r.data.info });
+    }
+    const g = r.data.geocodes[0];
+    const [lng, lat] = g.location.split(',').map(Number);
+    res.json({ address: g.formatted_address, longitude: lng, latitude: lat, level: g.level });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});

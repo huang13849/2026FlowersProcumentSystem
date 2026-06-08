@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import api from '../api'
 
 const STATUS_OPTIONS = ['全部','已完成','待签章','已下发','合同异常','待补资料']
@@ -49,9 +48,29 @@ export default function SupplierList() {
   const [dropTargetIndex, setDropTargetIndex] = useState(null)
   const [isSavingOrder, setIsSavingOrder] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const nav = useNavigate()
   const timer = useRef()
   const debounceTimers = useRef({})
+  /* ========== 新增行 ========== */
+  const [showNewRow, setShowNewRow] = useState(false)
+  const [newRowSaving, setNewRowSaving] = useState(false)
+  const [newRow, setNewRow] = useState({ name: '', shop_name: '', status: '待签章', contact_name: '', contact_phone: '', tax_id: '', address: '', planting_area: '', sales_period: [], longitude: '', latitude: '', notes: '' })
+
+  const handleNewRowSave = async () => {
+    if (!newRow.name.trim()) { alert('主体名称不能为空'); return }
+    setNewRowSaving(true)
+    try {
+      const payload = { name: newRow.name.trim(), status: newRow.status, shop_name: newRow.shop_name.trim() || undefined, contact: { name: newRow.contact_name.trim(), phone: newRow.contact_phone.trim() }, company_info: { tax_id: newRow.tax_id.trim() }, address: newRow.address.trim() || undefined, planting_area: newRow.planting_area ? Number(newRow.planting_area) : null, sales_period: newRow.sales_period, longitude: newRow.longitude ? Number(newRow.longitude) : null, latitude: newRow.latitude ? Number(newRow.latitude) : null, notes: newRow.notes.trim() || undefined, sortOrder: -Math.abs(Date.now()) }
+      const r = await api.post('/api/suppliers', payload)
+      setItems(prev => [r.data, ...prev])
+      setShowNewRow(false)
+      setNewRow({ name: '', shop_name: '', status: '待签章', contact_name: '', contact_phone: '', tax_id: '', address: '', planting_area: '', sales_period: [], longitude: '', latitude: '', notes: '' })
+      load()
+    } catch (e) { alert('创建失败: ' + (e.response?.data?.error || e.message)) }
+    setNewRowSaving(false)
+  }
+
+  const handleNewRowCancel = () => { setShowNewRow(false); setNewRow({ name: '', shop_name: '', status: '待签章', contact_name: '', contact_phone: '', tax_id: '', address: '', planting_area: '', sales_period: [], longitude: '', latitude: '', notes: '' }) }
+
 
   /* ========== 全屏图片预览模态框 ========== */
   const [previewModal, setPreviewModal] = useState(null)
@@ -183,6 +202,10 @@ export default function SupplierList() {
     else if (field === 'contact_name') ud = { contact: { ...item.contact, name: value } }
     else if (field === 'contact_phone') ud = { contact: { ...item.contact, phone: value } }
     else if (field === 'tax_id') ud = { company_info: { ...item.company_info, tax_id: value } }
+    else if (field === 'address') ud = { address: value }
+    else if (field === 'planting_area') ud = { planting_area: value ? Number(value) : null }
+    else if (field === 'longitude') ud = { longitude: value ? Number(value) : null }
+    else if (field === 'latitude') ud = { latitude: value ? Number(value) : null }
     const now = new Date().toISOString()
     setItems(p => p.map(x => {
       if (x._id !== rowId) return x
@@ -190,6 +213,8 @@ export default function SupplierList() {
       else if (field === 'contact_phone') return { ...x, contact: { ...x.contact, phone: value }, updatedAt: now }
       else if (field === 'tax_id') return { ...x, company_info: { ...x.company_info, tax_id: value }, updatedAt: now }
       else if (field === 'shop_name') return { ...x, shop_name: value, ...extraFields, updatedAt: now }
+      else if (field === 'address' || field === 'planting_area' || field === 'longitude' || field === 'latitude') return { ...x, [field]: value, updatedAt: now }
+            else if (field === 'sales_period') return { ...x, sales_period: value, updatedAt: now }
       else return { ...x, [field]: value, updatedAt: now }
     }))
     clearTimeout(debounceTimers.current[sk])
@@ -381,7 +406,7 @@ export default function SupplierList() {
           style={{padding:'5px 14px',background:exporting?'#d9d9d9':'#52c41a',color:'#fff',border:'none',borderRadius:4,cursor:exporting?'not-allowed':'pointer',fontSize:12,fontWeight:500}}>
           {exporting ? '导出中...' : '导出Excel'}
         </button>
-        <button onClick={() => nav('/suppliers/new')} style={{padding:'5px 12px',background:'#1a1a2e',color:'#fff',border:'none',borderRadius:4,cursor:'pointer',fontSize:12}}>+ 新增供应商</button>
+        <button onClick={() => setShowNewRow(true)} disabled={showNewRow} style={{padding:'5px 12px',background:showNewRow?'#d9d9d9':'#1a1a2e',color:'#fff',border:'none',borderRadius:4,cursor:showNewRow?'not-allowed':'pointer',fontSize:12}}>{showNewRow ? '编辑中...' : '+ 新增供应商'}</button>
       </div>
 
       <div style={{overflow:'auto',background:'#fff',borderRadius:8,boxShadow:'0 1px 4px rgba(0,0,0,0.05)',maxHeight:'calc(100vh - 260px)'}}>
@@ -394,6 +419,11 @@ export default function SupplierList() {
             <th style={{...th,width:90}}>联系人</th>
             <th style={{...th,width:110}}>联系电话</th>
             <th style={{...th,width:150}}>社会统一识别码</th>
+            <th style={{...th,width:100}}>地址</th>
+            <th style={{...th,width:50}}>经度</th>
+            <th style={{...th,width:50}}>纬度</th>
+            <th style={{...th,width:60}}>种植规模</th>
+            <th style={{...th,width:100}}>花期</th>
             <th style={{...th,width:140}}>营业执照</th>
             <th style={{...th,width:140}}>合同电子版</th>
             <th style={{...th,width:120}}>下发文件</th>
@@ -403,22 +433,40 @@ export default function SupplierList() {
             <th style={{...th,width:70}}>操作</th>
           </tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={14} style={{textAlign:'center',padding:24,color:'#888'}}>加载中...</td></tr>
-            : filteredItems.length === 0 ? <tr><td colSpan={14} style={{textAlign:'center',padding:24,color:'#888'}}>{(supplierFilter || search || status) ? '没有匹配的供应商' : '暂无数据'}</td></tr>
-            : filteredItems.map((r, i) => {
-              const sc = STATUS_COLORS[r.status] || STATUS_COLORS['待签章']
-              const saving = (field) => savingIds[r._id + '_' + field]
-              const isDragging = dragIndex === i
-              const isDropTarget = dropTargetIndex === i && dragIndex !== i
-              let rowBg = i%2===0?'#fff':'#fafcff'
-              if (isDragging) rowBg = '#e6f7ff'
-              if (isDropTarget) rowBg = '#fffbe6'
-              return (
-                <tr key={r._id} draggable onDragStart={(e) => handleDragStart(e, i)} onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleDragOver(e, i)} onDrop={(e) => { e.preventDefault() }}
-                  style={{borderBottom:'1px solid #f0f0f0',background:rowBg,height:44,cursor:'grab',opacity:isDragging?0.5:1,boxShadow:isDropTarget?'0 -2px 0 0 #1890ff inset':'none'}}
-                  onMouseEnter={e => { if(!isDragging) e.currentTarget.style.background='#f0f7ff' }}
-                  onMouseLeave={e => { if(!isDragging) e.currentTarget.style.background=i%2===0?'#fff':'#fafcff' }}>
+            {(() => {
+              if (loading) return <tr><td colSpan={19} style={{textAlign:'center',padding:24,color:'#888'}}>加载中...</td></tr>
+              const rows = []
+              if (showNewRow) {
+                rows.push(<tr key="__new" style={{background:'#fffbe6',borderBottom:'1px solid #ffe58f'}}>
+                  <td style={{...td,textAlign:'center',color:'#d4b106',fontSize:16}}>{String.fromCharCode(0x2795)}</td>
+                  <td style={td}><input value={newRow.name} onChange={e => setNewRow(p => ({...p, name: e.target.value}))} placeholder='主体名称 *' style={inputStyle} autoFocus /></td>
+                  <td style={td}><input value={newRow.shop_name} onChange={e => setNewRow(p => ({...p, shop_name: e.target.value}))} placeholder='商家名称' style={inputStyle} /></td>
+                  <td style={td}><select value={newRow.status} onChange={e => setNewRow(p => ({...p, status: e.target.value}))} style={{width:'100%',padding:'3px 6px',border:'none',borderRadius:10,fontSize:11,background:STATUS_COLORS['待签章'].bg,color:STATUS_COLORS['待签章'].c,cursor:'pointer',outline:'none'}}>{EDITABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></td>
+                  <td style={{...td,fontSize:11}}><input value={newRow.contact_name} onChange={e => setNewRow(p => ({...p, contact_name: e.target.value}))} placeholder='联系人' style={{...inputStyle,fontSize:11}} /></td>
+                  <td style={{...td,fontSize:11}}><input value={newRow.contact_phone} onChange={e => setNewRow(p => ({...p, contact_phone: e.target.value}))} placeholder='电话' style={{...inputStyle,fontSize:11}} /></td>
+                  <td style={{...td,fontSize:11}}><input value={newRow.tax_id} onChange={e => setNewRow(p => ({...p, tax_id: e.target.value}))} placeholder='统一识别码' style={{...inputStyle,fontSize:11,fontFamily:'monospace'}} /></td>
+                  <td style={{...td,fontSize:11}}><input value={newRow.address} onChange={e => setNewRow(p => ({...p, address: e.target.value}))} placeholder='地址' style={{...inputStyle,fontSize:11}} /></td>
+                  <td style={{...td,fontSize:11}}><input value={newRow.longitude} onChange={e => setNewRow(p => ({...p, longitude: e.target.value}))} placeholder='经度' style={{width:45,padding:'2px 4px',border:'1px solid #e8e8e8',borderRadius:4,fontSize:10,outline:'none'}} /></td>
+                  <td style={{...td,fontSize:11}}><input value={newRow.latitude} onChange={e => setNewRow(p => ({...p, latitude: e.target.value}))} placeholder='纬度' style={{width:45,padding:'2px 4px',border:'1px solid #e8e8e8',borderRadius:4,fontSize:10,outline:'none'}} /></td>
+                  <td style={{...td,fontSize:11}}><input value={newRow.planting_area} onChange={e => setNewRow(p => ({...p, planting_area: e.target.value}))} placeholder='亩' style={{...inputStyle,fontSize:11}} /></td>
+                  <td style={{...td,fontSize:11,color:'#999'}}><span>创建后编辑</span></td>
+                  <td style={td} colSpan={3}><span style={{fontSize:11,color:'#999'}}>创建后再上传文件</span></td>
+                  <td style={{...td,textAlign:'center',fontSize:13,color:'#d4b106'}}>—</td>
+                  <td style={td}><input value={newRow.notes} onChange={e => setNewRow(p => ({...p, notes: e.target.value}))} placeholder='备注' style={inputStyle} /></td>
+                  <td style={{...td,fontSize:11,color:'#999'}}>新建</td>
+                  <td style={td}><div style={{display:'flex',gap:4}}><button onClick={handleNewRowSave} disabled={newRowSaving || !newRow.name.trim()} style={{padding:'3px 8px',background:newRowSaving?'#d9d9d9':'#52c41a',color:'#fff',border:'none',borderRadius:4,cursor:newRowSaving?'not-allowed':'pointer',fontSize:11,whiteSpace:'nowrap'}}>{newRowSaving ? '保存...' : '保存'}</button><button onClick={handleNewRowCancel} disabled={newRowSaving} style={{padding:'3px 8px',background:'#fff',color:'#999',border:'1px solid #d9d9d9',borderRadius:4,cursor:'pointer',fontSize:11,whiteSpace:'nowrap'}}>取消</button></div></td>
+                </tr>)
+              }
+              if (filteredItems.length === 0 && !showNewRow) { rows.push(<tr key="__empty"><td colSpan={19} style={{textAlign:'center',padding:24,color:'#888'}}>{(supplierFilter || search || status) ? '没有匹配的供应商' : '暂无数据'}</td></tr>); return rows }
+              filteredItems.map((r, i) => {
+                const sc = STATUS_COLORS[r.status] || STATUS_COLORS['待签章']
+                const saving = (field) => savingIds[r._id + '_' + field]
+                const isDragging = dragIndex === i
+                const isDropTarget = dropTargetIndex === i && dragIndex !== i
+                let rowBg = i%2===0?'#fff':'#fafcff'
+                if (isDragging) rowBg = '#e6f7ff'
+                if (isDropTarget) rowBg = '#fffbe6'
+                rows.push(<tr key={r._id} draggable onDragStart={(e) => handleDragStart(e, i)} onDragEnd={handleDragEnd} onDragOver={(e) => handleDragOver(e, i)} onDrop={(e) => { e.preventDefault() }} style={{borderBottom:'1px solid #f0f0f0',background:rowBg,height:44,cursor:'grab',opacity:isDragging?0.5:1,boxShadow:isDropTarget?'0 -2px 0 0 #1890ff inset':'none'}} onMouseEnter={e => { if(!isDragging) e.currentTarget.style.background='#f0f7ff' }} onMouseLeave={e => { if(!isDragging) e.currentTarget.style.background=i%2===0?'#fff':'#fafcff' }}>
                   <td style={{...td,textAlign:'center',padding:'2px 4px',color:'#bbb',fontSize:16,cursor:'grab'}} title='拖拽调整排序'>{String.fromCharCode(0x2630)}</td>
                   <td style={td}><strong>{saving('name') && ' '}<input value={r.name} onChange={e => updateItem(r._id,'name',e.target.value)} style={inputStyle} onClick={e=>e.stopPropagation()} /></strong></td>
                   <td style={td}>{saving('shop_name') && ' '}<input value={r.shop_name||''} onChange={e => { handleShopNameChange(r._id, e.target.value) }} style={inputStyle} placeholder='手动输入商家名称' onClick={e=>e.stopPropagation()} /></td>
@@ -426,6 +474,11 @@ export default function SupplierList() {
                   <td style={{...td,fontSize:11}}>{saving('contact_name') && ' '}<input value={r.contact?.name||''} onChange={e => updateItem(r._id,'contact_name',e.target.value)} style={{...inputStyle,fontSize:11}} onClick={e=>e.stopPropagation()} /></td>
                   <td style={{...td,fontSize:11,color:'#666'}}>{saving('contact_phone') && ' '}<input value={r.contact?.phone||''} onChange={e => updateItem(r._id,'contact_phone',e.target.value)} style={{...inputStyle,fontSize:11}} onClick={e=>e.stopPropagation()} /></td>
                   <td style={{...td,fontSize:11}}>{saving('tax_id') && ' '}<input value={r.company_info?.tax_id||''} onChange={e => updateItem(r._id,'tax_id',e.target.value)} style={{...inputStyle,fontSize:11,fontFamily:'monospace'}} placeholder='统一识别码' onClick={e=>e.stopPropagation()} /></td>
+                  <td style={{...td,fontSize:11,color:'#666'}}>{saving('address') && ' '}<input value={r.address||''} onChange={e => updateItem(r._id,'address',e.target.value)} style={{...inputStyle,fontSize:11}} placeholder='地址' onClick={e=>e.stopPropagation()} /></td>
+                  <td style={{...td,fontSize:10,color:'#888',whiteSpace:'nowrap'}}>{r.longitude ? r.longitude.toFixed(4) : '-'}</td>
+                  <td style={{...td,fontSize:10,color:'#888',whiteSpace:'nowrap'}}>{r.latitude ? r.latitude.toFixed(4) : '-'}</td>
+                  <td style={{...td,textAlign:'center',fontSize:11}}>{saving('planting_area') && ' '}<input value={r.planting_area||''} onChange={e => updateItem(r._id,'planting_area',e.target.value)} style={{width:'60%',padding:'2px 4px',border:'1px solid #e8e8e8',borderRadius:4,fontSize:11,textAlign:'center',outline:'none'}} placeholder='亩' onClick={e=>e.stopPropagation()} /></td>
+                  <td style={{...td,fontSize:10,color:'#555'}}>{(r.sales_period||[]).length > 0 ? r.sales_period.slice(0,3).join(',') + ((r.sales_period||[]).length > 3 ? '...' : '') : '-'}</td>
                   <td style={td}>{renderFiles(r.license_files||[],'license',r)}</td>
                   <td style={td}>{renderFiles(r.contract_files||[],'contract',r)}</td>
                   <td style={td}>{renderFiles(r.dispatch_files||[],'dispatch',r)}</td>
@@ -436,10 +489,10 @@ export default function SupplierList() {
                     <button onClick={e=>{e.stopPropagation();window.open("http://100.96.54.109:3006/"+"?supplierId="+r._id+"&name="+encodeURIComponent(r.name),"_blank")}} style={{padding:"3px 8px",border:"1px solid #52c41a",background:"#f6ffed",color:"#52c41a",borderRadius:4,cursor:"pointer",fontSize:11,marginRight:4}}>合同</button><button onClick={e=>{e.stopPropagation();goProducts(r)}} onMouseDown={e=>e.stopPropagation()} style={{padding:'3px 8px',border:'1px solid #1890ff',background:'#e6f7ff',color:'#1890ff',borderRadius:4,cursor:'pointer',fontSize:11,marginRight:4}}>商品</button>
                     <button onClick={e=>handleDelete(e,r._id)} onMouseDown={e=>e.stopPropagation()} style={{padding:'2px 6px',border:'none',borderRadius:4,cursor:'pointer',fontSize:14,background:'transparent'}}>{String.fromCharCode(0x1f5d1)}</button>
                   </td>
-                </tr>
-              )
-            })}
-          </tbody>
+                </tr>)
+              })
+              return rows
+            })()}          </tbody>
         </table>
       </div>
       <div style={{marginTop:8,fontSize:11,color:'#999',textAlign:'center'}}>直接在输入框中修改自动保存 | {String.fromCharCode(0x2630)} 拖拽排序 | 导出Excel | 商家名称手动输入后自动查询商品数</div>

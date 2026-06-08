@@ -49,6 +49,8 @@ const COLUMNS = [
   { field: 'settlementPrice', label: '结算价',   width: 70,  type: 'money',  editable: true },
   // 15: 运费
   { field: 'shippingFee',    label: '运费',     width: 60,  type: 'money',  editable: true },
+  // 15b: 运费说明 (V2.0)
+  { field: 'shipping_description', label: '运费说明', width: 100, type: 'select', editable: true, options: [{value:'',label:'默认'},{value:'free_shipping',label:'包邮'},{value:'per_plant',label:'按颗计费'},{value:'per_kg',label:'按KG计费'}] },
   // 16: 成本价 = 结算价 + 运费（自动计算）
   { field: 'costPrice',      label: '成本价',   width: 70,  type: 'money',  editable: false },
   // 15: 销售价
@@ -72,7 +74,7 @@ const COLUMNS = [
   { field: 'isListed',     label: '状态', width: 60, type: 'enum', editable: true,
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
   // 26: 操作
-  { field: '_actions',     label: '操作', width: 70, type: 'actions', editable: false },
+  { field: 'minOrder', label: '起订量', width: 55, type: 'number', editable: true },
   // 27: 电商平台参考链接
   { field: 'ecommerceReferenceUrl', label: '电商平台参考', width: 90, type: 'string', editable: true },
 ];
@@ -614,7 +616,7 @@ export default function ProductList() {
           } else {
             // 新建
             const id = '_new_' + Date.now();
-            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, settlementPrice: 0, shippingFee: 0, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, ecommerceReferenceUrl: '' }, ...p]);
+            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, minOrder: 1, settlementPrice: 0, shippingFee: 0, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, ecommerceReferenceUrl: '' }, ...p]);
             setNewRowId(id);
           }
         }}
@@ -751,23 +753,6 @@ export default function ProductList() {
 
 
 
-                    // ── Actions column ──
-                    if (col.type === 'actions') {
-                      return (
-                        <td key={ci} style={{ ...tdS, textAlign:'center' }}>
-                          <div style={{ display:'flex', gap:3, justifyContent:'center' }}>
-                            <button onClick={() => nav('/products/' + p._id)}
-                              style={actBtnStyle('#1890ff')} title="编辑">✏️</button>
-                            <button onClick={() => {
-                              if (confirm('确认删除「' + p.title + '」？')) {
-                                api.delete('/products/' + p._id).then(() => load());
-                              }
-                            }} style={actBtnStyle('#ff4d4f')} title="删除">🗑</button>
-                          </div>
-                        </td>
-                      );
-                    }
-
                     // ── Status column ──
                     if (col.type === 'enum') {
                       if (isEditing) {
@@ -865,6 +850,7 @@ export default function ProductList() {
                     }
 
                     // ── Display cell ──
+                    const shippingDescLabels = { 'free_shipping':'包邮', 'per_plant':'按颗计费', 'per_kg':'按KG计费' };
                     const effectiveVal = col.field === 'costPrice' ? computedCostPrice(p) : val;
                     const displayVal = effectiveVal ?? '';
                     const isMonetary = col.type === 'money';

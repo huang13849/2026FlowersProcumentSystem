@@ -28,6 +28,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     { header: "发货地",       key: "origin",            width: 10 },
     { header: "库存",         key: "stock",             width: 8 },
     { header: "重量",         key: "weight",            width: 8 },
+    { header: "起订量",       key: "minOrder",         width: 8 },
     { header: "结算价",       key: "settlementPrice",   width: 10 },
     { header: "运费",         key: "shippingFee",       width: 8 },
     { header: "成本价",       key: "costPrice",         width: 10 },
@@ -99,6 +100,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell("origin").value = p.origin || "";
     row.getCell("stock").value = p.stock || 0;
     row.getCell("weight").value = p.weight ?? "";
+    row.getCell("minOrder").value = p.minOrder ?? 1;
     row.getCell("settlementPrice").value = Number(p.settlementPrice || 0) || "";
     row.getCell("shippingFee").value = Number(p.shippingFee || 0) || "";
     row.getCell("costPrice").value = costP || "";
