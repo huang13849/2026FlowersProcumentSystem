@@ -58,8 +58,8 @@ const COLUMNS = [
   { field: 'costPrice',      label: '成本价',   width: 70,  type: 'money',  editable: false },
   // 18: 销售价
   { field: 'sellPrice',    label: '销售价',   width: 70,  type: 'money',  editable: true },
-  // 19: 平台参考(划线价)链接
-  { field: 'ecommerceReferenceUrl', label: '平台参考(划线价)', width: 90, type: 'string', editable: true },
+  // 19: 平台参考(划线价)金额
+  { field: 'ecommerceReferenceUrl', label: '平台参考(划线价)', width: 90, type: 'money', editable: true },
   // 19: 甲方税率
   { field: 'taxRateA',      label: '甲方税率', width: 65,  type: 'percent', editable: true },
   // 20: 乙方税率
@@ -618,7 +618,7 @@ export default function ProductList() {
           } else {
             // 新建
             const id = '_new_' + Date.now();
-            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, tradeType: 'retail', settlementPrice: 0, shippingFee: 0, minOrder: 1, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, potColorNotes: '', ecommerceReferenceUrl: '' }, ...p]);
+            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, tradeType: 'retail', settlementPrice: 0, shippingFee: 0, minOrder: 1, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, potColorNotes: '', ecommerceReferenceUrl: 0 }, ...p]);
             setNewRowId(id);
           }
         }}

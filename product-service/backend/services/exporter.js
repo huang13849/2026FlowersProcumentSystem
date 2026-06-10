@@ -113,7 +113,10 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell("taxRateB").value = p.taxRateB ?? "";
     row.getCell("isListed").value = p.isListed ? "已上架" : "未上架";
     row.getCell("productId").value = p.productId || "";
-    row.getCell("ecommerceReferenceUrl").value = p.ecommerceReferenceUrl || "";
+    {
+      const platformReferenceAmount = Number(p.ecommerceReferenceUrl);
+      row.getCell("ecommerceReferenceUrl").value = Number.isFinite(platformReferenceAmount) ? platformReferenceAmount : "";
+    }
     row.getCell("potColorNotes").value = p.potColorNotes || "";
 
     // ── Embed thumbnail from each dedicated column ──
@@ -161,6 +164,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     row.getCell("costPrice").alignment = { horizontal: "right" };
     row.getCell("retailMarkupPrice").alignment = { horizontal: "right" };
     row.getCell("sellPrice").alignment = { horizontal: "right" };
+    row.getCell("ecommerceReferenceUrl").alignment = { horizontal: "right" };
     row.getCell("profit").alignment = { horizontal: "right" };
     row.getCell("profitRate").alignment = { horizontal: "right" };
     row.getCell("taxRateA").alignment = { horizontal: "right" };
