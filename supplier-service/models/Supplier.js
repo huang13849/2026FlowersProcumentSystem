@@ -5,7 +5,15 @@ const SupplierSchema = new mongoose.Schema({
   shop_name: { type: String, index: true, sparse: true },
   status: { type: String, enum: ['已完成','待签章','已下发','合同异常','待补资料'], default: '待签章' },
   contact: { name: String, phone: String, wechat: String },
+  contacts: [{ name: String, phone: String, title: String, gender: String }],
   company_info: { tax_id: String, address: String, main_business: String },
+  business_items: [{
+    main_business: String,       // 主营业务内容
+    address: String,             // 对应种植/经营地址
+    planting_area: Number,       // 种植面积（亩）
+    estimated_inventory: Number, // 库存预估（株/棵）
+    sales_period: String,        // 销售期（自由填写）
+  }],
 
   // ── V2.0 新增字段 ──
   address: { type: String, default: '' },                    // 供应商实际经营地址

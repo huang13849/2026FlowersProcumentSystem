@@ -20,6 +20,18 @@ router.post('/reorder', async (req, res) => {
 });
 
 // ── Product shop names ──
+
+// ── Batch delete (MUST be before /:id) ──
+router.post('/batch-delete', async (req, res) => {
+  try {
+    const SupplierWrite = supplierModel(req, 'SupplierWrite');
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids must be a non-empty array' });
+    const result = await SupplierWrite.deleteMany({ _id: { $in: ids } });
+    res.json({ success: true, deleted: result.deletedCount });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/shop-names', async (req, res) => {
   try {
     const db = req.app.locals.SupplierRead.db;

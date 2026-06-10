@@ -58,6 +58,8 @@ const COLUMNS = [
   { field: 'costPrice',      label: '成本价',   width: 70,  type: 'money',  editable: false },
   // 18: 销售价
   { field: 'sellPrice',    label: '销售价',   width: 70,  type: 'money',  editable: true },
+  // 19: 平台参考(划线价)链接
+  { field: 'ecommerceReferenceUrl', label: '平台参考(划线价)', width: 90, type: 'string', editable: true },
   // 19: 甲方税率
   { field: 'taxRateA',      label: '甲方税率', width: 65,  type: 'percent', editable: true },
   // 20: 乙方税率
@@ -76,8 +78,6 @@ const COLUMNS = [
   // 29: 上架状态
   { field: 'isListed',     label: '状态', width: 60, type: 'enum', editable: true,
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
-  // 30: 电商平台参考链接
-  { field: 'ecommerceReferenceUrl', label: '电商平台参考', width: 90, type: 'string', editable: true },
   // 31: 包装说明
   { field: 'potColorNotes', label: '包装说明', width: 90, type: 'string', editable: true },
 ]

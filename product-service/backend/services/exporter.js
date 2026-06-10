@@ -33,6 +33,7 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     { header: "起订量",       key: "minOrder",          width: 8 },
     { header: "成本价",       key: "costPrice",         width: 10 },
     { header: "销售价",       key: "sellPrice",         width: 10 },
+    { header: "平台参考(划线价)", key: "ecommerceReferenceUrl", width: 24 },
     { header: "划线价(参考)", key: "retailMarkupPrice",  width: 10 },
     { header: "甲方税率",     key: "taxRateA",          width: 8 },
     { header: "乙方税率",     key: "taxRateB",          width: 8 },
@@ -47,7 +48,6 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
     { header: "售后保障",     key: "after_sale_images", width: 18 },
     { header: "上架状态",     key: "isListed",          width: 10 },
     { header: "商品ID",       key: "productId",         width: 18 },
-    { header: "电商平台参考", key: "ecommerceReferenceUrl", width: 24 },
     { header: "包装说明",     key: "potColorNotes",     width: 16 },
   ];
 
@@ -123,12 +123,12 @@ export async function exportToExcel(products, { imageHeight = 80 } = {}) {
       { key: "detail_images",      col: 2,  label: "细节特写" },
       { key: "root_soil_images",   col: 3,  label: "根系盆土" },
       { key: "size_ref_images",    col: 4,  label: "尺寸参考" },
-      { key: "scene_images",       col: 23, label: "场景应用" },
-      { key: "selling_point_images", col: 24, label: "品种卖点" },
-      { key: "care_images",         col: 25, label: "养护教程" },
-      { key: "comparison_images",   col: 26, label: "规格对比" },
-      { key: "shipping_images",     col: 27, label: "发货售后" },
-      { key: "after_sale_images",   col: 28, label: "售后保障" },
+      { key: "scene_images",       col: 25, label: "场景应用" },
+      { key: "selling_point_images", col: 26, label: "品种卖点" },
+      { key: "care_images",         col: 27, label: "养护教程" },
+      { key: "comparison_images",   col: 28, label: "规格对比" },
+      { key: "shipping_images",     col: 29, label: "发货售后" },
+      { key: "after_sale_images",   col: 30, label: "售后保障" },
     ];
     const fallbacks = p.images || [];
     for (const { key, col } of allImgCols) {
