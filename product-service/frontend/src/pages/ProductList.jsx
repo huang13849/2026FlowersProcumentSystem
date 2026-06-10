@@ -35,10 +35,11 @@ const COLUMNS = [
   { field: 'sellerName',   label: '商家',     width: 110, type: 'string', editable: true },
   // 8: 花卉
   { field: 'flowerName',   label: '花卉',     width: 90,  type: 'string', editable: true },
-  // 9: 规格尺寸 - 直接编辑
+  // 9: 零/批
+  { field: 'tradeType',    label: '零/批',    width: 60,  type: 'enum', editable: true,
+    options: [{v:'retail',l:'零售'},{v:'wholesale',l:'批发'},{v:'mixed',l:'零批混'}] },
+  // 10: 规格尺寸
   { field: 'specSize',     label: '规格', width: 70, type: 'string', editable: true },
-  // 10: 备注 - 直接编辑
-  { field: 'potColorNotes', label: '备注', width: 90, type: 'string', editable: true },
   // 11: 发货地
   { field: 'origin',       label: '发货地',   width: 65,  type: 'string', editable: true },
   // 12: 库存
@@ -49,36 +50,37 @@ const COLUMNS = [
   { field: 'settlementPrice', label: '结算价',   width: 70,  type: 'money',  editable: true },
   // 15: 运费
   { field: 'shippingFee',    label: '运费',     width: 60,  type: 'money',  editable: true },
-  // 15b: 运费说明 (V2.0)
+  // 15b: 运费说明
   { field: 'shipping_description', label: '运费说明', width: 100, type: 'select', editable: true, options: [{value:'',label:'默认'},{value:'free_shipping',label:'包邮'},{value:'per_plant',label:'按颗计费'},{value:'per_kg',label:'按KG计费'}] },
-  // 16: 成本价 = 结算价 + 运费（自动计算）
+  // 16: 起订量
+  { field: 'minOrder', label: '起订量', width: 55, type: 'number', editable: true },
+  // 17: 成本价 = 结算价 + 运费（自动计算）
   { field: 'costPrice',      label: '成本价',   width: 70,  type: 'money',  editable: false },
-  // 15: 销售价
+  // 18: 销售价
   { field: 'sellPrice',    label: '销售价',   width: 70,  type: 'money',  editable: true },
-  // 16: 甲方税率
+  // 19: 甲方税率
   { field: 'taxRateA',      label: '甲方税率', width: 65,  type: 'percent', editable: true },
-  // 17: 乙方税率
+  // 20: 乙方税率
   { field: 'taxRateB',      label: '乙方税率', width: 65,  type: 'percent', editable: true },
-  // 18: 利润
+  // 21: 利润
   { field: '_profit',      label: '利润',     width: 60,  type: 'profit', editable: false },
-  // 18: 利润率
+  // 22: 利润率
   { field: '_profitRate',  label: '利率',     width: 50,  type: 'profitRate',editable: false },
-  // 19-24: 商品详情图 6列
+  // 23-28: 商品详情图 6列
   { field: 'scene_img',    label: '场景应用', width: 56, type: 'gridImg', editable: false },
   { field: 'selling_img',  label: '品种卖点', width: 56, type: 'gridImg', editable: false },
   { field: 'care_img',     label: '养护教程', width: 56, type: 'gridImg', editable: false },
   { field: 'compare_img',  label: '规格对比', width: 56, type: 'gridImg', editable: false },
   { field: 'shipping_img', label: '发货与售后', width: 56, type: 'gridImg', editable: false },
   { field: 'after_img',    label: '售后', width: 56, type: 'gridImg', editable: false },
-  // 25: 上架状态
+  // 29: 上架状态
   { field: 'isListed',     label: '状态', width: 60, type: 'enum', editable: true,
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
-  // 26: 操作
-  { field: 'minOrder', label: '起订量', width: 55, type: 'number', editable: true },
-  // 27: 电商平台参考链接
+  // 30: 电商平台参考链接
   { field: 'ecommerceReferenceUrl', label: '电商平台参考', width: 90, type: 'string', editable: true },
-];
-
+  // 31: 包装说明
+  { field: 'potColorNotes', label: '包装说明', width: 90, type: 'string', editable: true },
+]
 // ─── Component ──────────────────────────────────────────────────────
 export default function ProductList() {
   const [allProducts, setAllProducts] = useState([]);  // no pagination
@@ -616,7 +618,7 @@ export default function ProductList() {
           } else {
             // 新建
             const id = '_new_' + Date.now();
-            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, minOrder: 1, settlementPrice: 0, shippingFee: 0, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, ecommerceReferenceUrl: '' }, ...p]);
+            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, tradeType: 'retail', settlementPrice: 0, shippingFee: 0, minOrder: 1, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, potColorNotes: '', ecommerceReferenceUrl: '' }, ...p]);
             setNewRowId(id);
           }
         }}
@@ -768,6 +770,26 @@ export default function ProductList() {
                           </td>
                         );
                       }
+                      // Handle tradeType display
+                      if (col.field === 'tradeType') {
+                        const ttLabel = val === 'wholesale' ? '批发' : (val === 'mixed' ? '零批混' : '零售');
+                        const ttBg = val === 'wholesale' ? '#fff7e6' : (val === 'mixed' ? '#f0f5ff' : '#e6fffb');
+                        const ttColor = val === 'wholesale' ? '#fa8c16' : (val === 'mixed' ? '#2f54eb' : '#13c2c2');
+                        const ttBorder = val === 'wholesale' ? '#ffd591' : (val === 'mixed' ? '#adc6ff' : '#b7eb8f');
+                        return (
+                          <td key={ci} style={{ ...tdS, textAlign:'center', cursor:'pointer' }}
+                            onClick={() => startEdit(ri, ci, val)}>
+                            <span style={{
+                              display:'inline-block', padding:'2px 8px', borderRadius:10,
+                              fontSize:11, fontWeight:500,
+                              background: ttBg,
+                              color: ttColor,
+                              border: '1px solid ' + ttBorder,
+                            }}>{ttLabel}</span>
+                          </td>
+                        );
+                      }
+                      // Handle isListed display (default)
                       return (
                         <td key={ci} style={{ ...tdS, textAlign:'center', cursor:'pointer' }}
                           onClick={() => startEdit(ri, ci, val)}>

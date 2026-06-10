@@ -26,6 +26,7 @@ const productSchema = new mongoose.Schema({
   potColorNotes: String,
   stock: { type: Number, default: 0 },
   minOrder: { type: Number, default: 1 },
+  tradeType: { type: String, enum: ["retail", "wholesale", "mixed"], default: "retail" },
 
   // ── 多平台发布状态 ──
   publishStatus: {
