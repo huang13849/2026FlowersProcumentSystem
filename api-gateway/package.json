@@ -18,7 +18,9 @@
     "pg": "^8.11.3",
     "jsonwebtoken": "^9.0.2",
     "express-rate-limit": "^7.1.4",
-    "mysql2": "^3.6.5"
+    "mysql2": "^3.6.5",
+    "prom-client": "^15.1.0",
+    "prom-client": "^15.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

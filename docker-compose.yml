@@ -28,6 +28,7 @@ services:
     - host.docker.internal:host-gateway
     ports:
     - 8088:80
+    - 8090:8090
     restart: unless-stopped
   minio:
     command: server /data --console-address :9001
@@ -154,5 +155,17 @@ services:
       API_KEYS: ***REMOVED_API_KEY***,***REMOVED_API_KEY***
       INTERNAL_TOKEN: ***REMOVED_INTERNAL_TOKEN***
       REDIS_HOST: 100.96.54.109
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.1.0
+    container_name: nginx-exporter
+    command:
+    - -nginx.scrape-uri=http://host.docker.internal:8090/stub_status
+    ports:
+    - 9113:9113
+    depends_on:
+    - gateway
+    restart: unless-stopped
+    extra_hosts:
+    - host.docker.internal:host-gateway
 volumes:
   publish_data: null

@@ -13,9 +13,69 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const promClient = require('prom-client');
 require('dotenv').config();
 
 const app = express();
+
+// ===== Prometheus 指标 =====
+promClient.collectDefaultMetrics({ register: promClient.register });
+
+// 自定义指标
+const httpRequestsTotal = new promClient.Counter({
+  name: 'api_gateway_http_requests_total',
+  help: 'Total HTTP requests',
+  labelNames: ['method', 'route', 'status'],
+});
+const httpRequestDurationSeconds = new promClient.Histogram({
+  name: 'api_gateway_http_request_duration_seconds',
+  help: 'HTTP request duration in seconds',
+  labelNames: ['method', 'route'],
+  buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+});
+const dbOperationDurationSeconds = new promClient.Histogram({
+  name: 'api_gateway_db_operation_duration_seconds',
+  help: 'Database operation duration in seconds',
+  labelNames: ['db', 'operation'],
+  buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1],
+});
+const dbConnectionsActive = new promClient.Gauge({
+  name: 'api_gateway_db_connections_active',
+  help: 'Active database connections',
+  labelNames: ['db'],
+});
+const authAttemptsTotal = new promClient.Counter({
+  name: 'api_gateway_auth_attempts_total',
+  help: 'Authentication attempts',
+  labelNames: ['method', 'result'],
+});
+
+// 指标中间件
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const route = req.route ? req.route.path : req.path;
+    httpRequestsTotal.inc({ method: req.method, route, status: res.statusCode });
+    httpRequestDurationSeconds.observe({ method: req.method, route }, (Date.now() - start) / 1000);
+  });
+  next();
+});
+
+// 指标端点（免认证）
+app.get('/metrics', async (req, res) => {
+  try {
+    // 更新 DB 连接状态
+    const { getMongoDb, getPgPool, getRedisClient } = require('./services/connections');
+    try { dbConnectionsActive.set({ db: 'mongodb' }, mongoose.connection.readyState === 1 ? 1 : 0); } catch(e) {}
+    try { dbConnectionsActive.set({ db: 'redis' }, getRedisClient() ? 1 : 0); } catch(e) {}
+    try { dbConnectionsActive.set({ db: 'postgres' }, getPgPool() ? 1 : 0); } catch(e) {}
+
+    res.set('Content-Type', promClient.register.contentType);
+    res.end(await promClient.register.metrics());
+  } catch (err) {
+    res.status(500).end(err.message);
+  }
+});
 
 // ===== 中间件 =====
 app.use(cors());
