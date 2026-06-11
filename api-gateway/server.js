@@ -1,0 +1,88 @@
+/**
+ * API Gateway — supply-chain-platform 统一数据网关
+ * 
+ * 职责：
+ * 1. 统一对外提供 MongoDB / PostgreSQL / Redis / MySQL 的增删改查接口
+ * 2. 自动路由到正确的数据库主从节点（写→主，读→从）
+ * 3. 缓存层（Redis hot data）
+ * 4. 认证 & 限流
+ * 
+ * 端口: 3007
+ */
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+require('dotenv').config();
+
+const app = express();
+
+// ===== 中间件 =====
+app.use(cors());
+app.use(helmet());
+app.use(express.json({ limit: '10mb' }));
+
+// 限流：每 IP 每 15 分钟 1000 次
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: '请求过于频繁，请稍后再试' },
+}));
+
+// ===== 认证中间件（路由之前） =====
+const authMiddleware = require('./middleware/auth');
+app.use('/api/mongo', authMiddleware);
+app.use('/api/pg', authMiddleware);
+app.use('/api/redis', authMiddleware);
+app.use('/api/mysql', authMiddleware);
+app.use('/api/unified', authMiddleware);
+
+// ===== 路由 =====
+app.use('/api/health', require('./routes/health'));
+app.use('/api/mongo', require('./routes/mongo'));
+app.use('/api/pg', require('./routes/postgres'));
+app.use('/api/redis', require('./routes/redis'));
+app.use('/api/mysql', require('./routes/mysql'));
+app.use('/api/unified', require('./routes/unified'));
+
+// 404
+app.use((req, res) => {
+  res.status(404).json({ error: '路由不存在', path: req.path });
+});
+
+// 全局错误处理
+app.use((err, req, res, next) => {
+  console.error('[Gateway Error]', err.message);
+  res.status(err.status || 500).json({
+    error: err.message || '内部服务器错误',
+    code: err.code,
+  });
+});
+
+const PORT = process.env.PORT || 3007;
+
+// ===== 启动 =====
+async function start() {
+  try {
+    const { connectAll } = require('./services/connections');
+    const results = await connectAll();
+    console.log('📦 Database connections:');
+    if (results.mongodb) console.log('  ✅ MongoDB connected');
+    if (results.mongodbError) console.log(`  ⚠️  MongoDB: ${results.mongodbError}`);
+    if (results.postgres) console.log('  ✅ PostgreSQL connected');
+    if (results.postgresError) console.log(`  ⚠️  PostgreSQL: ${results.postgresError}`);
+    if (results.redis) console.log('  ✅ Redis connected');
+    if (results.redisError) console.log(`  ⚠️  Redis: ${results.redisError}`);
+  } catch (e) {
+    console.error('❌ Startup connection error:', e.message);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🚪 API Gateway running on port ${PORT}`);
+    console.log(`📋 Endpoints: /api/mongo | /api/pg | /api/redis | /api/mysql | /api/unified`);
+  });
+}
+
+start();

@@ -136,5 +136,23 @@ services:
     restart: unless-stopped
     volumes:
     - ./supplier-service/uploads:/app/uploads
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+    - ./api-gateway/.env
+    - ./production.secrets.env
+    environment:
+      PORT: '3007'
+      MONGO_URI: mongodb://admin:Hy%401987921@100.67.126.90:27017/supply_chain?authSource=admin&replicaSet=rs0&readPreference=secondaryPreferred
+      PG_HOST: 100.67.126.90
+      PG_PORT: '5432'
+      PG_USER: postgres
+      REDIS_SENTINEL_HOSTS: 100.96.54.109:26379
+      API_KEYS: ***REMOVED_API_KEY***,***REMOVED_API_KEY***
+      INTERNAL_TOKEN: ***REMOVED_INTERNAL_TOKEN***
+      REDIS_HOST: 100.96.54.109
 volumes:
   publish_data: null

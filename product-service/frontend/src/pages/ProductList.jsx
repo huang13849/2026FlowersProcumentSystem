@@ -99,7 +99,7 @@ export default function ProductList() {
   const tableRef = useRef(null);
   const [pasteTarget, setPasteTarget] = useState(null); // { product, colField }
   // 商家名称筛选
-  const [sellerFilter, setSellerFilter] = useState('');
+  const [sellerFilter, setSellerFilter] = useState(() => { try { const h = window.location.hash; const p = new URLSearchParams(h.split('?')[1] || ''); return p.get('sellerName') || ''; } catch { return ''; } });
   const [sellerSuggestions, setSellerSuggestions] = useState([]);
   const [showSellerSug, setShowSellerSug] = useState(false);
   const [allSellers, setAllSellers] = useState([]);
@@ -517,6 +517,21 @@ export default function ProductList() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const tradeStats = displayed.reduce((acc, p) => {
+    const type = p.tradeType === 'wholesale' ? 'wholesale' : (p.tradeType === 'mixed' ? 'mixed' : 'retail');
+    acc[type] += 1;
+    return acc;
+  }, { retail: 0, wholesale: 0, mixed: 0 });
+  const statChip = (label, value, bg, color, border) => (
+    <span style={{
+      display:'inline-flex', alignItems:'center', gap:4, padding:'4px 9px',
+      border:'1px solid ' + border, borderRadius:999, background:bg, color,
+      fontSize:12, fontWeight:600, whiteSpace:'nowrap'
+    }}>
+      <span>{label}</span><b style={{fontSize:13}}>{value}</b>
+    </span>
+  );
+
   // ── Render ──
   return (
     <div style={{ padding:'8px 12px', background:'#f5f5f5', minHeight:'calc(100vh - 48px)' }}>
@@ -597,7 +612,10 @@ export default function ProductList() {
           onChange={e => setStockRange(r => ({...r, max: e.target.value}))}
           style={{ ...inpStyle, width:55 }} />
 
-        <span style={{ fontSize:12, color:'#888' }}>共 {displayed.length} 条</span>
+        <span style={{ fontSize:12, color:'#888', whiteSpace:'nowrap' }}>共 {displayed.length} 条</span>
+        {statChip('批发', tradeStats.wholesale, '#fff7e6', '#fa8c16', '#ffd591')}
+        {statChip('零售', tradeStats.retail, '#e6fffb', '#13c2c2', '#87e8de')}
+        {statChip('零批混', tradeStats.mixed, '#f0f5ff', '#2f54eb', '#adc6ff')}
         <div style={{ flex:1 }} />
         <button onClick={exportExcel} disabled={exporting}
           style={{
