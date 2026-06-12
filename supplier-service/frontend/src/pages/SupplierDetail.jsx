@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import api from '../api'
+import api, { gatewayApi } from '../api'
 
 const ACCEPTED_TYPES = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp'
 const IMAGE_TYPES = ['jpg','jpeg','png','gif','webp']
@@ -61,9 +61,9 @@ export default function SupplierDetail() {
 
     try {
       const fd = new FormData()
-      fd.append('type', type)
+      fd.append('folder', type === 'contracts' ? 'contracts' : 'licenses')
       for (const f of files) fd.append('files', f)
-      const r = await api.post('/api/upload/multiple', fd)
+      const r = await gatewayApi.post('/api/minio/upload-multiple', fd)
       const uploaded = r.data.files || []
       const field = type === 'contracts' ? 'contract_files' : 'license_files'
       const upd = {}

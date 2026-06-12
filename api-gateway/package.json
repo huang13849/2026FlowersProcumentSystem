@@ -1,7 +1,7 @@
 {
   "name": "api-gateway",
-  "version": "1.0.0",
-  "description": "统一 API 网关 — 对外提供 MongoDB / Redis / PostgreSQL 的增删改查接口",
+  "version": "1.1.0",
+  "description": "统一 API 网关 — 对外提供 MongoDB / Redis / PostgreSQL / MinIO 的增删改查接口",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -20,7 +20,8 @@
     "express-rate-limit": "^7.1.4",
     "mysql2": "^3.6.5",
     "prom-client": "^15.1.0",
-    "prom-client": "^15.1.0"
+    "minio": "^8.0.2",
+    "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

@@ -29,6 +29,7 @@ services:
     ports:
     - 8088:80
     - 8090:8090
+    - 8089:8089
     restart: unless-stopped
   minio:
     command: server /data --console-address :9001
@@ -129,11 +130,12 @@ services:
   supplier:
     build: ./supplier-service
     container_name: supplier-service
+    network_mode: host
     env_file:
     - ./supplier-service/.env
     - ./production.secrets.env
-    ports:
-    - 3002:3002
+    # ports:
+    # - 3002:3002
     restart: unless-stopped
     volumes:
     - ./supplier-service/uploads:/app/uploads
@@ -151,10 +153,23 @@ services:
       PG_HOST: 100.67.126.90
       PG_PORT: '5432'
       PG_USER: postgres
+      PG_PASSWORD: "***REMOVED_PG_PW***"
+      PG_DATABASE: postgres
+      PG_STANDBY_HOST: 100.76.15.64
       REDIS_SENTINEL_HOSTS: 100.96.54.109:26379
       API_KEYS: ***REMOVED_API_KEY***,***REMOVED_API_KEY***
       INTERNAL_TOKEN: ***REMOVED_INTERNAL_TOKEN***
       REDIS_HOST: 100.96.54.109
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PORT: 3008
+      GATEWAY_URL: http://localhost:3007
+      API_KEY: ***REMOVED_API_KEY***
+      PG_DATABASE: supply_chain
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:1.1.0
     container_name: nginx-exporter

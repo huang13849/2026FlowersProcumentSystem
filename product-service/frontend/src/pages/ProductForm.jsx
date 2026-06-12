@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import api, { gatewayApi } from '../api';
 
 export default function ProductForm() {
   const nav = useNavigate();
@@ -33,10 +33,11 @@ export default function ProductForm() {
   const uploadImages = async (files, targetArray, setTargetArray) => {
     setUploading(true);
     const fd = new FormData();
+    fd.append('folder', 'products');
     for (const f of files) fd.append('files', f);
     try {
-      const r = await api.post('/images/upload-multiple', fd);
-      setTargetArray(i => [...i, ...(r.data.urls || [])]);
+      const r = await gatewayApi.post('/api/minio/upload-multiple', fd);
+      setTargetArray(i => [...i, ...(r.data.files || []).map(f => f.url)]);
     } catch (e) { alert('上传失败'); }
     setUploading(false);
   };

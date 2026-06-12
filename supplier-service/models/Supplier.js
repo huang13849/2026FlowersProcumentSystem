@@ -3,30 +3,28 @@ const mongoose = require('mongoose');
 const SupplierSchema = new mongoose.Schema({
   name: { type: String, required: true },
   shop_name: { type: String, index: true, sparse: true },
-  status: { type: String, enum: ['已完成','待签章','已下发','合同异常','待补资料'], default: '待签章' },
+  status: { type: String, enum: ['已完成','待整理','合同异常'], default: '待整理' },
   contact: { name: String, phone: String, wechat: String },
   contacts: [{ name: String, phone: String, title: String, gender: String }],
   company_info: { tax_id: String, address: String, main_business: String },
   business_items: [{
-    main_business: String,       // 主营业务内容
-    address: String,             // 对应种植/经营地址
-    planting_area: Number,       // 种植面积（亩）
-    estimated_inventory: Number, // 库存预估（株/棵）
-    sales_period: String,        // 销售期（自由填写）
+    main_business: String,
+    address: String,
+    planting_area: Number,
+    estimated_inventory: Number,
+    sales_period: String,
   }],
 
-  // ── V2.0 新增字段 ──
-  address: { type: String, default: '' },                    // 供应商实际经营地址
-  longitude: { type: Number, default: null },                 // 经度（自动生成）
-  latitude: { type: Number, default: null },                  // 纬度（自动生成）
-  planting_area: { type: Number, default: null },             // 种植面积（亩）
-  estimated_inventory: { type: Number, default: null },       // 预估总库存（株/棵）
-  sales_period: { type: [String], default: [] },              // 销售期（多选）
+  address: { type: String, default: '' },
+  longitude: { type: Number, default: null },
+  latitude: { type: Number, default: null },
+  planting_area: { type: Number, default: null },
+  estimated_inventory: { type: Number, default: null },
+  sales_period: { type: [String], default: [] },
 
-  // 地理位置索引（为地图系统预留）
   location: {
     type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], default: [0, 0] }          // [lng, lat]
+    coordinates: { type: [Number], default: [0, 0] }
   },
 
   contract_files: [{ name: String, url: String }],
@@ -39,7 +37,7 @@ const SupplierSchema = new mongoose.Schema({
 }, { timestamps: true, collection: 'supplier' });
 
 SupplierSchema.index({ status: 1 });
-SupplierSchema.index({ location: '2dsphere' });  // V2.0 地理空间索引
+SupplierSchema.index({ location: '2dsphere' });
 
 function createSupplierModel(connection) {
   return connection.models.Supplier || connection.model('Supplier', SupplierSchema);
