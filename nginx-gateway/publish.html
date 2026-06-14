@@ -216,7 +216,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
   <!-- Left: Product Cards -->
   <div>
     <div class="products-header">
-      <h2>📋 商品池</h2>
+      <h2>📋 商品池 <span style="font-size:11px;color:var(--text3);font-weight:400">（仅零售 · 有库存）</span></h2>
       <div class="filter-group">
         <input id="searchInput" placeholder="搜索商品..." oninput="debounceSearch()" />
         <select id="catFilter" onchange="resetProducts()">
@@ -345,7 +345,7 @@ async function loadProducts(){
     const search=document.getElementById('searchInput').value.trim();
     const cat=document.getElementById('catFilter').value;
     const st=document.getElementById('statusFilter').value;
-    const p=new URLSearchParams({limit:PAGE_SIZE,page:PAGE,sort:'-createdAt'});
+    const p=new URLSearchParams({limit:PAGE_SIZE,page:PAGE,sort:'-createdAt',tradeType:'retail',inStock:'true'});
     if(search)p.set('search',search);if(cat)p.set('category',cat);if(st)p.set('isListed',st==='published'?'true':'false');
     const r=await fetch(`http://100.96.54.109:3001/api/products?${p}`,{headers:authHeaders()});
     const d=await r.json();TOTAL=d.total||0;PAGE_TOTAL=Math.ceil(TOTAL/PAGE_SIZE);
@@ -360,7 +360,7 @@ async function loadProducts(){
 function renderProducts(clear=true){
   const c=document.getElementById('productContainer');
   if(clear)c.innerHTML='';
-  ALL_PRODS.forEach(p=>{
+  ALL_PRODS.forEach(p=>{if(p.tradeType!=='retail')return;if((Number(p.stock)||0)<=0)return;
     if(document.querySelector(`[data-pid="${p._id}"]`))return;
     // Check multiple image fields (product-service stores in categorized fields)
     const img=p.images?.[0]||p.panorama_images?.[0]||p.package_images?.[0]||p.detail_images?.[0]||p.scene_images?.[0]||p.selling_point_images?.[0]||p.care_images?.[0]||p.comparison_images?.[0]||p.shipping_images?.[0]||p.after_sale_images?.[0]||p.root_soil_images?.[0]||p.size_ref_images?.[0]||'';
@@ -574,3 +574,6 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('clic
 </script>
 </body>
 </html>
+
+
+

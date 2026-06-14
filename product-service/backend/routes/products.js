@@ -23,6 +23,8 @@ router.get('/', async (req, res) => {
     if (isListed !== undefined) query.isListed = isListed === 'true';
     if (sellerName) query.sellerName = sellerName;
     if (supplier_id) query.supplier_id = supplier_id;
+    if (req.query.tradeType) query.tradeType = { $in: req.query.tradeType.split(",") };
+    if (req.query.inStock === 'true') query.stock = { $gt: 0 };
     const total = await Product.countDocuments(query);
     const products = await Product.find(query)
       .sort(sort).skip((page - 1) * limit).limit(Number(limit));
@@ -199,3 +201,4 @@ router.get('/meta/sellers', async (req, res) => {
 });
 
 export default router;
+

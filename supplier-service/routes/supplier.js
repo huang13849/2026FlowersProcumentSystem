@@ -160,7 +160,7 @@ router.get('/', async (req, res) => {
       ];
     }
     if (status) query.status = status;
-    const data = await SupplierRead.find(query).sort({ sortOrder: 1, updatedAt: -1 });
+    const data = await SupplierRead.find(query).sort({ updatedAt: -1 });
     res.json({ suppliers: data, total: data.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
