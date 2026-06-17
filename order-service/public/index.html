@@ -12,20 +12,222 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.9/babel.min.js"></script>
 <style>
   body { margin: 0; background: #f5f5f5; }
-  .app-header { background: #fff; padding: 16px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+  .app-header { background: #fff; padding: 16px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
   .app-header h2 { margin: 0; }
-  .app-content { padding: 24px; max-width: 1400px; margin: 0 auto; }
-  .stat-cards { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .app-content { padding: 24px; max-width: 1800px; margin: 0 auto; }
+  .editable-cell { position: relative; }
+  .editable-cell .cell-display { padding: 4px 8px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; min-height: 30px; }
+  .editable-cell .cell-display:hover { border-color: #d9d9d9; background: #fafafa; }
+  .editable-cell-input, .editable-cell-select { padding: 4px 8px; width: 100%; }
+  .product-tags { display: flex; flex-wrap: wrap; gap: 2px; cursor: pointer; }
+  .product-tags .add-btn { border: 1px dashed #d9d9d9; border-radius: 4px; padding: 0 6px; font-size: 12px; color: #999; cursor: pointer; line-height: 22px; }
+  .product-tags .add-btn:hover { border-color: #1890ff; color: #1890ff; }
+  .product-picker-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 10px; }
+  .product-picker-item:hover { background: #e6f4ff; }
+  .product-picker-item.selected { background: #f0fff0; }
+  .product-picker-item img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 4px; min-height: 28px; }
+  .tag-input { width: 80px; }
+  .selection-bar { background: #e6f4ff; padding: 8px 16px; border-radius: 6px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useCallback } = React;
-const { Table, Button, Input, Space, Modal, Form, Select, Tag, message, Card, Statistic, Row, Col, Popconfirm, Tooltip } = antd;
+const { useState, useEffect, useCallback, useRef } = React;
+const { Table, Button, Input, InputNumber, Space, Tag, message, Card, Statistic, Row, Col, Popconfirm, Tooltip, Select, Modal } = antd;
 const { Search } = Input;
 
 const API_BASE = window.location.origin;
+
+const typeColors = { '微商': 'green', '单店': 'blue', '团购/电商': 'purple', '连锁': 'orange', '企业采购': 'cyan', '未设置': 'default' };
+const businessTypeOptions = [{value:'未设置'},{value:'微商'},{value:'单店'},{value:'团购/电商'},{value:'连锁'},{value:'企业采购'}];
+const businessTypeFilterOptions = [{ value: '全部', label: '全部类型' }, { value: '微商' }, { value: '单店' }, { value: '团购/电商' }, { value: '连锁' }, { value: '企业采购' }, { value: '未设置' }];
+
+function EditableCell({ value, onChange, type = 'text', options }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value);
+  const ref = useRef(null);
+
+  useEffect(() => { setVal(value); }, [value]);
+  useEffect(() => { if (editing && ref.current) ref.current.focus(); }, [editing]);
+
+  const confirm = () => { setEditing(false); if (val !== value) onChange(val); };
+  const cancel = () => { setEditing(false); setVal(value); };
+
+  if (type === 'select') {
+    if (editing) return (
+      <Select ref={ref} className="editable-cell-select" value={val} onChange={v => { setVal(v); setTimeout(() => { onChange(v); setEditing(false); }, 50); }}
+        onBlur={() => setEditing(false)} options={options} size="small" style={{ width: '100%' }}
+        open onDropdownVisibleChange={v => { if (!v) setEditing(false); }} />
+    );
+    return <span className="cell-display" onDoubleClick={() => setEditing(true)}>{value ? <Tag color={typeColors[value] || 'default'}>{value}</Tag> : <span style={{color:'#bbb'}}>双击编辑</span>}</span>;
+  }
+
+  if (editing) return <Input ref={ref} className="editable-cell-input" value={val || ''} onChange={e => setVal(e.target.value)}
+    onPressEnter={confirm} onBlur={confirm} onKeyDown={e => { if (e.key === 'Escape') cancel(); }} size="small" />;
+  return <span className="cell-display" onDoubleClick={() => setEditing(true)}>{value || <span style={{color:'#bbb'}}>-</span>}</span>;
+}
+
+function MoneyEditableCell({ value, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value != null ? Number(value) : 0);
+  const ref = useRef(null);
+
+  useEffect(() => { setVal(value != null ? Number(value) : 0); }, [value]);
+  useEffect(() => { if (editing && ref.current) ref.current.focus(); }, [editing]);
+
+  const confirm = () => {
+    setEditing(false);
+    const next = Number(val || 0);
+    if (next !== Number(value || 0)) onChange(next);
+  };
+
+  if (editing) return (
+    <InputNumber ref={ref} value={val} min={0} precision={2} controls={false}
+      prefix="¥" style={{ width: '100%' }} size="small"
+      onChange={v => setVal(v)} onPressEnter={confirm} onBlur={confirm}
+      onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setVal(value != null ? Number(value) : 0); } }} />
+  );
+  return (
+    <span className="cell-display" onDoubleClick={() => setEditing(true)} style={{ textAlign: 'right', display: 'block' }}>
+      ¥{Number(value || 0).toFixed(2)}
+    </span>
+  );
+}
+
+
+function PersonalTagEditor({ value, onChange }) {
+  const [tags, setTags] = useState([]);
+  const [inputVisible, setInputVisible] = useState(false);
+  const [inputVal, setInputVal] = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (value && typeof value === 'string' && value.trim()) {
+      setTags(value.split(',').map(t => t.trim()).filter(Boolean));
+    } else {
+      setTags([]);
+    }
+  }, [value]);
+
+  useEffect(() => { if (inputVisible && inputRef.current) inputRef.current.focus(); }, [inputVisible]);
+
+  const removeTag = (tag) => {
+    const next = tags.filter(t => t !== tag);
+    setTags(next);
+    onChange(next.join(','));
+  };
+
+  const addTag = () => {
+    if (inputVal.trim() && !tags.includes(inputVal.trim())) {
+      const next = [...tags, inputVal.trim()];
+      setTags(next);
+      onChange(next.join(','));
+    }
+    setInputVal('');
+    setInputVisible(false);
+  };
+
+  const tagColors = ['blue', 'geekblue', 'purple', 'magenta', 'volcano', 'gold', 'lime', 'green'];
+
+  return (
+    <div className="tag-list" onClick={e => e.stopPropagation()}>
+      {tags.map((t, i) => (
+        <Tag key={t} color={tagColors[i % tagColors.length]} closable onClose={() => removeTag(t)} style={{ margin: 0 }}>{t}</Tag>
+      ))}
+      {inputVisible ? (
+        <Input ref={inputRef} className="tag-input" size="small" value={inputVal}
+          onChange={e => setInputVal(e.target.value)} onPressEnter={addTag}
+          onBlur={addTag} onKeyDown={e => { if (e.key === 'Escape') { setInputVisible(false); setInputVal(''); } }} />
+      ) : (
+        <Tag style={{ borderStyle: 'dashed', cursor: 'pointer', margin: 0 }} onClick={() => setInputVisible(true)}>+ 标签</Tag>
+      )}
+    </div>
+  );
+}
+
+function ProductPicker({ visible, onCancel, onConfirm, existingProducts }) {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [keyword, setKeyword] = useState('');
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState([]);
+
+  useEffect(() => {
+    if (visible) {
+      const existing = [];
+      const ids = Array.isArray(existingProducts.ids) ? existingProducts.ids : [];
+      const titles = Array.isArray(existingProducts.titles) ? existingProducts.titles : [];
+      ids.forEach((id, i) => { existing.push({ id, title: titles[i] || id }); });
+      setSelected(existing);
+      fetchProducts(1);
+    }
+  }, [visible]);
+
+  const fetchProducts = useCallback(async (p = 1, kw = keyword) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), limit: '20' });
+      if (kw) params.set('keyword', kw);
+      const res = await fetch(`${API_BASE}/api/products/search?${params}`);
+      const json = await res.json();
+      setProducts(json.data || []);
+      setTotal(json.total || 0);
+      setPage(p);
+    } catch (e) { message.error('加载商品失败'); }
+    setLoading(false);
+  }, [keyword]);
+
+  const toggleProduct = (product) => {
+    const exists = selected.find(s => s.id === product._id);
+    if (exists) {
+      setSelected(selected.filter(s => s.id !== product._id));
+    } else {
+      setSelected([...selected, { id: product._id, title: product.title }]);
+    }
+  };
+
+  const isSelected = (productId) => selected.some(s => s.id === productId);
+
+  return (
+    <Modal title="选取购买产品（可多选）" open={visible} onCancel={onCancel}
+      onOk={() => onConfirm(selected)} okText="确认选取" cancelText="取消" width={750} destroyOnClose>
+      <div style={{ marginBottom: 12 }}>
+        <Search placeholder="搜索商品标题" onSearch={(v) => { setKeyword(v); fetchProducts(1, v); }} allowClear style={{ width: '100%' }} />
+      </div>
+      {selected.length > 0 && (
+        <div style={{ marginBottom: 10, padding: '8px 12px', background: '#fafafa', borderRadius: 6 }}>
+          <span style={{ color: '#666', marginRight: 8 }}>已选 {selected.length} 件：</span>
+          {selected.map(s => (
+            <Tag key={s.id} closable onClose={() => toggleProduct({ _id: s.id })} color="blue">{s.title}</Tag>
+          ))}
+        </div>
+      )}
+      <div style={{ maxHeight: 350, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: 6 }}>
+        {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>加载中...</div> :
+         products.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>无匹配商品</div> :
+         products.map(p => (
+           <div key={p._id} className={`product-picker-item ${isSelected(p._id) ? 'selected' : ''}`} onClick={() => toggleProduct(p)}>
+             {p.images && p.images[0] ? <img src={p.images[0]} alt="" /> : <div style={{width:40,height:40,background:'#f0f0f0',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🌸</div>}
+             <div style={{ flex: 1 }}>
+               <div style={{ fontWeight: 500 }}>{p.title}</div>
+               <div style={{ fontSize: 12, color: '#999' }}>{p.category || ''} {p.price ? `¥${p.price}` : ''}</div>
+             </div>
+             <input type="checkbox" checked={isSelected(p._id)} readOnly style={{ width: 18, height: 18, cursor: 'pointer' }} />
+           </div>
+         ))
+        }
+      </div>
+      {total > 20 && <div style={{ marginTop: 8, textAlign: 'center' }}>
+        <Button size="small" disabled={page <= 1} onClick={() => fetchProducts(page - 1)}>上一页</Button>
+        <span style={{ margin: '0 8px', color: '#999' }}>{page} / {Math.ceil(total / 20)}</span>
+        <Button size="small" disabled={page >= Math.ceil(total / 20)} onClick={() => fetchProducts(page + 1)}>下一页</Button>
+      </div>}
+    </Modal>
+  );
+}
 
 function App() {
   const [data, setData] = useState([]);
@@ -33,10 +235,12 @@ function App() {
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [search, setSearch] = useState('');
   const [businessType, setBusinessType] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editRecord, setEditRecord] = useState(null);
   const [stats, setStats] = useState([]);
-  const [form] = Form.useForm();
+  const [amountStats, setAmountStats] = useState({ total_income: 0, total_expense: 0, row_count: 0 });
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickingOrderId, setPickingOrderId] = useState(null);
+  const [pickingExisting, setPickingExisting] = useState({ ids: [], titles: [] });
 
   const fetchData = useCallback(async (page = 1, pageSize = 20, searchVal = search, typeVal = businessType) => {
     setLoading(true);
@@ -60,110 +264,177 @@ function App() {
     } catch (e) {}
   }, []);
 
-  useEffect(() => { fetchData(); fetchStats(); }, []);
-
-  const handleTableChange = (pag) => {
-    fetchData(pag.current, pag.pageSize);
-  };
-
-  const onSearch = (val) => { setSearch(val); fetchData(1, 20, val, businessType); };
-
-  const handleAdd = () => { setEditRecord(null); form.resetFields(); setModalOpen(true); };
-
-  const handleEdit = (record) => {
-    setEditRecord(record);
-    form.setFieldsValue({
-      member_id: record.member_id,
-      member_name: record.member_name,
-      phone: record.phone,
-      business_type: record.business_type,
-      purchase_time: record.purchase_time ? dayjs(record.purchase_time) : null,
-      delivery_address: record.delivery_address,
-    });
-    setModalOpen(true);
-  };
-
-  const handleDelete = async (id) => {
+  const fetchAmountStats = useCallback(async (searchVal = search, typeVal = businessType) => {
     try {
-      await fetch(`${API_BASE}/api/orders/${id}`, { method: 'DELETE' });
-      message.success('删除成功');
+      const params = new URLSearchParams();
+      if (searchVal) params.set('search', searchVal);
+      if (typeVal && typeVal !== '全部') params.set('business_type', typeVal);
+      const res = await fetch(`${API_BASE}/api/orders/stats/amount?${params}`);
+      const json = await res.json();
+      setAmountStats(json.data || { total_income: 0, total_expense: 0, row_count: 0 });
+    } catch (e) {}
+  }, [search, businessType]);
+
+  useEffect(() => { fetchData(); fetchStats(); fetchAmountStats(); }, []);
+
+  const handleTableChange = (pag) => { fetchData(pag.current, pag.pageSize); };
+  const onSearch = (val) => { setSearch(val); fetchData(1, 20, val, businessType); fetchAmountStats(val, businessType); };
+
+  const updateCell = async (id, field, value) => {
+    try {
+      await fetch(`${API_BASE}/api/orders/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+      message.success('已更新');
       fetchData(pagination.current);
-      fetchStats();
+      if (['income_amount', 'expense_amount'].includes(field)) fetchAmountStats();
+    } catch (e) { message.error('更新失败'); }
+  };
+
+  const handleAdd = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/orders`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_type: '未设置' }),
+      });
+      if (res.ok) {
+        message.success('已新增空行');
+        fetchData(1);
+        fetchStats();
+      } else {
+        const d = await res.json();
+        message.error(d.error || '新增失败');
+      }
+    } catch (e) { message.error('新增失败'); }
+  };
+
+  const handleDuplicate = async () => {
+    if (selectedRowKeys.length === 0) { message.warning('请先选择要复制的记录'); return; }
+    try {
+      const res = await fetch(`${API_BASE}/api/orders/duplicate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedRowKeys }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        message.success(`已复制 ${d.duplicated} 条记录`);
+        setSelectedRowKeys([]);
+        fetchData(1);
+        fetchStats();
+      } else {
+        const d = await res.json();
+        message.error(d.error || '复制失败');
+      }
+    } catch (e) { message.error('复制失败'); }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) { message.warning('请先选择要删除的记录'); return; }
+    try {
+      const res = await fetch(`${API_BASE}/api/orders/batch-delete`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedRowKeys }),
+      });
+      if (res.ok) {
+        message.success(`已删除 ${selectedRowKeys.length} 条记录`);
+        setSelectedRowKeys([]);
+        fetchData(pagination.current);
+        fetchStats();
+      } else {
+        const d = await res.json();
+        message.error(d.error || '删除失败');
+      }
     } catch (e) { message.error('删除失败'); }
   };
 
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      const payload = {
-        ...values,
-        purchase_time: values.purchase_time ? values.purchase_time.toISOString() : new Date().toISOString(),
-      };
-      if (editRecord) {
-        await fetch(`${API_BASE}/api/orders/${editRecord.id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        message.success('更新成功');
-      } else {
-        await fetch(`${API_BASE}/api/orders`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        message.success('创建成功');
-      }
-      setModalOpen(false);
-      fetchData(pagination.current);
-      fetchStats();
-    } catch (e) { message.error('操作失败'); }
+  const openProductPicker = (record) => {
+    setPickingOrderId(record.id);
+    setPickingExisting({
+      ids: Array.isArray(record.product_id) ? record.product_id : [],
+      titles: Array.isArray(record.product_title) ? record.product_title : [],
+    });
+    setPickerVisible(true);
   };
 
-  const typeColors = { '微商': 'green', '单店': 'blue', '团购/电商': 'purple', '连锁': 'orange', '未设置': 'default' };
+  const handleProductConfirm = async (selected) => {
+    if (!pickingOrderId) return;
+    try {
+      await fetch(`${API_BASE}/api/orders/${pickingOrderId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: selected.map(s => s.id),
+          product_title: selected.map(s => s.title),
+        }),
+      });
+      message.success(`已关联 ${selected.length} 件产品`);
+      fetchData(pagination.current);
+    } catch (e) { message.error('关联产品失败'); }
+  };
 
   const columns = [
-    { title: 'ID', dataIndex: 'id', width: 70, sorter: true },
-    { title: '会员ID', dataIndex: 'member_id', width: 100 },
-    { title: '会员名', dataIndex: 'member_name', width: 200, ellipsis: true,
-      render: (t) => <Tooltip title={t}><span>{t}</span></Tooltip> },
-    { title: '手机号', dataIndex: 'phone', width: 140 },
-    { title: '经营类型', dataIndex: 'business_type', width: 110,
-      render: (t) => <Tag color={typeColors[t] || 'default'}>{t}</Tag> },
-    { title: '购买时间', dataIndex: 'purchase_time', width: 170,
-      render: (t) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : '-' },
-    { title: '收货地址', dataIndex: 'delivery_address', width: 200, ellipsis: true,
-      render: (t) => <Tooltip title={t}><span>{t || '-'}</span></Tooltip> },
-    { title: '操作', width: 120, fixed: 'right',
-      render: (_, r) => (
-        <Space size="small">
-          <Button type="link" size="small" onClick={() => handleEdit(r)}>编辑</Button>
-          <Popconfirm title="确定删除?" onConfirm={() => handleDelete(r.id)}>
-            <Button type="link" size="small" danger>删除</Button>
-          </Popconfirm>
-        </Space>
-      ),
+    { title: 'ID', dataIndex: 'id', width: 55, sorter: true },
+    { title: '会员ID', dataIndex: 'member_id', width: 100,
+      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'member_id', v)} /> },
+    { title: '会员名', dataIndex: 'member_name', width: 140, ellipsis: true,
+      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'member_name', v)} /> },
+    { title: '手机号', dataIndex: 'phone', width: 120,
+      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'phone', v)} /> },
+    { title: '经营类型', dataIndex: 'business_type', width: 100,
+      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'business_type', v)} type="select" options={businessTypeOptions} /> },
+    { title: '个人标签', dataIndex: 'personal_tag', width: 180,
+      render: (t, r) => <PersonalTagEditor value={t || ''} onChange={v => updateCell(r.id, 'personal_tag', v)} /> },
+    { title: '购买产品', dataIndex: 'product_title', width: 200,
+      render: (t, r) => {
+        const titles = Array.isArray(t) ? t : [];
+        return (
+          <div className="product-tags" onClick={() => openProductPicker(r)}>
+            {titles.map((title, i) => (
+              <Tag key={i} color="blue" style={{ margin: 0, maxWidth: 120 }} className="tag-mini" ellipsis>{title}</Tag>
+            ))}
+            <span className="add-btn">+</span>
+          </div>
+        );
+      }
     },
+    { title: '进项收入', dataIndex: 'income_amount', width: 110, align: 'right',
+      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'income_amount', v)} /> },
+    { title: '销项支出', dataIndex: 'expense_amount', width: 110, align: 'right',
+      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'expense_amount', v)} /> },
+    { title: '净额', key: 'net_amount', width: 110, align: 'right',
+      render: (_, r) => {
+        const net = Number(r.income_amount || 0) - Number(r.expense_amount || 0);
+        return <span style={{ fontWeight: 500, color: net >= 0 ? '#3f8600' : '#cf1322' }}>¥{net.toFixed(2)}</span>;
+      } },
+    { title: '购买时间', dataIndex: 'purchase_time', width: 145,
+      render: (t) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : <span style={{color:'#bbb'}}>-</span> },
+    { title: '收货地址', dataIndex: 'delivery_address', width: 180, ellipsis: true,
+      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'delivery_address', v)} /> },
   ];
+
+  const rowSelection = { selectedRowKeys, onChange: setSelectedRowKeys };
+  const hasSelected = selectedRowKeys.length > 0;
 
   return (
     <div>
       <div className="app-header">
         <h2>🛒 购买订单管理</h2>
-        <Space>
-          <Search placeholder="搜索会员名/手机号/ID" onSearch={onSearch} allowClear style={{ width: 280 }} />
-          <Select value={businessType || '全部'} onChange={(v) => { setBusinessType(v); fetchData(1, 20, search, v); }}
-            style={{ width: 130 }} options={[
-              { value: '全部', label: '全部类型' },
-              { value: '微商', label: '微商' },
-              { value: '单店', label: '单店' },
-              { value: '团购/电商', label: '团购/电商' },
-              { value: '连锁', label: '连锁' },
-              { value: '未设置', label: '未设置' },
-            ]} />
-          <Button type="primary" onClick={handleAdd}>+ 新增订单</Button>
+        <Space wrap>
+          <Search placeholder="搜索会员名/手机号" onSearch={onSearch} allowClear style={{ width: 220 }} />
+          <Select value={businessType || '全部'} onChange={(v) => { setBusinessType(v); fetchData(1, 20, search, v); fetchAmountStats(search, v); }}
+            style={{ width: 120 }} options={businessTypeFilterOptions} />
+          <Button type="primary" onClick={handleAdd}>+ 新增行</Button>
+          <Button onClick={handleDuplicate} disabled={!hasSelected}>📋 复制选中 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
+          <Popconfirm title={`确定删除选中的 ${selectedRowKeys.length} 条记录？`} onConfirm={handleBatchDelete} disabled={!hasSelected}>
+            <Button danger disabled={!hasSelected}>🗑 删除选中 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
+          </Popconfirm>
         </Space>
       </div>
       <div className="app-content">
         <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col><Card size="small"><Statistic title="进项收入合计" value={Number(amountStats.total_income || 0)} precision={2} prefix="¥" valueStyle={{ color: '#3f8600' }} /></Card></Col>
+          <Col><Card size="small"><Statistic title="销项支出合计" value={Number(amountStats.total_expense || 0)} precision={2} prefix="¥" valueStyle={{ color: '#cf1322' }} /></Card></Col>
+          <Col><Card size="small"><Statistic title="净额" value={Number(amountStats.total_income || 0) - Number(amountStats.total_expense || 0)} precision={2} prefix="¥" /></Card></Col>
           {stats.map(s => (
             <Col key={s.business_type}>
               <Card size="small"><Statistic title={s.business_type} value={parseInt(s.count)} /></Card>
@@ -171,34 +442,12 @@ function App() {
           ))}
         </Row>
         <Table columns={columns} dataSource={data} rowKey="id" loading={loading}
+          rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
-          onChange={handleTableChange} scroll={{ x: 1200 }} size="middle" />
+          onChange={handleTableChange} scroll={{ x: 1650 }} size="middle" />
+        <div style={{marginTop:8,color:'#999',fontSize:12}}>💡 双击单元格编辑 | 进项收入/销项支出双击可改金额 | 点击购买产品区"+"选取商品(可多选) | 个人标签可添加多个 | 勾选记录后复制/删除</div>
       </div>
-      <Modal title={editRecord ? '编辑订单' : '新增订单'} open={modalOpen} onOk={handleSubmit} onCancel={() => setModalOpen(false)} width={560}>
-        <Form form={form} layout="vertical">
-          <Form.Item name="member_id" label="会员ID" rules={[{ required: true, message: '请输入会员ID' }]}>
-            <Input disabled={!!editRecord} />
-          </Form.Item>
-          <Form.Item name="member_name" label="会员名" rules={[{ required: true, message: '请输入会员名' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="phone" label="手机号" rules={[{ required: true, message: '请输入手机号' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="business_type" label="经营类型">
-            <Select options={[
-              { value: '未设置' }, { value: '微商' }, { value: '单店' },
-              { value: '团购/电商' }, { value: '连锁' },
-            ]} />
-          </Form.Item>
-          <Form.Item name="purchase_time" label="购买时间">
-            <antd.DatePicker showTime style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="delivery_address" label="收货地址">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
+      <ProductPicker visible={pickerVisible} onCancel={() => setPickerVisible(false)} onConfirm={handleProductConfirm} existingProducts={pickingExisting} />
     </div>
   );
 }
