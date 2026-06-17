@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>用户管理 - 花卉供应链平台</title>
+<style>
+:root{--bg-primary:#0b172b;--bg-secondary:#121e34;--bg-card:#19243b;--bg-hover:#1e2d48;--text-primary:#e8eaed;--text-secondary:#9aa0b0;--text-muted:#5e6a82;--accent-purple:#a78bfa;--accent-blue:#60a5fa;--accent-green:#34d399;--accent-pink:#f472b6;--accent-orange:#fb923c;--accent-red:#ef4444;--border:#1e2d48;--radius:8px}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
+body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border)}
+.topbar h2{font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px}
+.topbar .actions{display:flex;gap:8px}
+.btn{padding:8px 16px;border-radius:var(--radius);border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s}
+.btn-primary{background:var(--accent-purple);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-danger{background:var(--accent-red);color:#fff}
+.btn-danger:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--accent-purple);color:var(--text-primary)}
+.content{padding:20px 24px}
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-box{flex:1;min-width:200px;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-size:13px}
+.search-box:focus{outline:none;border-color:var(--accent-blue)}
+.search-box::placeholder{color:var(--text-muted)}
+.stats{display:flex;gap:12px;margin-bottom:16px}
+.stat{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-size:12px;color:var(--text-secondary)}
+.stat strong{color:var(--accent-blue);font-size:18px;margin-right:4px}
+table{width:100%;border-collapse:collapse;background:var(--bg-card);border-radius:var(--radius);overflow:hidden}
+thead{background:var(--bg-secondary)}
+th,td{padding:10px 14px;text-align:left;font-size:13px;border-bottom:1px solid var(--border)}
+th{color:var(--text-secondary);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+tr:hover{background:var(--bg-hover)}
+.role-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.role-admin{background:rgba(167,139,250,.15);color:var(--accent-purple)}
+.role-operator{background:rgba(96,165,250,.15);color:var(--accent-blue)}
+.role-super_admin{background:rgba(249,115,22,.15);color:var(--accent-orange)}
+.role-user{background:rgba(52,211,153,.15);color:var(--accent-green)}
+.truncate{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.muted{color:var(--text-muted);font-size:11px}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:480px;max-width:90vw;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:16px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+.form-group input,.form-group select{width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:13px}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--accent-blue)}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:var(--radius);color:#fff;font-size:13px;z-index:200;animation:slideIn .3s}
+.toast.success{background:var(--accent-green)}
+.toast.error{background:var(--accent-red)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px}
+.pagination .btn{padding:6px 12px;font-size:12px}
+.pagination .info{font-size:12px;color:var(--text-muted)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h2>👥 用户管理</h2>
+  <div class="actions">
+    <a href="/" class="btn btn-ghost">← 返回首页</a>
+    <button class="btn btn-primary" onclick="openAddModal()">+ 新增用户</button>
+  </div>
+</div>
+<div class="content">
+  <div class="stats">
+    <div class="stat">总用户 <strong id="totalCount">0</strong></div>
+    <div class="stat">管理员 <strong id="adminCount">0</strong></div>
+    <div class="stat">普通用户 <strong id="userCount">0</strong></div>
+  </div>
+  <div class="toolbar">
+    <input type="text" class="search-box" id="searchInput" placeholder="搜索用户名、昵称、手机号..." oninput="onSearch()">
+    <select id="roleFilter" class="search-box" style="flex:0;min-width:120px" onchange="loadUsers()">
+      <option value="">全部角色</option>
+      <option value="super_admin">超级管理员</option>
+      <option value="admin">管理员</option>
+      <option value="operator">操作员</option>
+      <option value="user">普通用户</option>
+    </select>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>用户名/手机</th>
+        <th>昵称</th>
+        <th>角色</th>
+        <th>头像</th>
+        <th>位置</th>
+        <th>花园统计</th>
+        <th>最后登录</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="userTable"></tbody>
+  </table>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal">
+    <h3 id="modalTitle">新增用户</h3>
+    <input type="hidden" id="editId">
+    <div class="form-group">
+      <label>手机号</label>
+      <input type="text" id="formPhone" placeholder="手机号">
+    </div>
+    <div class="form-group">
+      <label>昵称</label>
+      <input type="text" id="formNickname" placeholder="昵称">
+    </div>
+    <div class="form-group">
+      <label>密码（新增时必填）</label>
+      <input type="password" id="formPassword" placeholder="密码">
+    </div>
+    <div class="form-group">
+      <label>角色</label>
+      <select id="formRole">
+        <option value="user">普通用户</option>
+        <option value="operator">操作员</option>
+        <option value="admin">管理员</option>
+        <option value="super_admin">超级管理员</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>显示名称</label>
+      <input type="text" id="formDisplayName" placeholder="显示名称">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveUser()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GW = '/api/mongo/users';
+const KEY = '***REMOVED_API_KEY***';
+const headers = {'Content-Type':'application/json','x-api-key':KEY};
+let allUsers = [];
+let page = 1, limit = 20, search = '';
+
+function roleTag(role) {
+  const map = {super_admin:'super_admin',admin:'admin',operator:'operator',user:'user'};
+  const labels = {super_admin:'超级管理员',admin:'管理员',operator:'操作员',user:'普通用户'};
+  return `<span class="role-tag role-${map[role]||'user'}">${labels[role]||role}</span>`;
+}
+
+function gardenStat(u) {
+  const g = u.gardenStats;
+  if (!g) return '-';
+  return `种${g.totalPlanted||0} 成${g.totalCompleted||0} 赠${g.totalGifted||0}`;
+}
+
+function formatDate(d) {
+  if (!d) return '-';
+  return new Date(d).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+async function loadUsers() {
+  try {
+    let url = `/api/mongo/users?limit=100&page=1`;
+    const roleFilter = document.getElementById('roleFilter').value;
+    if (roleFilter) url += `&filter=${encodeURIComponent(JSON.stringify({role:roleFilter}))}`;
+    const res = await fetch(url, {headers:{'x-api-key':KEY}});
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    allUsers = data.data || [];
+    document.getElementById('totalCount').textContent = data.total || allUsers.length;
+    document.getElementById('adminCount').textContent = allUsers.filter(u=>u.role==='admin'||u.role==='super_admin').length;
+    document.getElementById('userCount').textContent = allUsers.filter(u=>u.role==='user').length;
+    renderTable();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('userTable').innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--accent-red)">加载失败: ${e.message}</td></tr>`;
+  }
+}
+
+function onSearch() {
+  search = document.getElementById('searchInput').value.toLowerCase();
+  renderTable();
+}
+
+function renderTable() {
+  let users = allUsers;
+  if (search) {
+    users = users.filter(u =>
+      (u.username||'').toLowerCase().includes(search) ||
+      (u.nickname||'').toLowerCase().includes(search) ||
+      (u.phone||'').toLowerCase().includes(search) ||
+      (u.displayName||'').toLowerCase().includes(search)
+    );
+  }
+  const tbody = document.getElementById('userTable');
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">暂无数据</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td><strong>${u.username||u.phone||'-'}</strong></td>
+      <td>${u.nickname||u.displayName||'-'}</td>
+      <td>${roleTag(u.role)}</td>
+      <td>${u.avatar||'-'}</td>
+      <td class="truncate">${u.locationAddress||'-'}</td>
+      <td>${gardenStat(u)}</td>
+      <td class="muted">${formatDate(u.lastLoginAt)}</td>
+      <td>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="editUser('${u._id}')">编辑</button>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;color:var(--accent-red)" onclick="deleteUser('${u._id}','${u.nickname||u.username||u.phone||''}')">删除</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openAddModal() {
+  document.getElementById('modalTitle').textContent = '新增用户';
+  document.getElementById('editId').value = '';
+  document.getElementById('formPhone').value = '';
+  document.getElementById('formNickname').value = '';
+  document.getElementById('formPassword').value = '';
+  document.getElementById('formRole').value = 'user';
+  document.getElementById('formDisplayName').value = '';
+  document.getElementById('userModal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('userModal').classList.remove('active');
+}
+
+async function editUser(id) {
+  const u = allUsers.find(x => x._id === id);
+  if (!u) return;
+  document.getElementById('modalTitle').textContent = '编辑用户';
+  document.getElementById('editId').value = id;
+  document.getElementById('formPhone').value = u.phone || '';
+  document.getElementById('formNickname').value = u.nickname || '';
+  document.getElementById('formPassword').value = '';
+  document.getElementById('formRole').value = u.role || 'user';
+  document.getElementById('formDisplayName').value = u.displayName || '';
+  document.getElementById('userModal').classList.add('active');
+}
+
+async function saveUser() {
+  const id = document.getElementById('editId').value;
+  const phone = document.getElementById('formPhone').value.trim();
+  const nickname = document.getElementById('formNickname').value.trim();
+  const password = document.getElementById('formPassword').value;
+  const role = document.getElementById('formRole').value;
+  const displayName = document.getElementById('formDisplayName').value.trim();
+
+  if (!phone && !id) { toast('请输入手机号','error'); return; }
+
+  const body = {phone, nickname, role, displayName};
+  if (password) body.password = password;
+
+  try {
+    let res;
+    if (id) {
+      res = await fetch(`/api/mongo/users/${id}`, {
+        method:'PUT', headers, body:JSON.stringify(body)
+      });
+    } else {
+      res = await fetch('/api/mongo/users', {
+        method:'POST', headers, body:JSON.stringify(body)
+      });
+    }
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error||'保存失败'); }
+    toast(id ? '用户已更新' : '用户已创建', 'success');
+    closeModal();
+    loadUsers();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function deleteUser(id, name) {
+  if (!confirm(`确定删除用户 "${name}" ?`)) return;
+  try {
+    const res = await fetch(`/api/mongo/users/${id}`, {
+      method:'DELETE', headers
+    });
+    if (!res.ok) throw new Error('删除失败');
+    toast('已删除', 'success');
+    loadUsers();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// Init
+loadUsers();
+</script>
+</body>
+</html>

@@ -18,6 +18,7 @@ const productSchema = new mongoose.Schema({
   comparison_images: [String],
   shipping_images: [String],
   after_sale_images: [String],
+  product_videos: [String],
   flowerName: String,
   contactPerson: String,
   specSize: String,

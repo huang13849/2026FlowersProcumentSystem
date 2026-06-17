@@ -75,6 +75,7 @@ const COLUMNS = [
   { field: 'compare_img',  label: '规格对比', width: 56, type: 'gridImg', editable: false },
   { field: 'shipping_img', label: '发货与售后', width: 56, type: 'gridImg', editable: false },
   { field: 'after_img',    label: '售后', width: 56, type: 'gridImg', editable: false },
+  { field: 'video',        label: '视频', width: 64, type: 'video', editable: false },
   // 29: 上架状态
   { field: 'isListed',     label: '状态', width: 60, type: 'enum', editable: true,
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
@@ -97,7 +98,7 @@ export default function ProductList() {
   const [exporting, setExporting] = useState(false);
   const [newRowId, setNewRowId] = useState(null);
   const tableRef = useRef(null);
-  const [pasteTarget, setPasteTarget] = useState(null); // { product, colField }
+  const [pasteTarget, setPasteTarget] = useState(null); // { productId, colField } - 当前鼠标所在图片列，粘贴只进这一列
   // 商家名称筛选
   const [sellerFilter, setSellerFilter] = useState(() => { try { const h = window.location.hash; const p = new URLSearchParams(h.split('?')[1] || ''); return p.get('sellerName') || ''; } catch { return ''; } });
   const [sellerSuggestions, setSellerSuggestions] = useState([]);
@@ -303,7 +304,7 @@ export default function ProductList() {
       panorama: 'panorama_images', package_img: 'package_images', detail_img: 'detail_images',
       root_soil_img: 'root_soil_images', size_img: 'size_ref_images',
       scene_img: 'scene_images', selling_img: 'selling_point_images', care_img: 'care_images',
-      compare_img: 'comparison_images', shipping_img: 'shipping_images', after_img: 'after_sale_images',
+      compare_img: 'comparison_images', shipping_img: 'shipping_images', after_img: 'after_sale_images', video: 'product_videos',
     };
     return map[colField] || 'images';
   };
@@ -321,7 +322,7 @@ export default function ProductList() {
         const newUrls = [...(product[key] || []), ...urls];
         setAllProducts(prev => prev.map(p =>
           p._id === product._id
-            ? { ...p, [key]: newUrls, images: [...(p.images || []), ...urls] }
+            ? { ...p, [key]: newUrls }
             : p
         ));
         // 持久化到数据库
@@ -343,7 +344,7 @@ export default function ProductList() {
         const updated = prev.map(p => {
           if (p._id !== productId) return p;
           const filtered = (p[key] || []).filter(i => i !== url);
-          return { ...p, [key]: filtered, images: (p.images || []).filter(i => i !== url) };
+          return { ...p, [key]: filtered };
         });
         const updatedProduct = updated.find(p => p._id === productId);
         const newArr = updatedProduct?.[key] || [];
@@ -369,7 +370,7 @@ export default function ProductList() {
             const newUrls = [...(product[key] || []), ...urls];
             setAllProducts(prev => prev.map(p =>
               p._id === product._id
-                ? { ...p, [key]: newUrls, images: [...(p.images || []), ...urls] }
+                ? { ...p, [key]: newUrls }
                 : p
             ));
             // 持久化到数据库
@@ -379,6 +380,47 @@ export default function ProductList() {
       }
     };
     inp.click();
+  };
+
+  // ── Product video support (<=10MB) ──
+  const MAX_VIDEO_SIZE = 10 * 1024 * 1024;
+
+  const uploadProductVideo = async (product, file) => {
+    if (!file) return;
+    if (!file.type.startsWith('video/')) return alert('请选择视频文件');
+    if (file.size > MAX_VIDEO_SIZE) return alert('视频不能超过10MB，请压缩后上传');
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await api.post('/images/upload-video', fd);
+      const url = r.data.url;
+      if (url) {
+        const newUrls = [...(product.product_videos || []), url];
+        setAllProducts(prev => prev.map(p => p._id === product._id ? { ...p, product_videos: newUrls } : p));
+        try { await api.put('/products/' + product._id, { product_videos: newUrls }); } catch (e) { console.warn('保存视频到数据库失败', e); }
+      }
+    } catch (err) {
+      alert('视频上传失败: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const triggerVideoUpload = (product) => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'video/*'; inp.multiple = false;
+    inp.onchange = async (ev) => uploadProductVideo(product, ev.target.files?.[0]);
+    inp.click();
+  };
+
+  const removeProductVideo = async (productId, url) => {
+    try {
+      try { await api.delete('/images/by-url', { data: { imageUrl: url } }); } catch (e) { console.warn('MinIO视频删除失败', e); }
+      setAllProducts(prev => {
+        const updated = prev.map(p => p._id === productId ? { ...p, product_videos: (p.product_videos || []).filter(i => i !== url) } : p);
+        const updatedProduct = updated.find(p => p._id === productId);
+        api.put('/products/' + productId, { product_videos: updatedProduct?.product_videos || [] }).catch(() => {});
+        return updated;
+      });
+    } catch { alert('删除视频失败'); }
   };
 
   // ── Paste image support ──
@@ -415,7 +457,7 @@ export default function ProductList() {
             api.put('/products/' + latestProductId, { [key]: merged }).catch(e => console.warn('粘贴图片保存到数据库失败', e));
             return prev.map(p =>
               p._id === latestProductId
-                ? { ...p, [key]: merged, images: [...(p.images || []), ...urls] }
+                ? { ...p, [key]: merged }
                 : p
             );
           });
@@ -426,7 +468,7 @@ export default function ProductList() {
     };
     el.addEventListener('paste', handlePaste);
     return () => el.removeEventListener('paste', handlePaste);
-  }, [pasteTarget]);
+  }, [pasteTarget, compressImage]);
 
   // ── Selection ──
   const toggle = id => {
@@ -704,24 +746,16 @@ export default function ProductList() {
                     if (col.type === 'gridImg') {
                       const key = imgFieldKey(col.field);
                       let imgs = p[key] || [];
-                      // Fallback: if dedicated field empty and column is panorama, use images[0]
-                      if (!imgs.length && col.field === 'panorama' && p.images?.length) {
-                        imgs = [p.images[0]];
-                      }
-                      // For other empty columns, distribute remaining images
-                      if (!imgs.length && col.field !== 'panorama' && p.images?.length) {
-                        const imgFallbackIdx = ['panorama','package_img','detail_img','root_soil_img','size_img',
-                          'scene_img','selling_img','care_img','compare_img','shipping_img','after_img'].indexOf(col.field);
-                        if (imgFallbackIdx > 0 && imgFallbackIdx < p.images.length) {
-                          imgs = [p.images[imgFallbackIdx]];
-                        }
-                      }
+                      // 每列只显示自己的专属字段：粘贴/上传不会再从 images[] 串到其他列。
                       const firstUrl = imgs[0];
                       const isMain = col.field.indexOf('img') < 0;
                       const colLabel = IMG_COLS.concat(DETAIL_IMG_COLS).find(c => c.key === col.field.replace('_img',''))?.label || '';
                       return (
                         <td key={ci} style={{ ...tdS, width:col.width, padding:1, textAlign:'center', verticalAlign:'middle' }}>
-                          <div style={{ position:'relative', width:50, height:50, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto' }}>
+                          <div
+                            onMouseEnter={() => setPasteTarget({ productId: p._id, colField: col.field })}
+                            onMouseMove={() => setPasteTarget({ productId: p._id, colField: col.field })}
+                            style={{ position:'relative', width:50, height:50, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto' }}>
                             {firstUrl ? (
                               <div style={{ position:'relative', width:44, height:44 }}
                                 title={colLabel + ' (' + imgs.length + '张)'}>
@@ -741,6 +775,37 @@ export default function ProductList() {
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = '#999'; e.currentTarget.style.color = '#666' }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = '#ccc'; e.currentTarget.style.color = '#bbb' }}>
                                 <span style={{ fontSize:14 }}>+</span>
+                                <span>上传</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    // ── Product video column ──
+                    if (col.type === 'video') {
+                      const videos = p.product_videos || [];
+                      const firstVideo = videos[0];
+                      return (
+                        <td key={ci} style={{ ...tdS, width:col.width, padding:1, textAlign:'center', verticalAlign:'middle' }}>
+                          <div style={{ position:'relative', width:56, height:50, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto' }}>
+                            {firstVideo ? (
+                              <div style={{ position:'relative', width:50, height:44 }} title={'商品视频 (' + videos.length + '个)'}>
+                                <video src={firstVideo} muted preload="metadata"
+                                  style={{ width:50, height:44, borderRadius:4, objectFit:'cover', border:'1px solid #e0e0e0', cursor:'pointer', background:'#111', display:'block' }}
+                                  onClick={() => window.open(firstVideo, '_blank')} />
+                                <button onClick={() => removeProductVideo(p._id, firstVideo)}
+                                  style={{ position:'absolute', top:-3, right:-3, width:14, height:14, borderRadius:'50%', border:'none', background:'#e74c3c', color:'#fff', fontSize:9, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1, padding:0 }}>×</button>
+                                {videos.length > 1 && <span style={{ position:'absolute', bottom:-2, right:-2, fontSize:8, color:'#fff', background:'rgba(0,0,0,0.6)', borderRadius:6, padding:'0 3px', lineHeight:'12px' }}>{videos.length}</span>}
+                              </div>
+                            ) : (
+                              <div onClick={() => triggerVideoUpload(p)}
+                                title="上传视频，单个≤10MB"
+                                style={{ width:50, height:44, border:'2px dashed #ccc', borderRadius:4, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#bbb', fontSize:9, lineHeight:1.2, transition:'all 0.15s' }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = '#1677ff'; e.currentTarget.style.color = '#1677ff' }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = '#ccc'; e.currentTarget.style.color = '#bbb' }}>
+                                <span style={{ fontSize:14 }}>🎬</span>
                                 <span>上传</span>
                               </div>
                             )}

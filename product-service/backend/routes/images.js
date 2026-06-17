@@ -6,11 +6,22 @@ import AuditLog from "../models/AuditLog.js";
 
 const router = Router();
 
+const TEN_MB = 10 * 1024 * 1024;
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: TEN_MB },
   fileFilter: (r, f, cb) => {
     if (!f.mimetype.startsWith("image/")) return cb(new Error("仅支持图片"));
+    cb(null, true);
+  },
+});
+
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: TEN_MB },
+  fileFilter: (r, f, cb) => {
+    if (!f.mimetype.startsWith("video/")) return cb(new Error("仅支持视频文件"));
     cb(null, true);
   },
 });
@@ -36,6 +47,37 @@ router.post("/upload", upload.single("file"), async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+
+// Upload one product video (<=10MB)
+router.post("/upload-video", (req, res) => {
+  videoUpload.single("file")(req, res, async (err) => {
+    try {
+      if (err) {
+        const msg = err.code === "LIMIT_FILE_SIZE" ? "视频不能超过10MB，请压缩后上传" : err.message;
+        return res.status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ error: msg });
+      }
+      if (!req.file) return res.status(400).json({ error: "请选择视频文件" });
+      if (req.file.size > TEN_MB) return res.status(413).json({ error: "视频不能超过10MB，请压缩后上传" });
+
+      const result = await uploadFile({
+        buffer: req.file.buffer,
+        filename: req.file.originalname,
+        mimetype: req.file.mimetype,
+        folder: "products/videos",
+      });
+
+      if (req.body.productId) {
+        await Product.findByIdAndUpdate(req.body.productId, {
+          $push: { product_videos: result.url }
+        });
+      }
+      res.json({ url: result.url, key: result.key, size: req.file.size, success: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
 
 // Upload multiple images
