@@ -41,6 +41,7 @@ const { Search } = Input;
 const API_BASE = window.location.origin;
 
 const typeColors = { '微商': 'green', '单店': 'blue', '团购/电商': 'purple', '连锁': 'orange', '企业采购': 'cyan', '未设置': 'default' };
+const paymentChannelOptions = [{value:'微信支付'},{value:'支付宝'},{value:'Stripe'},{value:'PayPal'}];
 const businessTypeOptions = [{value:'未设置'},{value:'微商'},{value:'单店'},{value:'团购/电商'},{value:'连锁'},{value:'企业采购'}];
 const businessTypeFilterOptions = [{ value: '全部', label: '全部类型' }, { value: '微商' }, { value: '单店' }, { value: '团购/电商' }, { value: '连锁' }, { value: '企业采购' }, { value: '未设置' }];
 
@@ -237,24 +238,26 @@ function App() {
   const [businessType, setBusinessType] = useState('');
   const [stats, setStats] = useState([]);
   const [amountStats, setAmountStats] = useState({ total_income: 0, total_expense: 0, row_count: 0 });
+  const [region, setRegion] = useState('cn');
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickingOrderId, setPickingOrderId] = useState(null);
   const [pickingExisting, setPickingExisting] = useState({ ids: [], titles: [] });
 
-  const fetchData = useCallback(async (page = 1, pageSize = 20, searchVal = search, typeVal = businessType) => {
+  const fetchData = useCallback(async (page = 1, pageSize = 20, searchVal = search, typeVal = businessType, regionVal = region) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page, limit: pageSize });
       if (searchVal) params.set('search', searchVal);
       if (typeVal && typeVal !== '全部') params.set('business_type', typeVal);
+      if (regionVal) params.set('region', regionVal);
       const res = await fetch(`${API_BASE}/api/orders?${params}`);
       const json = await res.json();
       setData(json.data || []);
       setPagination(prev => ({ ...prev, current: json.page || page, total: json.total || 0, pageSize }));
     } catch (e) { message.error('加载失败'); }
     setLoading(false);
-  }, [search, businessType]);
+  }, [search, businessType, region]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -264,21 +267,22 @@ function App() {
     } catch (e) {}
   }, []);
 
-  const fetchAmountStats = useCallback(async (searchVal = search, typeVal = businessType) => {
+  const fetchAmountStats = useCallback(async (searchVal = search, typeVal = businessType, regionVal = region) => {
     try {
       const params = new URLSearchParams();
       if (searchVal) params.set('search', searchVal);
       if (typeVal && typeVal !== '全部') params.set('business_type', typeVal);
+      if (regionVal) params.set('region', regionVal);
       const res = await fetch(`${API_BASE}/api/orders/stats/amount?${params}`);
       const json = await res.json();
-      setAmountStats(json.data || { total_income: 0, total_expense: 0, row_count: 0 });
+      setAmountStats(json.data || { total_income: 0, total_expense: 0, total_shipping: 0, total_coupon: 0, total_profit: 0, row_count: 0 });
     } catch (e) {}
-  }, [search, businessType]);
+  }, [search, businessType, region]);
 
   useEffect(() => { fetchData(); fetchStats(); fetchAmountStats(); }, []);
 
-  const handleTableChange = (pag) => { fetchData(pag.current, pag.pageSize); };
-  const onSearch = (val) => { setSearch(val); fetchData(1, 20, val, businessType); fetchAmountStats(val, businessType); };
+  const handleTableChange = (pag) => { fetchData(pag.current, pag.pageSize, search, businessType, region); };
+  const onSearch = (val) => { setSearch(val); fetchData(1, 20, val, businessType, region); fetchAmountStats(val, businessType, region); };
 
   const updateCell = async (id, field, value) => {
     try {
@@ -288,7 +292,7 @@ function App() {
       });
       message.success('已更新');
       fetchData(pagination.current);
-      if (['income_amount', 'expense_amount'].includes(field)) fetchAmountStats();
+      if (['income_amount', 'expense_amount', 'shipping_fee', 'coupon_discount', 'cost_amount', 'profit_amount'].includes(field)) fetchAmountStats();
     } catch (e) { message.error('更新失败'); }
   };
 
@@ -397,14 +401,35 @@ function App() {
         );
       }
     },
-    { title: '进项收入', dataIndex: 'income_amount', width: 110, align: 'right',
+    { title: '支付单号', dataIndex: 'payment_order_id', width: 155, ellipsis: true,
+      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'payment_order_id', v)} /> },
+    { title: '支付渠道', dataIndex: 'payment_channel', width: 110,
+      render: (t, r) => {
+        const currentVal = t || '微信支付';
+        return (
+          <Select value={currentVal} size="small" style={{width:'100%'}}
+            options={paymentChannelOptions}
+            onChange={v => updateCell(r.id, 'payment_channel', v)} />
+        );
+      } },
+    { title: '商品小计', dataIndex: 'product_subtotal', width: 105, align: 'right',
+      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'product_subtotal', v)} /> },
+    { title: '运费', dataIndex: 'shipping_fee', width: 90, align: 'right',
+      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'shipping_fee', v)} /> },
+    { title: '优惠券', dataIndex: 'coupon_code', width: 100,
+      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'coupon_code', v)} /> },
+    { title: '优惠金额', dataIndex: 'coupon_discount', width: 105, align: 'right',
+      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'coupon_discount', v)} /> },
+    { title: '实收', dataIndex: 'income_amount', width: 105, align: 'right',
       render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'income_amount', v)} /> },
-    { title: '销项支出', dataIndex: 'expense_amount', width: 110, align: 'right',
+    { title: '成本', dataIndex: 'cost_amount', width: 100, align: 'right',
+      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'cost_amount', v)} /> },
+    { title: '销项支出', dataIndex: 'expense_amount', width: 105, align: 'right',
       render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'expense_amount', v)} /> },
-    { title: '净额', key: 'net_amount', width: 110, align: 'right',
+    { title: '利润', key: 'profit_amount', width: 110, align: 'right',
       render: (_, r) => {
-        const net = Number(r.income_amount || 0) - Number(r.expense_amount || 0);
-        return <span style={{ fontWeight: 500, color: net >= 0 ? '#3f8600' : '#cf1322' }}>¥{net.toFixed(2)}</span>;
+        const profit = Number(r.profit_amount != null ? r.profit_amount : (Number(r.income_amount || 0) - Number(r.cost_amount || r.expense_amount || 0)));
+        return <span style={{ fontWeight: 700, color: profit >= 0 ? '#3f8600' : '#cf1322' }}>¥{profit.toFixed(2)}</span>;
       } },
     { title: '购买时间', dataIndex: 'purchase_time', width: 145,
       render: (t) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : <span style={{color:'#bbb'}}>-</span> },
@@ -419,9 +444,13 @@ function App() {
     <div>
       <div className="app-header">
         <h2>🛒 购买订单管理</h2>
+        <div style={{display:'flex',gap:8}}>
+          <Button type={region === 'cn' ? 'primary' : 'default'} onClick={() => { setRegion('cn'); fetchData(1, 20, search, businessType, 'cn'); fetchAmountStats(search, businessType, 'cn'); }}>🇨🇳 国内订单</Button>
+          <Button type={region === 'global' ? 'primary' : 'default'} onClick={() => { setRegion('global'); fetchData(1, 20, search, businessType, 'global'); fetchAmountStats(search, businessType, 'global'); }}>🌍 国际订单</Button>
+        </div>
         <Space wrap>
           <Search placeholder="搜索会员名/手机号" onSearch={onSearch} allowClear style={{ width: 220 }} />
-          <Select value={businessType || '全部'} onChange={(v) => { setBusinessType(v); fetchData(1, 20, search, v); fetchAmountStats(search, v); }}
+          <Select value={businessType || '全部'} onChange={(v) => { setBusinessType(v); fetchData(1, 20, search, v, region); fetchAmountStats(search, v, region); }}
             style={{ width: 120 }} options={businessTypeFilterOptions} />
           <Button type="primary" onClick={handleAdd}>+ 新增行</Button>
           <Button onClick={handleDuplicate} disabled={!hasSelected}>📋 复制选中 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
@@ -434,7 +463,9 @@ function App() {
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col><Card size="small"><Statistic title="进项收入合计" value={Number(amountStats.total_income || 0)} precision={2} prefix="¥" valueStyle={{ color: '#3f8600' }} /></Card></Col>
           <Col><Card size="small"><Statistic title="销项支出合计" value={Number(amountStats.total_expense || 0)} precision={2} prefix="¥" valueStyle={{ color: '#cf1322' }} /></Card></Col>
-          <Col><Card size="small"><Statistic title="净额" value={Number(amountStats.total_income || 0) - Number(amountStats.total_expense || 0)} precision={2} prefix="¥" /></Card></Col>
+          <Col><Card size="small"><Statistic title="利润合计" value={Number(amountStats.total_profit || 0)} precision={2} prefix="¥" valueStyle={{ color: Number(amountStats.total_profit || 0) >= 0 ? '#3f8600' : '#cf1322' }} /></Card></Col>
+          <Col><Card size="small"><Statistic title="运费合计" value={Number(amountStats.total_shipping || 0)} precision={2} prefix="¥" /></Card></Col>
+          <Col><Card size="small"><Statistic title="优惠合计" value={Number(amountStats.total_coupon || 0)} precision={2} prefix="¥" /></Card></Col>
           {stats.map(s => (
             <Col key={s.business_type}>
               <Card size="small"><Statistic title={s.business_type} value={parseInt(s.count)} /></Card>
@@ -444,8 +475,8 @@ function App() {
         <Table columns={columns} dataSource={data} rowKey="id" loading={loading}
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
-          onChange={handleTableChange} scroll={{ x: 1650 }} size="middle" />
-        <div style={{marginTop:8,color:'#999',fontSize:12}}>💡 双击单元格编辑 | 进项收入/销项支出双击可改金额 | 点击购买产品区"+"选取商品(可多选) | 个人标签可添加多个 | 勾选记录后复制/删除</div>
+          onChange={handleTableChange} scroll={{ x: 2350 }} size="middle" />
+        <div style={{marginTop:8,color:'#999',fontSize:12}}>💡 双击单元格编辑 | 支付/运费/优惠/成本/利润列可查看与编辑 | 点击购买产品区"+"选取商品(可多选) | 个人标签可添加多个 | 勾选记录后复制/删除</div>
       </div>
       <ProductPicker visible={pickerVisible} onCancel={() => setPickerVisible(false)} onConfirm={handleProductConfirm} existingProducts={pickingExisting} />
     </div>

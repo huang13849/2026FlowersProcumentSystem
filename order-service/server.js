@@ -42,9 +42,45 @@ const pgPool = new Pool({
 });
 
 async function ensureOrderSchema() {
-  await pgPool.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS income_amount NUMERIC(12,2) DEFAULT 0');
-  await pgPool.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS expense_amount NUMERIC(12,2) DEFAULT 0');
+  const alters = [
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS income_amount NUMERIC(12,2) DEFAULT 0',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS expense_amount NUMERIC(12,2) DEFAULT 0',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS payment_order_id VARCHAR(80)',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS payment_channel VARCHAR(40)',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS product_subtotal NUMERIC(12,2) DEFAULT 0',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC(12,2) DEFAULT 0',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(80)',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS coupon_discount NUMERIC(12,2) DEFAULT 0',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS cost_amount NUMERIC(12,2) DEFAULT 0',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS profit_amount NUMERIC(12,2) DEFAULT 0',
+    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS region VARCHAR(20) DEFAULT 'cn'"
+  ];
+  for (const sql of alters) await pgPool.query(sql);
 }
+
+function pickOrderFields(src = {}) {
+  return {
+    member_id: src.member_id || '',
+    member_name: src.member_name || '',
+    phone: src.phone || '',
+    business_type: src.business_type || '未设置',
+    purchase_time: src.purchase_time || new Date().toISOString(),
+    delivery_address: src.delivery_address || '',
+    personal_tag: src.personal_tag || '',
+    income_amount: src.income_amount != null ? src.income_amount : 0,
+    expense_amount: src.expense_amount != null ? src.expense_amount : 0,
+    payment_order_id: src.payment_order_id || '',
+    payment_channel: src.payment_channel || '',
+    product_subtotal: src.product_subtotal != null ? src.product_subtotal : 0,
+    shipping_fee: src.shipping_fee != null ? src.shipping_fee : 0,
+    coupon_code: src.coupon_code || '',
+    coupon_discount: src.coupon_discount != null ? src.coupon_discount : 0,
+    cost_amount: src.cost_amount != null ? src.cost_amount : 0,
+    profit_amount: src.profit_amount != null ? src.profit_amount : 0,
+    region: src.region || 'cn',
+  };
+}
+
 
 // Update JSONB fields directly via pg
 async function updateJsonbFields(id, productId, productTitle) {
@@ -74,11 +110,12 @@ function normalizeOrderList(result) {
   return result;
 }
 
-async function queryOrders({ page = 1, limit = 20, search, business_type, readFrom }) {
+async function queryOrders({ page = 1, limit = 20, search, business_type, region, readFrom }) {
   const params = new URLSearchParams({ page: String(page), limit: String(limit), sort: '-created_at' });
   const filter = {};
   if (search) filter.member_name = { $like: `%${search}%` };
   if (business_type && business_type !== '全部') filter.business_type = business_type;
+  if (region && region !== 'all') filter.region = region;
   if (Object.keys(filter).length > 0) params.set('filter', JSON.stringify(filter));
   if (readFrom) params.set('readFrom', readFrom);
   const url = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}?${params.toString()}`;
@@ -92,8 +129,8 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/orders', async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, business_type, readFrom } = req.query;
-    const result = await queryOrders({ page, limit, search, business_type, readFrom: readFrom || 'standby' });
+    const { page = 1, limit = 20, search, business_type, region, readFrom } = req.query;
+    const result = await queryOrders({ page, limit, search, business_type, region, readFrom: readFrom || 'standby' });
     res.json(result);
   } catch (err) {
     console.error('GET /api/orders error:', err.response?.status, err.response?.data || err.message);
@@ -114,17 +151,9 @@ app.get('/api/orders/:id', async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { member_id, member_name, phone, business_type, purchase_time, delivery_address, product_id, product_title, personal_tag, income_amount, expense_amount } = req.body;
+    const { product_id, product_title } = req.body;
     const url = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}`;
-    const result = await axiosWithRetry({ url, method: 'post', data: {
-      member_id: member_id || '', member_name: member_name || '', phone: phone || '',
-      business_type: business_type || '未设置',
-      purchase_time: purchase_time || new Date().toISOString(),
-      delivery_address: delivery_address || '',
-      personal_tag: personal_tag || '',
-      income_amount: income_amount != null ? income_amount : 0,
-      expense_amount: expense_amount != null ? expense_amount : 0,
-    }, headers, timeout: 15000 });
+    const result = await axiosWithRetry({ url, method: 'post', data: pickOrderFields(req.body), headers, timeout: 15000 });
     const newId = result.data?.data?.id;
     // Write JSONB fields directly
     if (newId && Array.isArray(product_id) && product_id.length > 0) {
@@ -145,16 +174,8 @@ app.post('/api/orders/batch', async (req, res) => {
     const results = []; const errors = [];
     for (const order of orders) {
       try {
-        const { member_id, member_name, phone, business_type, purchase_time, delivery_address, product_id, product_title, personal_tag, income_amount, expense_amount } = order;
-        const createResult = await axiosWithRetry({ url, method: 'post', data: {
-          member_id: member_id || '', member_name: member_name || '', phone: phone || '',
-          business_type: business_type || '未设置',
-          purchase_time: purchase_time || new Date().toISOString(),
-          delivery_address: delivery_address || '',
-          personal_tag: personal_tag || '',
-          income_amount: income_amount != null ? income_amount : 0,
-          expense_amount: expense_amount != null ? expense_amount : 0,
-        }, headers, timeout: 15000 });
+        const { product_id, product_title } = order;
+        const createResult = await axiosWithRetry({ url, method: 'post', data: pickOrderFields(order), headers, timeout: 15000 });
         const newId = createResult.data?.data?.id;
         if (newId && Array.isArray(product_id) && product_id.length > 0) {
           await updateJsonbFields(newId, product_id, product_title);
@@ -183,15 +204,7 @@ app.post('/api/orders/duplicate', async (req, res) => {
         const orig = getResult.data?.data || getResult.data;
         if (!orig) continue;
         const createUrl = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}`;
-        const createResult = await axiosWithRetry({ url: createUrl, method: 'post', data: {
-          member_id: orig.member_id || '', member_name: orig.member_name || '', phone: orig.phone || '',
-          business_type: orig.business_type || '未设置',
-          purchase_time: new Date().toISOString(),
-          delivery_address: orig.delivery_address || '',
-          personal_tag: orig.personal_tag || '',
-          income_amount: orig.income_amount != null ? orig.income_amount : 0,
-          expense_amount: orig.expense_amount != null ? orig.expense_amount : 0,
-        }, headers, timeout: 15000 });
+        const createResult = await axiosWithRetry({ url: createUrl, method: 'post', data: pickOrderFields({ ...orig, purchase_time: new Date().toISOString(), payment_order_id: orig.payment_order_id ? `${orig.payment_order_id}-COPY` : '' }), headers, timeout: 15000 });
         const newId = createResult.data?.data?.id;
         const pid = Array.isArray(orig.product_id) ? orig.product_id : [];
         const ptitle = Array.isArray(orig.product_title) ? orig.product_title : [];
@@ -278,14 +291,15 @@ app.get('/api/orders/stats/business-type', async (req, res) => {
 // Aggregate sum of income_amount and expense_amount
 app.get('/api/orders/stats/amount', async (req, res) => {
   try {
-    const { search, business_type } = req.query;
+    const { search, business_type, region } = req.query;
     const conditions = [];
     const params = [];
     if (search) { params.push(`%${search}%`); conditions.push(`member_name ILIKE $${params.length}`); }
     if (business_type && business_type !== '全部') { params.push(business_type); conditions.push(`business_type = $${params.length}`); }
+    if (region && region !== 'all') { params.push(region); conditions.push(`region = $${params.length}`); }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await pgPool.query(
-      `SELECT COALESCE(SUM(income_amount),0)::float AS total_income, COALESCE(SUM(expense_amount),0)::float AS total_expense, COUNT(*)::int AS row_count FROM purchase_orders ${where}`,
+      `SELECT COALESCE(SUM(income_amount),0)::float AS total_income, COALESCE(SUM(expense_amount),0)::float AS total_expense, COALESCE(SUM(shipping_fee),0)::float AS total_shipping, COALESCE(SUM(coupon_discount),0)::float AS total_coupon, COALESCE(SUM(profit_amount),0)::float AS total_profit, COUNT(*)::int AS row_count FROM purchase_orders ${where}`,
       params
     );
     res.json({ data: rows[0] });
@@ -312,7 +326,7 @@ app.get('/api/products/search', async (req, res) => {
 
 const PORT = process.env.PORT || 3008;
 ensureOrderSchema()
-  .then(() => console.log('✅ Order schema ready: income_amount, expense_amount'))
+  .then(() => console.log('✅ Order schema ready: payment/profit columns'))
   .catch(err => console.error('⚠️ Order schema ensure failed:', err.message))
   .finally(() => {
     app.listen(PORT, () => {
