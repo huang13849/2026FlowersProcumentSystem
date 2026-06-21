@@ -428,7 +428,7 @@ function App() {
       render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'expense_amount', v)} /> },
     { title: '利润', key: 'profit_amount', width: 110, align: 'right',
       render: (_, r) => {
-        const profit = Number(r.profit_amount != null ? r.profit_amount : (Number(r.income_amount || 0) - Number(r.cost_amount || r.expense_amount || 0)));
+        const profit = Number(r.profit_amount != null ? r.profit_amount : (Number(r.income_amount || 0) - Number(r.cost_amount || 0) - Number(r.expense_amount || 0) - Number(r.coupon_discount || 0) - Number(r.shipping_fee || 0)));
         return <span style={{ fontWeight: 700, color: profit >= 0 ? '#3f8600' : '#cf1322' }}>¥{profit.toFixed(2)}</span>;
       } },
     { title: '购买时间', dataIndex: 'purchase_time', width: 145,
