@@ -21,20 +21,22 @@ const DETAIL_IMG_COLS = [
 ];
 
 const COLUMNS = [
-  // 0-4: 商品主图 5列
+  // 0: 商品标题（冻结列，方便横向修改后面的信息）
+  { field: 'title',        label: '商品标题', width: 180, type: 'string', editable: true },
+  // 1-5: 商品主图 5列
   { field: 'panorama',    label: '主图', width: 56, type: 'gridImg', editable: false },
   { field: 'package_img', label: '发货包装', width: 56, type: 'gridImg', editable: false },
   { field: 'detail_img',  label: '细节特写', width: 56, type: 'gridImg', editable: false },
   { field: 'root_soil_img', label: '根系盆土', width: 56, type: 'gridImg', editable: false },
   { field: 'size_img',    label: '尺寸参考', width: 56, type: 'gridImg', editable: false },
-  // 5: 商品标题
-  { field: 'title',        label: '商品标题', width: 150, type: 'string', editable: true },
   // 6: 分类
   { field: 'category',     label: '分类',     width: 75,  type: 'string', editable: true },
   // 7: 商家
   { field: 'sellerName',   label: '商家',     width: 110, type: 'string', editable: true },
   // 8: 花卉
   { field: 'flowerName',   label: '花卉',     width: 90,  type: 'string', editable: true },
+  // 8b: 花期（12格可视化）
+  { field: 'floweringMonths', label: '花期', width: 122, type: 'flowering', editable: false },
   // 9: 零/批
   { field: 'tradeType',    label: '零/批',    width: 60,  type: 'enum', editable: true,
     options: [{v:'retail',l:'零售'},{v:'wholesale',l:'批发'},{v:'mixed',l:'零批混'}] },
@@ -81,7 +83,38 @@ const COLUMNS = [
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
   // 31: 包装说明
   { field: 'potColorNotes', label: '包装说明', width: 90, type: 'string', editable: true },
+  // 32: 场景标签（多选，最后一列）
+  { field: 'sceneTags', label: '场景标签', width: 150, type: 'sceneTags', editable: false },
 ]
+
+const CHECKBOX_COL_WIDTH = 32;
+const TITLE_COL_BG = '#fffdf5';
+function isFrozenTitleCol(col) { return col.field === 'title'; }
+function stickyLeftForCol(col) { return isFrozenTitleCol(col) ? CHECKBOX_COL_WIDTH : undefined; }
+function stickyStyleForCol(col, isHeader = false) {
+  if (!isFrozenTitleCol(col)) return {};
+  return {
+    position: 'sticky',
+    left: stickyLeftForCol(col),
+    zIndex: isHeader ? 5 : 4,
+    background: isHeader ? '#fff7e6' : TITLE_COL_BG,
+    boxShadow: '2px 0 6px rgba(0,0,0,0.08)',
+  };
+}
+
+// 场景标签词表（与首页成功案例场景对齐）
+const SCENE_TAG_OPTIONS = [
+  { v: '别墅庭院', color: '#389e0d', bg: '#f6ffed', border: '#b7eb8f' },
+  { v: '阳台花园', color: '#d46b08', bg: '#fff7e6', border: '#ffd591' },
+  { v: '婚礼花艺', color: '#c41d7f', bg: '#fff0f6', border: '#ffadd2' },
+  { v: '社区绿化', color: '#08979c', bg: '#e6fffb', border: '#87e8de' },
+  { v: '园林景观', color: '#531dab', bg: '#f9f0ff', border: '#d3adf7' },
+  { v: '商业供货', color: '#096dd9', bg: '#e6f7ff', border: '#91d5ff' },
+  { v: '室内绿植', color: '#7cb305', bg: '#fcffe6', border: '#eaff8f' },
+  { v: '桌面案头', color: '#d4380d', bg: '#fff2e8', border: '#ffbb96' },
+  { v: '节庆礼赠', color: '#cf1322', bg: '#fff1f0', border: '#ffa39e' },
+]
+const SCENE_TAG_COLOR = SCENE_TAG_OPTIONS.reduce((m, o) => { m[o.v] = o; return m; }, {});
 // ─── Component ──────────────────────────────────────────────────────
 export default function ProductList() {
   const [allProducts, setAllProducts] = useState([]);  // no pagination
@@ -95,6 +128,7 @@ export default function ProductList() {
   const [hoverImage, setHoverImage] = useState(null);   // {url, x, y}
   const [stockRange, setStockRange] = useState({ min: '', max: '' });
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
+  const [monthFilter, setMonthFilter] = useState(new Set()); // 花期月份筛选 1-12
   const [exporting, setExporting] = useState(false);
   const [newRowId, setNewRowId] = useState(null);
   const tableRef = useRef(null);
@@ -107,6 +141,11 @@ export default function ProductList() {
   const sellerInputRef = useRef(null);
   const sellerSugRef = useRef(null);
   const inputRef = useRef();
+  const [sceneTagEditing, setSceneTagEditing] = useState(null); // productId 正在编辑场景标签
+  const [customSceneTags, setCustomSceneTags] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('customSceneTags') || '[]'); } catch { return []; }
+  }); // 用户自定义添加的标签
+  const [sceneTagInput, setSceneTagInput] = useState('');
   const nav = useNavigate();
 
   // ── Load all products (no pagination) ──
@@ -157,6 +196,15 @@ export default function ProductList() {
     if (stockRange.min !== '') list = list.filter(p => (p.stock || 0) >= Number(stockRange.min));
     if (stockRange.max !== '') list = list.filter(p => (p.stock || 0) <= Number(stockRange.max));
 
+    // 花期月份筛选（包含任一所选月份）
+    if (monthFilter.size > 0) {
+      list = list.filter(p => {
+        const months = p.floweringMonths || [];
+        for (const m of monthFilter) if (months.includes(m)) return true;
+        return false;
+      });
+    }
+
     // Sort: new rows first, then by updatedAt (latest first)
     list.sort((a, b) => {
       if (a._id && a._id.startsWith('_new_')) return -1;
@@ -165,7 +213,7 @@ export default function ProductList() {
     });
 
     setDisplayed(list);
-  }, [allProducts, search, filters, sellerFilter, priceRange, stockRange]);
+  }, [allProducts, search, filters, sellerFilter, priceRange, stockRange, monthFilter]);
 
   // ── Inline editing ──
   const startEdit = (row, col, value) => {
@@ -296,6 +344,53 @@ export default function ProductList() {
       };
       img.src = URL.createObjectURL(file);
     });
+  };
+
+  // ── 花期月份切换（点击单格 / 全年 / 清空）──
+  const toggleFloweringMonth = async (product, month) => {
+    const cur = product.floweringMonths || [];
+    const next = cur.includes(month)
+      ? cur.filter(m => m !== month)
+      : [...cur, month].sort((a, b) => a - b);
+    setAllProducts(prev => prev.map(p => p._id === product._id ? { ...p, floweringMonths: next } : p));
+    if (product._id && !product._id.startsWith('_new_')) {
+      try { await api.put('/products/' + product._id, { floweringMonths: next }); } catch (e) { console.warn('保存花期失败', e); }
+    }
+  };
+
+  const setFloweringMonths = async (product, months) => {
+    const next = [...months].sort((a, b) => a - b);
+    setAllProducts(prev => prev.map(p => p._id === product._id ? { ...p, floweringMonths: next } : p));
+    if (product._id && !product._id.startsWith('_new_')) {
+      try { await api.put('/products/' + product._id, { floweringMonths: next }); } catch (e) { console.warn('保存花期失败', e); }
+    }
+  };
+
+  // ── 场景标签切换（多选）──
+  const toggleSceneTag = async (product, tag) => {
+    const cur = product.sceneTags || [];
+    const next = cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag];
+    setAllProducts(prev => prev.map(p => p._id === product._id ? { ...p, sceneTags: next } : p));
+    if (product._id && !product._id.startsWith('_new_')) {
+      try { await api.put('/products/' + product._id, { sceneTags: next }); } catch (e) { console.warn('保存场景标签失败', e); }
+    }
+  };
+
+  // ── 添加自定义场景标签（并立即打在当前商品上）──
+  const addCustomSceneTag = (product, raw) => {
+    const tag = (raw || '').trim();
+    if (!tag) return;
+    // 记入自定义标签库（去重，排除预设）
+    const presets = SCENE_TAG_OPTIONS.map(o => o.v);
+    if (!presets.includes(tag) && !customSceneTags.includes(tag)) {
+      const nextCustom = [...customSceneTags, tag];
+      setCustomSceneTags(nextCustom);
+      try { localStorage.setItem('customSceneTags', JSON.stringify(nextCustom)); } catch {}
+    }
+    // 打在当前商品上（若未选中）
+    const cur = product.sceneTags || [];
+    if (!cur.includes(tag)) toggleSceneTag(product, tag);
+    setSceneTagInput('');
   };
 
   // ── Image column helpers ──
@@ -654,6 +749,29 @@ export default function ProductList() {
           onChange={e => setStockRange(r => ({...r, max: e.target.value}))}
           style={{ ...inpStyle, width:55 }} />
 
+        {/* 花期月份筛选 */}
+        <span style={{ fontSize:11, color:'#999' }}>花期</span>
+        <div style={{ display:'flex', gap:2, alignItems:'center' }}>
+          {Array.from({ length: 12 }, (_, idx) => idx + 1).map(m => {
+            const on = monthFilter.has(m);
+            return (
+              <span key={m}
+                onClick={() => setMonthFilter(prev => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; })}
+                title={m + '月开花'}
+                style={{
+                  width:18, height:18, lineHeight:'18px', fontSize:10, textAlign:'center',
+                  cursor:'pointer', userSelect:'none', borderRadius:3,
+                  border:'1px solid ' + (on ? '#389e0d' : '#d9d9d9'),
+                  background: on ? '#52c41a' : '#fff', color: on ? '#fff' : '#999',
+                }}>{m}</span>
+            );
+          })}
+          {monthFilter.size > 0 && (
+            <span onClick={() => setMonthFilter(new Set())}
+              style={{ cursor:'pointer', fontSize:11, color:'#999', marginLeft:2 }} title="清除花期筛选">✕</span>
+          )}
+        </div>
+
         <span style={{ fontSize:12, color:'#888', whiteSpace:'nowrap' }}>共 {displayed.length} 条</span>
         {statChip('批发', tradeStats.wholesale, '#fff7e6', '#fa8c16', '#ffd591')}
         {statChip('零售', tradeStats.retail, '#e6fffb', '#13c2c2', '#87e8de')}
@@ -678,7 +796,7 @@ export default function ProductList() {
           } else {
             // 新建
             const id = '_new_' + Date.now();
-            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', origin: '', stock: 0, weight: 0, tradeType: 'retail', settlementPrice: 0, shippingFee: 0, minOrder: 1, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, potColorNotes: '', ecommerceReferenceUrl: 0 }, ...p]);
+            setAllProducts(p => [{ _id: id, title: '(新商品)', sellerName: '', category: '', flowerName: '', floweringMonths: [], origin: '', stock: 0, weight: 0, tradeType: 'retail', settlementPrice: 0, shippingFee: 0, minOrder: 1, costPrice: 0, sellPrice: 0, taxRateA: 0, taxRateB: 0, isListed: false, potColorNotes: '', ecommerceReferenceUrl: 0 }, ...p]);
             setNewRowId(id);
           }
         }}
@@ -709,11 +827,12 @@ export default function ProductList() {
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed' }}>
           <thead>
             <tr style={{ background:'#f7f7f7', position:'sticky', top:0, zIndex:3, boxShadow:'0 1px 2px #0000000d' }}>
-              <th style={{ ...thS, width:32, minWidth:32 }}><input type="checkbox" onChange={selectAll}
+              <th style={{ ...thS, width:32, minWidth:32, position:'sticky', left:0, zIndex:6, background:'#f7f7f7' }}><input type="checkbox" onChange={selectAll}
                 checked={selected.size === displayed.length && displayed.length > 0} /></th>
               {COLUMNS.map((col, ci) => (
                 <th key={ci} style={{ ...thS, width:col.width, minWidth:col.width,
-                  textAlign: ['number','money','profit','profitRate','percent'].includes(col.type) ? 'right' : 'left'
+                  textAlign: ['number','money','profit','profitRate','percent'].includes(col.type) ? 'right' : 'left',
+                  ...stickyStyleForCol(col, true),
                 }}>{col.label}</th>
               ))}
             </tr>
@@ -733,7 +852,7 @@ export default function ProductList() {
                   onMouseLeave={e => e.currentTarget.style.background= isEven ? '#fff' : '#fafcff'}
                 >
                   {/* Checkbox */}
-                  <td style={{ ...tdS, width:32, textAlign:'center' }}>
+                  <td style={{ ...tdS, width:32, textAlign:'center', position:'sticky', left:0, zIndex:3, background: isEven ? '#fff' : '#fafcff' }}>
                     <input type="checkbox" checked={selected.has(p._id)} onChange={() => toggle(p._id)} />
                   </td>
 
@@ -751,7 +870,7 @@ export default function ProductList() {
                       const isMain = col.field.indexOf('img') < 0;
                       const colLabel = IMG_COLS.concat(DETAIL_IMG_COLS).find(c => c.key === col.field.replace('_img',''))?.label || '';
                       return (
-                        <td key={ci} style={{ ...tdS, width:col.width, padding:1, textAlign:'center', verticalAlign:'middle' }}>
+                        <td key={ci} style={{ ...tdS, width:col.width, padding:1, textAlign:'center', verticalAlign:'middle', ...stickyStyleForCol(col) }}>
                           <div
                             onMouseEnter={() => setPasteTarget({ productId: p._id, colField: col.field })}
                             onMouseMove={() => setPasteTarget({ productId: p._id, colField: col.field })}
@@ -783,12 +902,134 @@ export default function ProductList() {
                       );
                     }
 
+                    // ── Flowering months column (12 格可视化) ──
+                    if (col.type === 'flowering') {
+                      const months = p.floweringMonths || [];
+                      const allOn = months.length === 12;
+                      return (
+                        <td key={ci} style={{ ...tdS, width:col.width, padding:'2px 3px', textAlign:'center', verticalAlign:'middle', ...stickyStyleForCol(col) }}>
+                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                            <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:1 }}>
+                              {Array.from({ length: 12 }, (_, idx) => idx + 1).map(m => {
+                                const on = months.includes(m);
+                                return (
+                                  <span key={m}
+                                    onClick={() => toggleFloweringMonth(p, m)}
+                                    title={m + '月'}
+                                    style={{
+                                      width:15, height:15, lineHeight:'15px', fontSize:8,
+                                      textAlign:'center', cursor:'pointer', userSelect:'none',
+                                      borderRadius:2,
+                                      border:'1px solid ' + (on ? '#389e0d' : '#d9d9d9'),
+                                      background: on ? '#52c41a' : '#fff',
+                                      color: on ? '#fff' : '#bbb',
+                                    }}>{m}</span>
+                                );
+                              })}
+                            </div>
+                            <div style={{ display:'flex', gap:4, fontSize:9, lineHeight:1 }}>
+                              <span onClick={() => setFloweringMonths(p, allOn ? [] : [1,2,3,4,5,6,7,8,9,10,11,12])}
+                                style={{ cursor:'pointer', color:'#1890ff' }}>{allOn ? '清空' : '全年'}</span>
+                            </div>
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    // ── 场景标签列（多选弹出）──
+                    if (col.type === 'sceneTags') {
+                      const tags = p.sceneTags || [];
+                      const editing = sceneTagEditing === p._id;
+                      return (
+                        <td key={ci} style={{ ...tdS, width:col.width, padding:'2px 4px', position:'relative', verticalAlign:'middle', ...stickyStyleForCol(col) }}>
+                          <div onClick={() => { setSceneTagEditing(editing ? null : p._id); setSceneTagInput(''); }}
+                            style={{ display:'flex', flexWrap:'wrap', gap:2, cursor:'pointer', minHeight:18, alignItems:'center' }}>
+                            {tags.length === 0 && <span style={{ color:'#bbb', fontSize:11 }}>+ 标签</span>}
+                            {tags.map(t => {
+                              const c = SCENE_TAG_COLOR[t] || { color:'#555', bg:'#f5f5f5', border:'#d9d9d9' };
+                              return (
+                                <span key={t} style={{
+                                  display:'inline-block', padding:'1px 5px', borderRadius:8,
+                                  fontSize:10, lineHeight:'14px',
+                                  background:c.bg, color:c.color, border:'1px solid '+c.border,
+                                }}>{t}</span>
+                              );
+                            })}
+                          </div>
+                          {editing && (
+                            <div style={{
+                              position:'absolute', top:'100%', left:0, zIndex:1000,
+                              background:'#fff', border:'1px solid #d9d9d9', borderRadius:6,
+                              padding:8, width:230, boxShadow:'0 4px 16px rgba(0,0,0,0.15)',
+                            }}
+                              onMouseLeave={() => setSceneTagEditing(null)}>
+                              <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                                {(() => {
+                                  // 预设 + 自定义 + 商品现有的生僻标签，去重
+                                  const presetVals = SCENE_TAG_OPTIONS.map(o => o.v);
+                                  const extra = [...customSceneTags, ...tags].filter(t => !presetVals.includes(t));
+                                  const allOpts = [...presetVals, ...Array.from(new Set(extra))];
+                                  return allOpts.map(v => {
+                                    const o = SCENE_TAG_COLOR[v] || { v, color:'#555', bg:'#f0f0f0', border:'#d9d9d9' };
+                                    const on = tags.includes(v);
+                                    const isCustom = !presetVals.includes(v);
+                                    return (
+                                      <span key={v}
+                                        onClick={(e) => { e.stopPropagation(); toggleSceneTag(p, v); }}
+                                        style={{
+                                          cursor:'pointer', padding:'2px 7px', borderRadius:10, fontSize:11,
+                                          background: on ? o.bg : '#fafafa',
+                                          color: on ? o.color : '#999',
+                                          border:'1px solid ' + (on ? o.border : '#eee'),
+                                          fontWeight: on ? 600 : 400,
+                                          position:'relative',
+                                        }}
+                                        title={isCustom ? '自定义标签' : ''}>
+                                        {on ? '✓ ' : ''}{v}
+                                        {isCustom && (
+                                          <span onClick={(e) => {
+                                              e.stopPropagation();
+                                              const next = customSceneTags.filter(t => t !== v);
+                                              setCustomSceneTags(next);
+                                              try { localStorage.setItem('customSceneTags', JSON.stringify(next)); } catch {}
+                                            }}
+                                            title="从选项里删除此自定义标签"
+                                            style={{ marginLeft:3, color:'#bbb', fontWeight:700 }}>×</span>
+                                        )}
+                                      </span>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                              {/* 自定义输入 */}
+                              <div style={{ display:'flex', gap:4, marginTop:8, borderTop:'1px solid #f0f0f0', paddingTop:8 }}>
+                                <input
+                                  value={sceneTagEditing === p._id ? sceneTagInput : ''}
+                                  onChange={(e) => setSceneTagInput(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') { e.stopPropagation(); addCustomSceneTag(p, sceneTagInput); }
+                                    if (e.key === 'Escape') setSceneTagEditing(null);
+                                  }}
+                                  placeholder="自定义标签…回车添加"
+                                  autoFocus
+                                  style={{ flex:1, fontSize:11, padding:'3px 6px', border:'1px solid #d9d9d9', borderRadius:4, outline:'none' }} />
+                                <span
+                                  onClick={(e) => { e.stopPropagation(); addCustomSceneTag(p, sceneTagInput); }}
+                                  style={{ cursor:'pointer', fontSize:11, padding:'3px 8px', background:'#1890ff', color:'#fff', borderRadius:4 }}>加</span>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      );
+                    }
+
                     // ── Product video column ──
                     if (col.type === 'video') {
                       const videos = p.product_videos || [];
                       const firstVideo = videos[0];
                       return (
-                        <td key={ci} style={{ ...tdS, width:col.width, padding:1, textAlign:'center', verticalAlign:'middle' }}>
+                        <td key={ci} style={{ ...tdS, width:col.width, padding:1, textAlign:'center', verticalAlign:'middle', ...stickyStyleForCol(col) }}>
                           <div style={{ position:'relative', width:56, height:50, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto' }}>
                             {firstVideo ? (
                               <div style={{ position:'relative', width:50, height:44 }} title={'商品视频 (' + videos.length + '个)'}>
@@ -819,7 +1060,7 @@ export default function ProductList() {
                       const pft = profit(p);
                       return (
                         <td key={ci} style={{ ...tdS, textAlign:'right', fontWeight:600,
-                          color: pft >= 0 ? '#52c41a' : '#ff4d4f', fontSize:13 }}>
+                          color: pft >= 0 ? '#52c41a' : '#ff4d4f', fontSize:13, ...stickyStyleForCol(col) }}>
                           ¥{pft.toFixed(1)}
                         </td>
                       );
@@ -830,7 +1071,7 @@ export default function ProductList() {
                       const rate = profitRate(p);
                       return (
                         <td key={ci} style={{ ...tdS, textAlign:'right', fontWeight:600,
-                          color: rate >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                          color: rate >= 0 ? '#52c41a' : '#ff4d4f', ...stickyStyleForCol(col) }}>
                           {rate >= 0 ? '+' : ''}{rate.toFixed(0)}%
                         </td>
                       );
@@ -842,7 +1083,7 @@ export default function ProductList() {
                     if (col.type === 'enum') {
                       if (isEditing) {
                         return (
-                          <td key={ci} style={{ ...tdS, padding:0 }}>
+                          <td key={ci} style={{ ...tdS, padding:0, ...stickyStyleForCol(col) }}>
                             <select value={String(val)} onChange={e => setEditValue(e.target.value)}
                               onBlur={saveEdit} autoFocus ref={inputRef}
                               style={{ width:'100%', height:'100%', border:'2px solid #1890ff', outline:'none', padding:'2px 4px', fontSize:12 }}>
@@ -860,7 +1101,7 @@ export default function ProductList() {
                         const ttColor = val === 'wholesale' ? '#fa8c16' : (val === 'mixed' ? '#2f54eb' : '#13c2c2');
                         const ttBorder = val === 'wholesale' ? '#ffd591' : (val === 'mixed' ? '#adc6ff' : '#b7eb8f');
                         return (
-                          <td key={ci} style={{ ...tdS, textAlign:'center', cursor:'pointer' }}
+                          <td key={ci} style={{ ...tdS, textAlign:'center', cursor:'pointer', ...stickyStyleForCol(col) }}
                             onClick={() => startEdit(ri, ci, val)}>
                             <span style={{
                               display:'inline-block', padding:'2px 8px', borderRadius:10,
@@ -874,7 +1115,7 @@ export default function ProductList() {
                       }
                       // Handle isListed display (default)
                       return (
-                        <td key={ci} style={{ ...tdS, textAlign:'center', cursor:'pointer' }}
+                        <td key={ci} style={{ ...tdS, textAlign:'center', cursor:'pointer', ...stickyStyleForCol(col) }}
                           onClick={() => startEdit(ri, ci, val)}>
                           <span style={{
                             display:'inline-block', padding:'2px 8px', borderRadius:10,
@@ -891,7 +1132,7 @@ export default function ProductList() {
                     if (col.editable && isEditing) {
                       const isSeller = col.field === 'sellerName';
                       return (
-                        <td key={ci} style={{ ...tdS, padding:0, position:'relative' }}>
+                        <td key={ci} style={{ ...tdS, padding:0, position:'relative', ...stickyStyleForCol(col) }}>
                           {isSeller ? (
                             <div style={{ position:'relative', width:'100%', height:'100%' }}>
                               <input ref={inputRef}
@@ -965,7 +1206,8 @@ export default function ProductList() {
                       <td key={ci} style={{
                         ...tdS,
                         cursor: col.editable ? 'pointer' : 'default',
-                        background: isEditing ? '#e6f7ff' : (col.field === 'costPrice' ? '#fafafa' : 'transparent'),
+                        background: isEditing ? '#e6f7ff' : (isFrozenTitleCol(col) ? TITLE_COL_BG : (col.field === 'costPrice' ? '#fafafa' : 'transparent')),
+                        ...stickyStyleForCol(col),
                         fontWeight: col.field === 'title' ? 600 : (col.field === 'costPrice' ? 500 : 'normal'),
                         color: col.field === '_profit' ? (profit(p) >= 0 ? '#52c41a' : '#ff4d4f') : (col.field === 'costPrice' ? '#8c8c8c' : '#333'),
                         fontStyle: col.field === 'costPrice' ? 'italic' : 'normal',
