@@ -57,11 +57,16 @@ router.get("/csv", async (req, res) => {
 router.get("/excel", async (req, res) => {
   try {
     const query = buildQuery(req);
-    const limit = Math.min(parseInt(req.query.limit) || 500, 5000);
+    const requestedMode = String(req.query.mode || "simple");
+    const mode = ["simple", "full", "withImages"].includes(requestedMode) ? requestedMode : "simple";
+    const defaultLimit = mode === "withImages" ? 30 : 5000;
+    const maxLimit = mode === "withImages" ? 200 : 20000;
+    const limit = Math.min(parseInt(req.query.limit) || defaultLimit, maxLimit);
     const products = await Product.find(query).sort("-updatedAt").limit(limit).lean();
-    const buffer = await exportToExcel(products);
+    const buffer = await exportToExcel(products, { mode });
+    const filename = mode === "full" ? "products_full.xlsx" : (mode === "withImages" ? "products_with_images.xlsx" : "products_simple.xlsx");
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", "attachment; filename=products.xlsx");
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
     res.send(buffer);
   } catch (err) {
     console.error("Export Excel error:", err);

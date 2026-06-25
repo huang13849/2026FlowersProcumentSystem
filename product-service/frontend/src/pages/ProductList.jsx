@@ -588,11 +588,13 @@ export default function ProductList() {
     }
   };
 
-  // ── Export to Excel with images ──
-  const exportExcel = async () => {
+  // ── Export to Excel without embedded images ──
+  const exportExcel = async (mode = 'simple') => {
     setExporting(true);
     try {
       const params = new URLSearchParams();
+      params.set('mode', mode === 'full' ? 'full' : 'simple');
+      params.set('limit', mode === 'full' ? '20000' : '5000');
       if (search) params.set('search', search);
       if (filters.category) params.set('category', filters.category);
       if (filters.isListed !== undefined && filters.isListed !== '') params.set('isListed', filters.isListed);
@@ -601,22 +603,20 @@ export default function ProductList() {
       if (stockRange.min) params.set('stockMin', stockRange.min);
       if (stockRange.max) params.set('stockMax', stockRange.max);
       if (sellerFilter.trim()) params.set('sellerName', sellerFilter.trim());
-      params.set('limit', '30');
-      // Also support exporting only selected items
+      // 如果勾选了商品，只导出勾选项；否则按当前筛选条件导出全部匹配商品。
       if (selected.size > 0) {
         const validIds = [...selected].filter(id => !id.startsWith("_new_"));
         if (validIds.length > 0) params.set("ids", validIds.join(","));
       }
-      
-      const resp = await fetch('/api/export/excel?' + params.toString(), {
-        
-      });
+
+      const resp = await fetch('/api/export/excel?' + params.toString());
       if (!resp.ok) throw new Error('导出失败: ' + resp.statusText);
       const blob = await resp.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const date = new Date().toLocaleDateString('zh-CN').replace(/\//g, '');
       a.href = url;
-      a.download = '商品列表_' + new Date().toLocaleDateString('zh-CN').replace(/\//g, '') + '.xlsx';
+      a.download = (mode === 'full' ? '商品全列全量导出_' : '商品简单导出_') + date + '.xlsx';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -762,7 +762,8 @@ export default function ProductList() {
         {statChip('零售', tradeStats.retail, '#e6fffb', '#13c2c2', '#87e8de')}
         {statChip('零批混', tradeStats.mixed, '#f0f5ff', '#2f54eb', '#adc6ff')}
         <div style={{ flex:1 }} />
-        <button onClick={exportExcel} disabled={exporting}
+        <button onClick={() => exportExcel('simple')} disabled={exporting}
+          title="导出常用字段，不包含图片列，速度快"
           style={{
             padding:'5px 12px',
             background: exporting ? '#d9d9d9' : '#52c41a',
@@ -772,7 +773,20 @@ export default function ProductList() {
             fontSize:12, whiteSpace:'nowrap',
             display:'flex', alignItems:'center', gap:4,
           }}>
-          {exporting ? '⏳ 导出中…' : '📊 导出Excel'}
+          {exporting ? '⏳ 导出中…' : '📄 简单导出'}
+        </button>
+        <button onClick={() => exportExcel('full')} disabled={exporting}
+          title="导出所有商品字段，图片/视频只导出URL文本，不嵌入图片"
+          style={{
+            padding:'5px 12px',
+            background: exporting ? '#d9d9d9' : '#1677ff',
+            color: exporting ? '#999' : '#fff',
+            border:'none', borderRadius:4,
+            cursor: exporting ? 'not-allowed' : 'pointer',
+            fontSize:12, whiteSpace:'nowrap',
+            display:'flex', alignItems:'center', gap:4,
+          }}>
+          {exporting ? '⏳ 导出中…' : '📊 全列全量导出'}
         </button>
         <button onClick={() => {
           if (selected.size === 1) {
