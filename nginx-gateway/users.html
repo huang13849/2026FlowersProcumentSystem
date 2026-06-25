@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>用户管理 - 花卉供应链平台</title>
+<title>👥 用户管理 - 花卉供应链平台</title>
 <style>
 :root{--bg-primary:#0b172b;--bg-secondary:#121e34;--bg-card:#19243b;--bg-hover:#1e2d48;--text-primary:#e8eaed;--text-secondary:#9aa0b0;--text-muted:#5e6a82;--accent-purple:#a78bfa;--accent-blue:#60a5fa;--accent-green:#34d399;--accent-pink:#f472b6;--accent-orange:#fb923c;--accent-red:#ef4444;--border:#1e2d48;--radius:8px}
 *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
@@ -18,6 +18,7 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh}
 .btn-danger:hover{opacity:.85}
 .btn-ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--border)}
 .btn-ghost:hover{border-color:var(--accent-purple);color:var(--text-primary)}
+.btn-sm{padding:4px 10px;font-size:11px}
 .content{padding:20px 24px}
 .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
 .search-box{flex:1;min-width:200px;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-size:13px}
@@ -31,33 +32,36 @@ thead{background:var(--bg-secondary)}
 th,td{padding:10px 14px;text-align:left;font-size:13px;border-bottom:1px solid var(--border)}
 th{color:var(--text-secondary);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
 tr:hover{background:var(--bg-hover)}
-.role-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.role-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;margin-right:4px;margin-bottom:4px}
 .role-admin{background:rgba(167,139,250,.15);color:var(--accent-purple)}
 .role-operator{background:rgba(96,165,250,.15);color:var(--accent-blue)}
 .role-super_admin{background:rgba(249,115,22,.15);color:var(--accent-orange)}
 .role-user{background:rgba(52,211,153,.15);color:var(--accent-green)}
+.custom-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;margin-right:4px;margin-bottom:4px;background:#e6f7ff;color:#1890ff}
 .truncate{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .muted{color:var(--text-muted);font-size:11px}
-/* Modal */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;justify-content:center;align-items:center}
 .modal-overlay.active{display:flex}
-.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:480px;max-width:90vw;max-height:80vh;overflow-y:auto}
+.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:420px;max-width:90vw;max-height:80vh;overflow-y:auto}
 .modal h3{font-size:16px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.form-group{margin-bottom:14px}
-.form-group label{display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px}
-.form-group input,.form-group select{width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:13px}
-.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--accent-blue)}
+.tag-select-grid{display:grid;grid-template-columns:repeat(2, 1fr);gap:8px;margin-bottom:20px}
+.tag-option{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-primary);cursor:pointer;color:var(--text-primary)}
+.tag-option:hover{border-color:var(--accent-blue);background:var(--bg-hover)}
+.tag-option.selected{border-color:var(--accent-blue);background:rgba(96,165,250,.15)}
 .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:var(--radius);color:#fff;font-size:13px;z-index:200;animation:slideIn .3s}
 .toast.success{background:var(--accent-green)}
 .toast.error{background:var(--accent-red)}
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-.pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px}
-.pagination .btn{padding:6px 12px;font-size:12px}
-.pagination .info{font-size:12px;color:var(--text-muted)}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px}
+.tab-btn{padding:10px 16px;border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;margin-bottom:-1px}
+.tab-btn.active{background:var(--bg-card);color:var(--text-primary)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
 </style>
 </head>
 <body>
+
 <div class="topbar">
   <h2>👥 用户管理</h2>
   <div class="actions">
@@ -65,242 +69,2869 @@ tr:hover{background:var(--bg-hover)}
     <button class="btn btn-primary" onclick="openAddModal()">+ 新增用户</button>
   </div>
 </div>
-<div class="content">
-  <div class="stats">
-    <div class="stat">总用户 <strong id="totalCount">0</strong></div>
-    <div class="stat">管理员 <strong id="adminCount">0</strong></div>
-    <div class="stat">普通用户 <strong id="userCount">0</strong></div>
-  </div>
-  <div class="toolbar">
-    <input type="text" class="search-box" id="searchInput" placeholder="搜索用户名、昵称、手机号..." oninput="onSearch()">
-    <select id="roleFilter" class="search-box" style="flex:0;min-width:120px" onchange="loadUsers()">
-      <option value="">全部角色</option>
-      <option value="super_admin">超级管理员</option>
-      <option value="admin">管理员</option>
-      <option value="operator">操作员</option>
-      <option value="user">普通用户</option>
-    </select>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>用户名/手机</th>
-        <th>昵称</th>
-        <th>角色</th>
-        <th>头像</th>
-        <th>位置</th>
-        <th>花园统计</th>
-        <th>最后登录</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody id="userTable"></tbody>
-  </table>
-  <div class="pagination" id="pagination"></div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-id="system">系统用户</button>
+  <button class="tab-btn" data-id="customer">订单客户分析</button>
 </div>
 
-<!-- Add/Edit Modal -->
-<div class="modal-overlay" id="userModal">
+<div id="panel-system" class="tab-panel active">
+  <div class="content">
+    <div class="stats">
+      <div class="stat">总用户 <strong id="totalCount">130</strong></div>
+      <div class="stat">管理员 <strong id="adminCount">2</strong></div>
+      <div class="stat">普通用户 <strong id="userCount">127</strong></div>
+    </div>
+    <div class="toolbar">
+      <input type="text" class="search-box" id="searchInput" placeholder="搜索用户名、昵称、手机号、标签..." oninput="onSearch()">
+      <select id="roleFilter" class="search-box" style="flex:0;min-width:120px" onchange="renderUsers()">
+        <option value="">全部角色</option>
+        <option value="super_admin">超级管理员</option>
+        <option value="admin">管理员</option>
+        <option value="operator">操作员</option>
+        <option value="user">普通用户</option>
+      </select>
+      <button class="btn btn-primary" onclick="mergeOrderUsers()">合并订单用户</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>用户名/手机</th>
+          <th>昵称</th>
+          <th>头像</th>
+          <th>位置</th>
+          <th>花园统计</th>
+          <th>最后登录</th>
+          <th>标签</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="userTable">
+        <tr>
+          <td class="truncate">admin</td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-admin">admin</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a0ff1fd8c207339a57919d9', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a0ff1fd8c207339a57919d9')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a0ff1fd8c207339a57919d9')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">operator</td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-operator">operator</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a0ff1fd8c207339a57919da', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a0ff1fd8c207339a57919da')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a0ff1fd8c207339a57919da')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">-</td>
+          <td>超级管理员</td>
+          <td><img src="👑" style="width:32px;height:32px;border-radius:50%;object-fit:cover"></td>
+          <td></td>
+          <td>0 个花园</td>
+          <td class="muted">2026-06-25</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-super_admin">super_admin</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a2a4a7158f7ed45629705d0', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a2a4a7158f7ed45629705d0')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a2a4a7158f7ed45629705d0')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13900139001</td>
+          <td>花友9001</td>
+          <td>-</td>
+          <td></td>
+          <td>0 个花园</td>
+          <td class="muted">2026-06-15</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a2f538c46c50442c1c75aea', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a2f538c46c50442c1c75aea')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a2f538c46c50442c1c75aea')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18612677258</td>
+          <td>张烨芊18612677258的采购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4822', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4822')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4822')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13901136507</td>
+          <td>paul</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4823', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4823')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4823')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15711487589</td>
+          <td>15711487589的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4824', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4824')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4824')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18510329853</td>
+          <td>18510329853的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4825', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4825')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4825')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13181886712</td>
+          <td>刘乐</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4826', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4826')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4826')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13621313672</td>
+          <td>李春晖</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4827', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4827')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4827')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13031127030</td>
+          <td>13031127030的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4828', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4828')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4828')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13911608193</td>
+          <td>咖啡女人</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4829', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4829')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4829')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13641096801</td>
+          <td>张晶晶</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c482a', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c482a')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c482a')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18601918976</td>
+          <td>如戏 蓝山的采购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c482b', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c482b')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c482b')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18510809317</td>
+          <td>董芳</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c482c', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c482c')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c482c')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13241841956</td>
+          <td>小红子</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c482d', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c482d')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c482d')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15011307532</td>
+          <td>恩溪商品折扣店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c482e', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c482e')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c482e')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18515803553</td>
+          <td>顺其自然</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c482f', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c482f')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c482f')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13701156160</td>
+          <td>鱼美人</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4830', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4830')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4830')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13439456690</td>
+          <td>阿拉蕾</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4831', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4831')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4831')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15601326778</td>
+          <td>老郭</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4832', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4832')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4832')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13810163055</td>
+          <td>汀杉</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4833', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4833')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4833')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18666221284</td>
+          <td>ZMZ</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4834', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4834')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4834')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15810973068</td>
+          <td>淡定</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4835', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4835')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4835')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13911089120</td>
+          <td>张冬梅</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4836', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4836')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4836')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15810936189</td>
+          <td>多农多生鲜供应链</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4837', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4837')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4837')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">17274808076</td>
+          <td>天道酬勤</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4838', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4838')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4838')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13911447157</td>
+          <td>刘立超</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4839', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4839')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4839')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15646581616</td>
+          <td>王晓</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c483a', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c483a')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c483a')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18600869522</td>
+          <td>东方</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c483b', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c483b')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c483b')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13699283519</td>
+          <td>生鲁艳</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c483c', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c483c')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c483c')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18901231881</td>
+          <td>张嘉萱</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c483d', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c483d')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c483d')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18710201608</td>
+          <td>指尖阳光</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c483e', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c483e')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c483e')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18618491126</td>
+          <td>李娜</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c483f', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c483f')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c483f')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15201157508</td>
+          <td>杨占红</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4840', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4840')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4840')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15010932656</td>
+          <td>张硕</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4841', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4841')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4841')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13146988238</td>
+          <td>平水相逢</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4842', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4842')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4842')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13522939751</td>
+          <td>姝虹</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4843', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4843')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4843')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18611930785</td>
+          <td>栀子</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4844', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4844')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4844')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18201020021</td>
+          <td>Sakura</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4845', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4845')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4845')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">17760222652</td>
+          <td>福元</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4846', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4846')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4846')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15811572436</td>
+          <td>董斌</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4847', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4847')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4847')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15901367722</td>
+          <td>王洪玲</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4848', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4848')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4848')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18610808070</td>
+          <td>牛晶晶</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4849', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4849')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4849')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15901222130</td>
+          <td>婷婷</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c484a', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c484a')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c484a')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13693627895</td>
+          <td>李嘉琪</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c484b', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c484b')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c484b')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910129020</td>
+          <td>王洁</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c484c', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c484c')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c484c')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13466809483</td>
+          <td>13466809483的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c484d', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c484d')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c484d')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13311091136</td>
+          <td>菁菁</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c484e', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c484e')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c484e')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13718386096</td>
+          <td>妮可</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c484f', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c484f')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c484f')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15901419568</td>
+          <td>蔚蓝天空</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4850', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4850')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4850')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18353632912</td>
+          <td>小尘埃</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4851', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4851')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4851')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15510674234</td>
+          <td>365生活管家</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4852', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4852')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4852')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15201364142</td>
+          <td>童</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4853', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4853')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4853')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13718372208</td>
+          <td>A0 笑口常开</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4854', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4854')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4854')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13001964668</td>
+          <td>玥的店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4855', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4855')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4855')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15510403160</td>
+          <td>家园</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4856', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4856')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4856')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13683622887</td>
+          <td>韩蓉</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4857', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4857')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4857')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13701133548</td>
+          <td>永不言弃的驴</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4858', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4858')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4858')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13911683390</td>
+          <td>雪心</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4859', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4859')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4859')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18611180150</td>
+          <td>小任的采购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c485a', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c485a')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c485a')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18310143149</td>
+          <td>赵紫希</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c485b', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c485b')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c485b')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13436660555</td>
+          <td>13436660555的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c485c', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c485c')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c485c')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15601329997</td>
+          <td>牵着小猪去散步</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c485d', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c485d')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c485d')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13426030347</td>
+          <td>张啦啦</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c485e', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c485e')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c485e')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910184742</td>
+          <td>李新玲</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c485f', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c485f')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c485f')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13261668853</td>
+          <td>A00小崔社区团长13261668853</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4860', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4860')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4860')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18611562426</td>
+          <td>源源妈</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4861', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4861')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4861')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13269830326</td>
+          <td>西贝</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4862', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4862')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4862')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910253560</td>
+          <td>豆豆社区团购</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4863', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4863')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4863')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13520078482</td>
+          <td>Zoe</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4864', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4864')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4864')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18310726302</td>
+          <td>大地</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4865', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4865')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4865')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">17600573688</td>
+          <td>朝阳果蔬直采店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4866', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4866')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4866')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18910127203</td>
+          <td>亿果优选</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4867', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4867')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4867')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13124741312</td>
+          <td>杨华&</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4868', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4868')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4868')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13501071373</td>
+          <td>小豹子</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4869', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4869')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4869')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910126830</td>
+          <td>穆小彪</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c486a', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c486a')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c486a')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13911940648</td>
+          <td>13911940648的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c486b', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c486b')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c486b')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13621391035</td>
+          <td>红红</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c486c', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c486c')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c486c')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910429570</td>
+          <td>温泉</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c486d', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c486d')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c486d')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15110150411</td>
+          <td>郑新华</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c486e', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c486e')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c486e')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18319658469</td>
+          <td>18319658469的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c486f', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c486f')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c486f')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13920981393</td>
+          <td>莫念</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4870', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4870')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4870')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15302077501</td>
+          <td>团长</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4871', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4871')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4871')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910695486</td>
+          <td>胜者为王</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4872', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4872')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4872')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13520388538</td>
+          <td>王多多</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4873', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4873')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4873')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15101579810</td>
+          <td>小何</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4874', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4874')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4874')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910740091</td>
+          <td>雨翼童心</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4875', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4875')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4875')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13683307130</td>
+          <td>王兰</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4876', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4876')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4876')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13581607169</td>
+          <td>晓萍</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4877', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4877')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4877')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13718678121</td>
+          <td>孟公子</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4878', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4878')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4878')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15010077817</td>
+          <td>15010077817的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c4879', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c4879')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c4879')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15010778272</td>
+          <td>15010778272的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c487a', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c487a')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c487a')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910032847</td>
+          <td>梅子</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a403d8b4f3a208c487b', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a403d8b4f3a208c487b')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a403d8b4f3a208c487b')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">17800219691</td>
+          <td>极致</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c487c', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c487c')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c487c')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15643148065</td>
+          <td>15643148065的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c487d', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c487d')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c487d')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18610812273</td>
+          <td>18610812273的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c487e', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c487e')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c487e')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13718238792</td>
+          <td>未央</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c487f', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c487f')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c487f')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">17600905806</td>
+          <td>乐大大生鲜团购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4880', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4880')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4880')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13521627864</td>
+          <td>13521627864的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4881', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4881')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4881')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15101099875</td>
+          <td>昊家伙</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4882', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4882')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4882')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910566223</td>
+          <td>余生</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4883', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4883')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4883')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15001093825</td>
+          <td>15001093825的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4884', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4884')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4884')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13810409108</td>
+          <td>17团团购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4885', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4885')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4885')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15611594409</td>
+          <td>静待～花开</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4886', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4886')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4886')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13611139222</td>
+          <td>夕颜</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4887', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4887')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4887')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13520962069</td>
+          <td>小个</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4888', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4888')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4888')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13321106591</td>
+          <td>常伟的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4889', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4889')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4889')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15010040950</td>
+          <td>蔡利平</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c488a', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c488a')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c488a')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15030005467</td>
+          <td>杨振飞</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c488b', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c488b')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c488b')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15754338007</td>
+          <td>「月」</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c488c', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c488c')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c488c')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15712866502</td>
+          <td>15712866502的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c488d', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c488d')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c488d')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13810273473</td>
+          <td>🍒香香🍒</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c488e', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c488e')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c488e')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18910901106</td>
+          <td>静的采购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c488f', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c488f')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c488f')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13701356363</td>
+          <td>陈艳</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4890', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4890')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4890')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13910322126</td>
+          <td>13910322126的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4891', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4891')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4891')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13811193592</td>
+          <td>王辉女士</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4892', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4892')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4892')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">17610002376</td>
+          <td>坚持加努力的采购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4893', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4893')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4893')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13651013027</td>
+          <td>....昱13651013027的采购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4894', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4894')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4894')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18513605002</td>
+          <td>18513605002的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4895', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4895')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4895')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13311272538</td>
+          <td>自然</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4896', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4896')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4896')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">15101086085</td>
+          <td>陈迎</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4897', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4897')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4897')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13581715509</td>
+          <td>长阳团购</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4898', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4898')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4898')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13901280695</td>
+          <td>辛辛</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c4899', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c4899')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c4899')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13811361679</td>
+          <td>吴方的采购店</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c489a', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c489a')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c489a')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18135758660</td>
+          <td>张华的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c489b', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c489b')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c489b')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13520559034</td>
+          <td>灰丫头</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c489c', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c489c')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c489c')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">18501027000</td>
+          <td>兰桂坊超市</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c489d', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c489d')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c489d')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13911765866</td>
+          <td>13911765866的采购店铺</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c489e', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c489e')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c489e')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="truncate">13466592236</td>
+          <td>于志永</td>
+          <td>-</td>
+          <td>-</td>
+          <td>0 个花园</td>
+          <td class="muted">从未</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span class="role-tag role-user">user</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openTagModal('6a3d3a413d8b4f3a208c489f', '')">+添加标签</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('6a3d3a413d8b4f3a208c489f')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('6a3d3a413d8b4f3a208c489f')">删除</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="panel-customer" class="tab-panel">
+  <div class="content">
+    <div class="toolbar">
+      <input type="text" class="search-box" id="customerSearch" placeholder="搜索 用户名/电话/地址/标签" oninput="loadCustomerData()">
+    </div>
+    <div style="background:var(--bg-card);border-radius:8px;padding:16px;margin-bottom:16px">
+      <h4 style="margin:0 0 12px 0;font-size:16px">客户价值分布</h4>
+      <div id="scoreChart" style="height:240px"></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;background:var(--bg-card);border-radius:8px;overflow:hidden">
+      <thead>
+        <tr style="background:var(--bg-secondary)">
+          <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text-secondary)">用户名</th>
+          <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text-secondary)">电话</th>
+          <th style="padding:10px 14px;text-align:right;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text-secondary)">订单数</th>
+          <th style="padding:10px 14px;text-align:right;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text-secondary)">总金额</th>
+          <th style="padding:10px 14px;text-align:right;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text-secondary)">客单价</th>
+          <th style="padding:10px 14px;text-align:right;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text-secondary)">价值分</th>
+          <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text-secondary)">标签</th>
+        </tr>
+      </thead>
+      <tbody id="customerTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal 新增用户 -->
+<div id="addModal" class="modal-overlay" onclick="event.target==this && closeAddModal()">
   <div class="modal">
-    <h3 id="modalTitle">新增用户</h3>
-    <input type="hidden" id="editId">
+    <h3>➕ 新增系统用户</h3>
     <div class="form-group">
-      <label>手机号</label>
-      <input type="text" id="formPhone" placeholder="手机号">
+      <label>用户名</label>
+      <input type="text" id="new-username" placeholder="必填">
     </div>
     <div class="form-group">
       <label>昵称</label>
-      <input type="text" id="formNickname" placeholder="昵称">
+      <input type="text" id="new-nickname" placeholder="选填">
     </div>
     <div class="form-group">
-      <label>密码（新增时必填）</label>
-      <input type="password" id="formPassword" placeholder="密码">
+      <label>手机号</label>
+      <input type="text" id="new-phone" placeholder="选填">
     </div>
     <div class="form-group">
       <label>角色</label>
-      <select id="formRole">
+      <select id="new-role">
         <option value="user">普通用户</option>
         <option value="operator">操作员</option>
         <option value="admin">管理员</option>
         <option value="super_admin">超级管理员</option>
       </select>
     </div>
-    <div class="form-group">
-      <label>显示名称</label>
-      <input type="text" id="formDisplayName" placeholder="显示名称">
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeAddModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitAddUser()">提交</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 添加标签 -->
+<div id="tagModal" class="modal-overlay" onclick="event.target==this && closeTagModal()">
+  <div class="modal">
+    <h3>🏷️ 添加用户标签</h3>
+    <div class="tag-select-grid" id="tagSelectGrid">
+      <!-- 预置标签选项 -->
     </div>
     <div class="form-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" onclick="saveUser()">保存</button>
+      <button class="btn btn-ghost" onclick="closeTagModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveSelectedTags()">保存</button>
     </div>
   </div>
 </div>
 
 <script>
-const GW = '/api/mongo/users';
-const KEY = '***REMOVED_API_KEY***';
-const headers = {'Content-Type':'application/json','x-api-key':KEY};
-let allUsers = [];
-let page = 1, limit = 20, search = '';
+const PRESET_TAGS = ["高价值客户", "高潜力客户", "团购团长", "散户", "工程客户", "家庭园艺", "高净值", "一线城市", "二线城市"];
+const headers = {"Content-Type":"application/json","x-api-key":"***REMOVED_API_KEY***"};
+const API_BASE = "/api/mongo/users";
+let currentUsers = [{"_id": "6a0ff1fd8c207339a57919d9", "username": "admin", "password": "$2a$10$9Gmpj6aiUt.ougSAJWlicuIPSxRtUVtaWxi1.ZriM4AIWgT19nup2", "role": "admin", "displayName": "\u7cfb\u7edf\u7ba1\u7406\u5458", "createdAt": "2026-05-22T06:04:45.919Z"}, {"_id": "6a0ff1fd8c207339a57919da", "username": "operator", "password": "$2a$10$yRfnOLsWMvvTIsZPmpOrfewZ6AMBKvLyu6c66X.67l2qJtmFJQ4vW", "role": "operator", "displayName": "\u64cd\u4f5c\u5458", "createdAt": "2026-05-22T06:04:45.919Z"}, {"_id": "6a2a4a7158f7ed45629705d0", "phone": "18511987921", "nickname": "\u8d85\u7ea7\u7ba1\u7406\u5458", "avatar": "\ud83d\udc51", "location": {"type": "Point", "coordinates": [0, 0]}, "locationAddress": "", "preferences": {"categories": [], "favoriteSuppliers": []}, "gardenStats": {"totalPlanted": 0, "totalCompleted": 0, "totalGifted": 0}, "address": [{"name": "\u9ec4\u6bc5", "phone": "18511987921", "province": "\u5317\u4eac", "city": "\u5317\u4eac", "district": "\u4e30\u53f0", "detail": "\u4e30\u53f0\u65b0\u5bab\u793e\u533a\u6b63\u5546\u660e\u82d1\u5c0f\u533a3\u53f7\u697c1\u5355\u51431401\u5317\u4eac\u5e02\u4e30\u53f0\u533a\u4e30\u53f0\u897f\u8def41\u53f7\u96621\u53f7\u697c1\u5355\u5143102", "isDefault": true}], "lastLoginAt": "2026-06-25T00:39:17.890Z", "createdAt": "2026-06-11T05:41:05.544Z", "__v": 0, "updatedAt": "2026-06-25T00:39:17.842Z", "role": "super_admin"}, {"_id": "6a2f538c46c50442c1c75aea", "username": "13900139001", "phone": "13900139001", "nickname": "\u82b1\u53cb9001", "avatar": "", "role": "user", "location": {"type": "Point", "coordinates": [0, 0]}, "locationAddress": "", "address": [], "deviceInfo": {}, "preferences": {"categories": [], "priceRange": {}, "favoriteSuppliers": []}, "gardenStats": {"totalPlanted": 0, "totalCompleted": 0, "totalGifted": 0}, "lastLoginAt": "2026-06-15T01:21:32.633Z", "createdAt": "2026-06-15T01:21:16.509Z", "updatedAt": "2026-06-15T01:21:32.775Z"}, {"_id": "6a3d3a403d8b4f3a208c4822", "username": "18612677258", "nickname": "\u5f20\u70e8\u828a18612677258\u7684\u91c7\u8d2d\u5e97", "phone": "18612677258", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.097Z", "updatedAt": "2026-06-25T14:25:04.097Z"}, {"_id": "6a3d3a403d8b4f3a208c4823", "username": "13901136507", "nickname": "paul", "phone": "13901136507", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.108Z", "updatedAt": "2026-06-25T14:25:04.108Z"}, {"_id": "6a3d3a403d8b4f3a208c4824", "username": "15711487589", "nickname": "15711487589\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "15711487589", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.118Z", "updatedAt": "2026-06-25T14:25:04.118Z"}, {"_id": "6a3d3a403d8b4f3a208c4825", "username": "18510329853", "nickname": "18510329853\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "18510329853", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.128Z", "updatedAt": "2026-06-25T14:25:04.128Z"}, {"_id": "6a3d3a403d8b4f3a208c4826", "username": "13181886712", "nickname": "\u5218\u4e50", "phone": "13181886712", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.138Z", "updatedAt": "2026-06-25T14:25:04.138Z"}, {"_id": "6a3d3a403d8b4f3a208c4827", "username": "13621313672", "nickname": "\u674e\u6625\u6656", "phone": "13621313672", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.148Z", "updatedAt": "2026-06-25T14:25:04.148Z"}, {"_id": "6a3d3a403d8b4f3a208c4828", "username": "13031127030", "nickname": "13031127030\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "13031127030", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.159Z", "updatedAt": "2026-06-25T14:25:04.159Z"}, {"_id": "6a3d3a403d8b4f3a208c4829", "username": "13911608193", "nickname": "\u5496\u5561\u5973\u4eba", "phone": "13911608193", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.169Z", "updatedAt": "2026-06-25T14:25:04.169Z"}, {"_id": "6a3d3a403d8b4f3a208c482a", "username": "13641096801", "nickname": "\u5f20\u6676\u6676", "phone": "13641096801", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.179Z", "updatedAt": "2026-06-25T14:25:04.179Z"}, {"_id": "6a3d3a403d8b4f3a208c482b", "username": "18601918976", "nickname": "\u5982\u620f \u84dd\u5c71\u7684\u91c7\u8d2d\u5e97", "phone": "18601918976", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.189Z", "updatedAt": "2026-06-25T14:25:04.189Z"}, {"_id": "6a3d3a403d8b4f3a208c482c", "username": "18510809317", "nickname": "\u8463\u82b3", "phone": "18510809317", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.199Z", "updatedAt": "2026-06-25T14:25:04.199Z"}, {"_id": "6a3d3a403d8b4f3a208c482d", "username": "13241841956", "nickname": "\u5c0f\u7ea2\u5b50", "phone": "13241841956", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.209Z", "updatedAt": "2026-06-25T14:25:04.209Z"}, {"_id": "6a3d3a403d8b4f3a208c482e", "username": "15011307532", "nickname": "\u6069\u6eaa\u5546\u54c1\u6298\u6263\u5e97", "phone": "15011307532", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.219Z", "updatedAt": "2026-06-25T14:25:04.219Z"}, {"_id": "6a3d3a403d8b4f3a208c482f", "username": "18515803553", "nickname": "\u987a\u5176\u81ea\u7136", "phone": "18515803553", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.228Z", "updatedAt": "2026-06-25T14:25:04.228Z"}, {"_id": "6a3d3a403d8b4f3a208c4830", "username": "13701156160", "nickname": "\u9c7c\u7f8e\u4eba", "phone": "13701156160", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.238Z", "updatedAt": "2026-06-25T14:25:04.238Z"}, {"_id": "6a3d3a403d8b4f3a208c4831", "username": "13439456690", "nickname": "\u963f\u62c9\u857e", "phone": "13439456690", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.247Z", "updatedAt": "2026-06-25T14:25:04.247Z"}, {"_id": "6a3d3a403d8b4f3a208c4832", "username": "15601326778", "nickname": "\u8001\u90ed", "phone": "15601326778", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.257Z", "updatedAt": "2026-06-25T14:25:04.257Z"}, {"_id": "6a3d3a403d8b4f3a208c4833", "username": "13810163055", "nickname": "\u6c40\u6749", "phone": "13810163055", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.264Z", "updatedAt": "2026-06-25T14:25:04.264Z"}, {"_id": "6a3d3a403d8b4f3a208c4834", "username": "18666221284", "nickname": "ZMZ", "phone": "18666221284", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.274Z", "updatedAt": "2026-06-25T14:25:04.274Z"}, {"_id": "6a3d3a403d8b4f3a208c4835", "username": "15810973068", "nickname": "\u6de1\u5b9a", "phone": "15810973068", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.284Z", "updatedAt": "2026-06-25T14:25:04.284Z"}, {"_id": "6a3d3a403d8b4f3a208c4836", "username": "13911089120", "nickname": "\u5f20\u51ac\u6885", "phone": "13911089120", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.300Z", "updatedAt": "2026-06-25T14:25:04.300Z"}, {"_id": "6a3d3a403d8b4f3a208c4837", "username": "15810936189", "nickname": "\u591a\u519c\u591a\u751f\u9c9c\u4f9b\u5e94\u94fe", "phone": "15810936189", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.315Z", "updatedAt": "2026-06-25T14:25:04.315Z"}, {"_id": "6a3d3a403d8b4f3a208c4838", "username": "17274808076", "nickname": "\u5929\u9053\u916c\u52e4", "phone": "17274808076", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.327Z", "updatedAt": "2026-06-25T14:25:04.327Z"}, {"_id": "6a3d3a403d8b4f3a208c4839", "username": "13911447157", "nickname": "\u5218\u7acb\u8d85", "phone": "13911447157", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.337Z", "updatedAt": "2026-06-25T14:25:04.337Z"}, {"_id": "6a3d3a403d8b4f3a208c483a", "username": "15646581616", "nickname": "\u738b\u6653", "phone": "15646581616", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.347Z", "updatedAt": "2026-06-25T14:25:04.347Z"}, {"_id": "6a3d3a403d8b4f3a208c483b", "username": "18600869522", "nickname": "\u4e1c\u65b9", "phone": "18600869522", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.357Z", "updatedAt": "2026-06-25T14:25:04.357Z"}, {"_id": "6a3d3a403d8b4f3a208c483c", "username": "13699283519", "nickname": "\u751f\u9c81\u8273", "phone": "13699283519", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.367Z", "updatedAt": "2026-06-25T14:25:04.367Z"}, {"_id": "6a3d3a403d8b4f3a208c483d", "username": "18901231881", "nickname": "\u5f20\u5609\u8431", "phone": "18901231881", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.376Z", "updatedAt": "2026-06-25T14:25:04.376Z"}, {"_id": "6a3d3a403d8b4f3a208c483e", "username": "18710201608", "nickname": "\u6307\u5c16\u9633\u5149", "phone": "18710201608", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.386Z", "updatedAt": "2026-06-25T14:25:04.386Z"}, {"_id": "6a3d3a403d8b4f3a208c483f", "username": "18618491126", "nickname": "\u674e\u5a1c", "phone": "18618491126", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.395Z", "updatedAt": "2026-06-25T14:25:04.395Z"}, {"_id": "6a3d3a403d8b4f3a208c4840", "username": "15201157508", "nickname": "\u6768\u5360\u7ea2", "phone": "15201157508", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.406Z", "updatedAt": "2026-06-25T14:25:04.406Z"}, {"_id": "6a3d3a403d8b4f3a208c4841", "username": "15010932656", "nickname": "\u5f20\u7855", "phone": "15010932656", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.419Z", "updatedAt": "2026-06-25T14:25:04.419Z"}, {"_id": "6a3d3a403d8b4f3a208c4842", "username": "13146988238", "nickname": "\u5e73\u6c34\u76f8\u9022", "phone": "13146988238", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.431Z", "updatedAt": "2026-06-25T14:25:04.431Z"}, {"_id": "6a3d3a403d8b4f3a208c4843", "username": "13522939751", "nickname": "\u59dd\u8679", "phone": "13522939751", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.443Z", "updatedAt": "2026-06-25T14:25:04.443Z"}, {"_id": "6a3d3a403d8b4f3a208c4844", "username": "18611930785", "nickname": "\u6800\u5b50", "phone": "18611930785", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.451Z", "updatedAt": "2026-06-25T14:25:04.451Z"}, {"_id": "6a3d3a403d8b4f3a208c4845", "username": "18201020021", "nickname": "Sakura", "phone": "18201020021", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.460Z", "updatedAt": "2026-06-25T14:25:04.460Z"}, {"_id": "6a3d3a403d8b4f3a208c4846", "username": "17760222652", "nickname": "\u798f\u5143", "phone": "17760222652", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.470Z", "updatedAt": "2026-06-25T14:25:04.470Z"}, {"_id": "6a3d3a403d8b4f3a208c4847", "username": "15811572436", "nickname": "\u8463\u658c", "phone": "15811572436", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.480Z", "updatedAt": "2026-06-25T14:25:04.480Z"}, {"_id": "6a3d3a403d8b4f3a208c4848", "username": "15901367722", "nickname": "\u738b\u6d2a\u73b2", "phone": "15901367722", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.489Z", "updatedAt": "2026-06-25T14:25:04.489Z"}, {"_id": "6a3d3a403d8b4f3a208c4849", "username": "18610808070", "nickname": "\u725b\u6676\u6676", "phone": "18610808070", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.499Z", "updatedAt": "2026-06-25T14:25:04.499Z"}, {"_id": "6a3d3a403d8b4f3a208c484a", "username": "15901222130", "nickname": "\u5a77\u5a77", "phone": "15901222130", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.509Z", "updatedAt": "2026-06-25T14:25:04.509Z"}, {"_id": "6a3d3a403d8b4f3a208c484b", "username": "13693627895", "nickname": "\u674e\u5609\u742a", "phone": "13693627895", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.519Z", "updatedAt": "2026-06-25T14:25:04.519Z"}, {"_id": "6a3d3a403d8b4f3a208c484c", "username": "13910129020", "nickname": "\u738b\u6d01", "phone": "13910129020", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.529Z", "updatedAt": "2026-06-25T14:25:04.529Z"}, {"_id": "6a3d3a403d8b4f3a208c484d", "username": "13466809483", "nickname": "13466809483\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "13466809483", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.540Z", "updatedAt": "2026-06-25T14:25:04.540Z"}, {"_id": "6a3d3a403d8b4f3a208c484e", "username": "13311091136", "nickname": "\u83c1\u83c1", "phone": "13311091136", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.549Z", "updatedAt": "2026-06-25T14:25:04.549Z"}, {"_id": "6a3d3a403d8b4f3a208c484f", "username": "13718386096", "nickname": "\u59ae\u53ef", "phone": "13718386096", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.559Z", "updatedAt": "2026-06-25T14:25:04.559Z"}, {"_id": "6a3d3a403d8b4f3a208c4850", "username": "15901419568", "nickname": "\u851a\u84dd\u5929\u7a7a", "phone": "15901419568", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.569Z", "updatedAt": "2026-06-25T14:25:04.569Z"}, {"_id": "6a3d3a403d8b4f3a208c4851", "username": "18353632912", "nickname": "\u5c0f\u5c18\u57c3", "phone": "18353632912", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.578Z", "updatedAt": "2026-06-25T14:25:04.578Z"}, {"_id": "6a3d3a403d8b4f3a208c4852", "username": "15510674234", "nickname": "365\u751f\u6d3b\u7ba1\u5bb6", "phone": "15510674234", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.587Z", "updatedAt": "2026-06-25T14:25:04.587Z"}, {"_id": "6a3d3a403d8b4f3a208c4853", "username": "15201364142", "nickname": "\u7ae5", "phone": "15201364142", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.596Z", "updatedAt": "2026-06-25T14:25:04.596Z"}, {"_id": "6a3d3a403d8b4f3a208c4854", "username": "13718372208", "nickname": "A0 \u7b11\u53e3\u5e38\u5f00", "phone": "13718372208", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.607Z", "updatedAt": "2026-06-25T14:25:04.607Z"}, {"_id": "6a3d3a403d8b4f3a208c4855", "username": "13001964668", "nickname": "\u73a5\u7684\u5e97", "phone": "13001964668", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.617Z", "updatedAt": "2026-06-25T14:25:04.617Z"}, {"_id": "6a3d3a403d8b4f3a208c4856", "username": "15510403160", "nickname": "\u5bb6\u56ed", "phone": "15510403160", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.627Z", "updatedAt": "2026-06-25T14:25:04.627Z"}, {"_id": "6a3d3a403d8b4f3a208c4857", "username": "13683622887", "nickname": "\u97e9\u84c9", "phone": "13683622887", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.637Z", "updatedAt": "2026-06-25T14:25:04.637Z"}, {"_id": "6a3d3a403d8b4f3a208c4858", "username": "13701133548", "nickname": "\u6c38\u4e0d\u8a00\u5f03\u7684\u9a74", "phone": "13701133548", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.646Z", "updatedAt": "2026-06-25T14:25:04.646Z"}, {"_id": "6a3d3a403d8b4f3a208c4859", "username": "13911683390", "nickname": "\u96ea\u5fc3", "phone": "13911683390", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.656Z", "updatedAt": "2026-06-25T14:25:04.656Z"}, {"_id": "6a3d3a403d8b4f3a208c485a", "username": "18611180150", "nickname": "\u5c0f\u4efb\u7684\u91c7\u8d2d\u5e97", "phone": "18611180150", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.666Z", "updatedAt": "2026-06-25T14:25:04.666Z"}, {"_id": "6a3d3a403d8b4f3a208c485b", "username": "18310143149", "nickname": "\u8d75\u7d2b\u5e0c", "phone": "18310143149", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.675Z", "updatedAt": "2026-06-25T14:25:04.675Z"}, {"_id": "6a3d3a403d8b4f3a208c485c", "username": "13436660555", "nickname": "13436660555\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "13436660555", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.685Z", "updatedAt": "2026-06-25T14:25:04.685Z"}, {"_id": "6a3d3a403d8b4f3a208c485d", "username": "15601329997", "nickname": "\u7275\u7740\u5c0f\u732a\u53bb\u6563\u6b65", "phone": "15601329997", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.694Z", "updatedAt": "2026-06-25T14:25:04.694Z"}, {"_id": "6a3d3a403d8b4f3a208c485e", "username": "13426030347", "nickname": "\u5f20\u5566\u5566", "phone": "13426030347", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.702Z", "updatedAt": "2026-06-25T14:25:04.702Z"}, {"_id": "6a3d3a403d8b4f3a208c485f", "username": "13910184742", "nickname": "\u674e\u65b0\u73b2", "phone": "13910184742", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.712Z", "updatedAt": "2026-06-25T14:25:04.712Z"}, {"_id": "6a3d3a403d8b4f3a208c4860", "username": "13261668853", "nickname": "A00\u5c0f\u5d14\u793e\u533a\u56e2\u957f13261668853", "phone": "13261668853", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.723Z", "updatedAt": "2026-06-25T14:25:04.723Z"}, {"_id": "6a3d3a403d8b4f3a208c4861", "username": "18611562426", "nickname": "\u6e90\u6e90\u5988", "phone": "18611562426", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.733Z", "updatedAt": "2026-06-25T14:25:04.733Z"}, {"_id": "6a3d3a403d8b4f3a208c4862", "username": "13269830326", "nickname": "\u897f\u8d1d", "phone": "13269830326", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.744Z", "updatedAt": "2026-06-25T14:25:04.744Z"}, {"_id": "6a3d3a403d8b4f3a208c4863", "username": "13910253560", "nickname": "\u8c46\u8c46\u793e\u533a\u56e2\u8d2d", "phone": "13910253560", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.754Z", "updatedAt": "2026-06-25T14:25:04.754Z"}, {"_id": "6a3d3a403d8b4f3a208c4864", "username": "13520078482", "nickname": "Zoe", "phone": "13520078482", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.764Z", "updatedAt": "2026-06-25T14:25:04.764Z"}, {"_id": "6a3d3a403d8b4f3a208c4865", "username": "18310726302", "nickname": "\u5927\u5730", "phone": "18310726302", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.772Z", "updatedAt": "2026-06-25T14:25:04.772Z"}, {"_id": "6a3d3a403d8b4f3a208c4866", "username": "17600573688", "nickname": "\u671d\u9633\u679c\u852c\u76f4\u91c7\u5e97", "phone": "17600573688", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.781Z", "updatedAt": "2026-06-25T14:25:04.781Z"}, {"_id": "6a3d3a403d8b4f3a208c4867", "username": "18910127203", "nickname": "\u4ebf\u679c\u4f18\u9009", "phone": "18910127203", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.793Z", "updatedAt": "2026-06-25T14:25:04.793Z"}, {"_id": "6a3d3a403d8b4f3a208c4868", "username": "13124741312", "nickname": "\u6768\u534e&", "phone": "13124741312", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.802Z", "updatedAt": "2026-06-25T14:25:04.802Z"}, {"_id": "6a3d3a403d8b4f3a208c4869", "username": "13501071373", "nickname": "\u5c0f\u8c79\u5b50", "phone": "13501071373", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.812Z", "updatedAt": "2026-06-25T14:25:04.812Z"}, {"_id": "6a3d3a403d8b4f3a208c486a", "username": "13910126830", "nickname": "\u7a46\u5c0f\u5f6a", "phone": "13910126830", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.821Z", "updatedAt": "2026-06-25T14:25:04.821Z"}, {"_id": "6a3d3a403d8b4f3a208c486b", "username": "13911940648", "nickname": "13911940648\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "13911940648", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.830Z", "updatedAt": "2026-06-25T14:25:04.830Z"}, {"_id": "6a3d3a403d8b4f3a208c486c", "username": "13621391035", "nickname": "\u7ea2\u7ea2", "phone": "13621391035", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.839Z", "updatedAt": "2026-06-25T14:25:04.839Z"}, {"_id": "6a3d3a403d8b4f3a208c486d", "username": "13910429570", "nickname": "\u6e29\u6cc9", "phone": "13910429570", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.849Z", "updatedAt": "2026-06-25T14:25:04.849Z"}, {"_id": "6a3d3a403d8b4f3a208c486e", "username": "15110150411", "nickname": "\u90d1\u65b0\u534e", "phone": "15110150411", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.858Z", "updatedAt": "2026-06-25T14:25:04.858Z"}, {"_id": "6a3d3a403d8b4f3a208c486f", "username": "18319658469", "nickname": "18319658469\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "18319658469", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.867Z", "updatedAt": "2026-06-25T14:25:04.867Z"}, {"_id": "6a3d3a403d8b4f3a208c4870", "username": "13920981393", "nickname": "\u83ab\u5ff5", "phone": "13920981393", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.877Z", "updatedAt": "2026-06-25T14:25:04.877Z"}, {"_id": "6a3d3a403d8b4f3a208c4871", "username": "15302077501", "nickname": "\u56e2\u957f", "phone": "15302077501", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.886Z", "updatedAt": "2026-06-25T14:25:04.886Z"}, {"_id": "6a3d3a403d8b4f3a208c4872", "username": "13910695486", "nickname": "\u80dc\u8005\u4e3a\u738b", "phone": "13910695486", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.896Z", "updatedAt": "2026-06-25T14:25:04.896Z"}, {"_id": "6a3d3a403d8b4f3a208c4873", "username": "13520388538", "nickname": "\u738b\u591a\u591a", "phone": "13520388538", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.906Z", "updatedAt": "2026-06-25T14:25:04.906Z"}, {"_id": "6a3d3a403d8b4f3a208c4874", "username": "15101579810", "nickname": "\u5c0f\u4f55", "phone": "15101579810", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.916Z", "updatedAt": "2026-06-25T14:25:04.916Z"}, {"_id": "6a3d3a403d8b4f3a208c4875", "username": "13910740091", "nickname": "\u96e8\u7ffc\u7ae5\u5fc3", "phone": "13910740091", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.925Z", "updatedAt": "2026-06-25T14:25:04.925Z"}, {"_id": "6a3d3a403d8b4f3a208c4876", "username": "13683307130", "nickname": "\u738b\u5170", "phone": "13683307130", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.934Z", "updatedAt": "2026-06-25T14:25:04.934Z"}, {"_id": "6a3d3a403d8b4f3a208c4877", "username": "13581607169", "nickname": "\u6653\u840d", "phone": "13581607169", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.944Z", "updatedAt": "2026-06-25T14:25:04.944Z"}, {"_id": "6a3d3a403d8b4f3a208c4878", "username": "13718678121", "nickname": "\u5b5f\u516c\u5b50", "phone": "13718678121", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.954Z", "updatedAt": "2026-06-25T14:25:04.954Z"}, {"_id": "6a3d3a403d8b4f3a208c4879", "username": "15010077817", "nickname": "15010077817\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "15010077817", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.963Z", "updatedAt": "2026-06-25T14:25:04.963Z"}, {"_id": "6a3d3a403d8b4f3a208c487a", "username": "15010778272", "nickname": "15010778272\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "15010778272", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.974Z", "updatedAt": "2026-06-25T14:25:04.974Z"}, {"_id": "6a3d3a403d8b4f3a208c487b", "username": "13910032847", "nickname": "\u6885\u5b50", "phone": "13910032847", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.983Z", "updatedAt": "2026-06-25T14:25:04.983Z"}, {"_id": "6a3d3a413d8b4f3a208c487c", "username": "17800219691", "nickname": "\u6781\u81f4", "phone": "17800219691", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.001Z", "updatedAt": "2026-06-25T14:25:05.001Z"}, {"_id": "6a3d3a413d8b4f3a208c487d", "username": "15643148065", "nickname": "15643148065\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "15643148065", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.014Z", "updatedAt": "2026-06-25T14:25:05.014Z"}, {"_id": "6a3d3a413d8b4f3a208c487e", "username": "18610812273", "nickname": "18610812273\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "18610812273", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.024Z", "updatedAt": "2026-06-25T14:25:05.024Z"}, {"_id": "6a3d3a413d8b4f3a208c487f", "username": "13718238792", "nickname": "\u672a\u592e", "phone": "13718238792", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.039Z", "updatedAt": "2026-06-25T14:25:05.039Z"}, {"_id": "6a3d3a413d8b4f3a208c4880", "username": "17600905806", "nickname": "\u4e50\u5927\u5927\u751f\u9c9c\u56e2\u8d2d\u5e97", "phone": "17600905806", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.049Z", "updatedAt": "2026-06-25T14:25:05.049Z"}, {"_id": "6a3d3a413d8b4f3a208c4881", "username": "13521627864", "nickname": "13521627864\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "13521627864", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.067Z", "updatedAt": "2026-06-25T14:25:05.067Z"}, {"_id": "6a3d3a413d8b4f3a208c4882", "username": "15101099875", "nickname": "\u660a\u5bb6\u4f19", "phone": "15101099875", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.076Z", "updatedAt": "2026-06-25T14:25:05.076Z"}, {"_id": "6a3d3a413d8b4f3a208c4883", "username": "13910566223", "nickname": "\u4f59\u751f", "phone": "13910566223", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.089Z", "updatedAt": "2026-06-25T14:25:05.089Z"}, {"_id": "6a3d3a413d8b4f3a208c4884", "username": "15001093825", "nickname": "15001093825\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "15001093825", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.099Z", "updatedAt": "2026-06-25T14:25:05.099Z"}, {"_id": "6a3d3a413d8b4f3a208c4885", "username": "13810409108", "nickname": "17\u56e2\u56e2\u8d2d\u5e97", "phone": "13810409108", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.109Z", "updatedAt": "2026-06-25T14:25:05.109Z"}, {"_id": "6a3d3a413d8b4f3a208c4886", "username": "15611594409", "nickname": "\u9759\u5f85\uff5e\u82b1\u5f00", "phone": "15611594409", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.119Z", "updatedAt": "2026-06-25T14:25:05.119Z"}, {"_id": "6a3d3a413d8b4f3a208c4887", "username": "13611139222", "nickname": "\u5915\u989c", "phone": "13611139222", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.129Z", "updatedAt": "2026-06-25T14:25:05.129Z"}, {"_id": "6a3d3a413d8b4f3a208c4888", "username": "13520962069", "nickname": "\u5c0f\u4e2a", "phone": "13520962069", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.139Z", "updatedAt": "2026-06-25T14:25:05.139Z"}, {"_id": "6a3d3a413d8b4f3a208c4889", "username": "13321106591", "nickname": "\u5e38\u4f1f\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "13321106591", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.149Z", "updatedAt": "2026-06-25T14:25:05.149Z"}, {"_id": "6a3d3a413d8b4f3a208c488a", "username": "15010040950", "nickname": "\u8521\u5229\u5e73", "phone": "15010040950", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.160Z", "updatedAt": "2026-06-25T14:25:05.160Z"}, {"_id": "6a3d3a413d8b4f3a208c488b", "username": "15030005467", "nickname": "\u6768\u632f\u98de", "phone": "15030005467", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.171Z", "updatedAt": "2026-06-25T14:25:05.171Z"}, {"_id": "6a3d3a413d8b4f3a208c488c", "username": "15754338007", "nickname": "\u300c\u6708\u300d", "phone": "15754338007", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.181Z", "updatedAt": "2026-06-25T14:25:05.181Z"}, {"_id": "6a3d3a413d8b4f3a208c488d", "username": "15712866502", "nickname": "15712866502\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "15712866502", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.192Z", "updatedAt": "2026-06-25T14:25:05.192Z"}, {"_id": "6a3d3a413d8b4f3a208c488e", "username": "13810273473", "nickname": "\ud83c\udf52\u9999\u9999\ud83c\udf52", "phone": "13810273473", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.202Z", "updatedAt": "2026-06-25T14:25:05.202Z"}, {"_id": "6a3d3a413d8b4f3a208c488f", "username": "18910901106", "nickname": "\u9759\u7684\u91c7\u8d2d\u5e97", "phone": "18910901106", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.216Z", "updatedAt": "2026-06-25T14:25:05.216Z"}, {"_id": "6a3d3a413d8b4f3a208c4890", "username": "13701356363", "nickname": "\u9648\u8273", "phone": "13701356363", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.227Z", "updatedAt": "2026-06-25T14:25:05.227Z"}, {"_id": "6a3d3a413d8b4f3a208c4891", "username": "13910322126", "nickname": "13910322126\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "13910322126", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.237Z", "updatedAt": "2026-06-25T14:25:05.237Z"}, {"_id": "6a3d3a413d8b4f3a208c4892", "username": "13811193592", "nickname": "\u738b\u8f89\u5973\u58eb", "phone": "13811193592", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.246Z", "updatedAt": "2026-06-25T14:25:05.246Z"}, {"_id": "6a3d3a413d8b4f3a208c4893", "username": "17610002376", "nickname": "\u575a\u6301\u52a0\u52aa\u529b\u7684\u91c7\u8d2d\u5e97", "phone": "17610002376", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.257Z", "updatedAt": "2026-06-25T14:25:05.257Z"}, {"_id": "6a3d3a413d8b4f3a208c4894", "username": "13651013027", "nickname": "....\u663113651013027\u7684\u91c7\u8d2d\u5e97", "phone": "13651013027", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.266Z", "updatedAt": "2026-06-25T14:25:05.266Z"}, {"_id": "6a3d3a413d8b4f3a208c4895", "username": "18513605002", "nickname": "18513605002\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "18513605002", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.276Z", "updatedAt": "2026-06-25T14:25:05.276Z"}, {"_id": "6a3d3a413d8b4f3a208c4896", "username": "13311272538", "nickname": "\u81ea\u7136", "phone": "13311272538", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.286Z", "updatedAt": "2026-06-25T14:25:05.286Z"}, {"_id": "6a3d3a413d8b4f3a208c4897", "username": "15101086085", "nickname": "\u9648\u8fce", "phone": "15101086085", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.295Z", "updatedAt": "2026-06-25T14:25:05.295Z"}, {"_id": "6a3d3a413d8b4f3a208c4898", "username": "13581715509", "nickname": "\u957f\u9633\u56e2\u8d2d", "phone": "13581715509", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.304Z", "updatedAt": "2026-06-25T14:25:05.304Z"}, {"_id": "6a3d3a413d8b4f3a208c4899", "username": "13901280695", "nickname": "\u8f9b\u8f9b", "phone": "13901280695", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.314Z", "updatedAt": "2026-06-25T14:25:05.314Z"}, {"_id": "6a3d3a413d8b4f3a208c489a", "username": "13811361679", "nickname": "\u5434\u65b9\u7684\u91c7\u8d2d\u5e97", "phone": "13811361679", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.324Z", "updatedAt": "2026-06-25T14:25:05.324Z"}, {"_id": "6a3d3a413d8b4f3a208c489b", "username": "18135758660", "nickname": "\u5f20\u534e\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "18135758660", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.334Z", "updatedAt": "2026-06-25T14:25:05.334Z"}, {"_id": "6a3d3a413d8b4f3a208c489c", "username": "13520559034", "nickname": "\u7070\u4e2b\u5934", "phone": "13520559034", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.344Z", "updatedAt": "2026-06-25T14:25:05.344Z"}, {"_id": "6a3d3a413d8b4f3a208c489d", "username": "18501027000", "nickname": "\u5170\u6842\u574a\u8d85\u5e02", "phone": "18501027000", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.353Z", "updatedAt": "2026-06-25T14:25:05.353Z"}, {"_id": "6a3d3a413d8b4f3a208c489e", "username": "13911765866", "nickname": "13911765866\u7684\u91c7\u8d2d\u5e97\u94fa", "phone": "13911765866", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.362Z", "updatedAt": "2026-06-25T14:25:05.362Z"}, {"_id": "6a3d3a413d8b4f3a208c489f", "username": "13466592236", "nickname": "\u4e8e\u5fd7\u6c38", "phone": "13466592236", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.372Z", "updatedAt": "2026-06-25T14:25:05.372Z"}];
+let currentTagUserId = null;
 
-function roleTag(role) {
-  const map = {super_admin:'super_admin',admin:'admin',operator:'operator',user:'user'};
-  const labels = {super_admin:'超级管理员',admin:'管理员',operator:'操作员',user:'普通用户'};
-  return `<span class="role-tag role-${map[role]||'user'}">${labels[role]||role}</span>`;
+// Tab switching
+function switchTab(id) {
+  document.querySelectorAll(".tab-btn").forEach(function(b){b.classList.remove("active")});
+  document.querySelectorAll(".tab-panel").forEach(function(p){p.classList.remove("active")});
+  document.querySelector(".tab-btn[data-id='"+id+"']").classList.add("active");
+  document.getElementById("panel-"+id).classList.add("active");
+  if(id==="customer" && !window.customerLoaded) loadCustomerData();
+}
+document.querySelectorAll(".tab-btn").forEach(function(b){
+  b.addEventListener("click", function(){switchTab(b.dataset.id)});
+});
+
+function openAddModal(){document.getElementById("addModal").classList.add("active");}
+function closeAddModal(){document.getElementById("addModal").classList.remove("active");}
+
+function openTagModal(userId, currentTagsStr) {
+  currentTagUserId = userId;
+  const container = document.getElementById("tagSelectGrid");
+  container.innerHTML = "";
+  const current = currentTagsStr ? currentTagsStr.split(/[,\s]+/).map(function(t){return t.trim()}).filter(function(t){return t}) : [];
+  PRESET_TAGS.forEach(function(t) {
+    const div = document.createElement("div");
+    div.className = "tag-option" + (current.includes(t) ? " selected" : "");
+    div.textContent = t;
+    div.dataset.tag = t;
+    div.onclick = function() {
+      div.classList.toggle("selected");
+    };
+    container.appendChild(div);
+  });
+  document.getElementById("tagModal").classList.add("active");
+}
+function closeTagModal(){
+  document.getElementById("tagModal").classList.remove("active");
+  currentTagUserId = null;
+}
+function saveSelectedTags() {
+  if(!currentTagUserId) return;
+  const selected = Array.from(document.querySelectorAll("#tagSelectGrid .tag-option.selected")).map(function(el){return el.dataset.tag});
+  updateUserTags(currentTagUserId, selected.join(", "));
+  closeTagModal();
 }
 
-function gardenStat(u) {
-  const g = u.gardenStats;
-  if (!g) return '-';
-  return `种${g.totalPlanted||0} 成${g.totalCompleted||0} 赠${g.totalGifted||0}`;
-}
-
-function formatDate(d) {
-  if (!d) return '-';
-  return new Date(d).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-}
-
-async function loadUsers() {
-  try {
-    let url = `/api/mongo/users?limit=100&page=1`;
-    const roleFilter = document.getElementById('roleFilter').value;
-    if (roleFilter) url += `&filter=${encodeURIComponent(JSON.stringify({role:roleFilter}))}`;
-    const res = await fetch(url, {headers:{'x-api-key':KEY}});
-    if (!res.ok) throw new Error('API error');
-    const data = await res.json();
-    allUsers = data.data || [];
-    document.getElementById('totalCount').textContent = data.total || allUsers.length;
-    document.getElementById('adminCount').textContent = allUsers.filter(u=>u.role==='admin'||u.role==='super_admin').length;
-    document.getElementById('userCount').textContent = allUsers.filter(u=>u.role==='user').length;
-    renderTable();
-  } catch(e) {
-    console.error(e);
-    document.getElementById('userTable').innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--accent-red)">加载失败: ${e.message}</td></tr>`;
-  }
+function showToast(msg, type) {
+  type = type || "success";
+  const t=document.createElement("div");
+  t.className="toast " + type;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(function(){t.remove()}, 3000);
 }
 
 function onSearch() {
-  search = document.getElementById('searchInput').value.toLowerCase();
-  renderTable();
+  renderUsers();
 }
 
-function renderTable() {
-  let users = allUsers;
-  if (search) {
-    users = users.filter(u =>
-      (u.username||'').toLowerCase().includes(search) ||
-      (u.nickname||'').toLowerCase().includes(search) ||
-      (u.phone||'').toLowerCase().includes(search) ||
-      (u.displayName||'').toLowerCase().includes(search)
-    );
-  }
-  const tbody = document.getElementById('userTable');
-  if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">暂无数据</td></tr>';
+function renderUsers() {
+  const search = document.getElementById("searchInput").value.toLowerCase();
+  const role = document.getElementById("roleFilter").value;
+  let filtered = currentUsers.filter(function(u){
+    if(role && u.role !== role) return false;
+    if(!search) return true;
+    return (u.username || "").toLowerCase().includes(search) ||
+           (u.nickname || "").toLowerCase().includes(search) ||
+           (u.phone || "").includes(search) ||
+           (u.user_tag || "").toLowerCase().includes(search);
+  });
+  const tbody=document.getElementById("userTable");
+  if(!filtered.length){
+    tbody.innerHTML="<tr><td colspan=8 style=\"text-align:center;padding:20px;color:#999\">无数据</td></tr>";
     return;
   }
-  tbody.innerHTML = users.map(u => `
-    <tr>
-      <td><strong>${u.username||u.phone||'-'}</strong></td>
-      <td>${u.nickname||u.displayName||'-'}</td>
-      <td>${roleTag(u.role)}</td>
-      <td>${u.avatar||'-'}</td>
-      <td class="truncate">${u.locationAddress||'-'}</td>
-      <td>${gardenStat(u)}</td>
-      <td class="muted">${formatDate(u.lastLoginAt)}</td>
-      <td>
-        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="editUser('${u._id}')">编辑</button>
-        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;color:var(--accent-red)" onclick="deleteUser('${u._id}','${u.nickname||u.username||u.phone||''}')">删除</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function openAddModal() {
-  document.getElementById('modalTitle').textContent = '新增用户';
-  document.getElementById('editId').value = '';
-  document.getElementById('formPhone').value = '';
-  document.getElementById('formNickname').value = '';
-  document.getElementById('formPassword').value = '';
-  document.getElementById('formRole').value = 'user';
-  document.getElementById('formDisplayName').value = '';
-  document.getElementById('userModal').classList.add('active');
-}
-
-function closeModal() {
-  document.getElementById('userModal').classList.remove('active');
-}
-
-async function editUser(id) {
-  const u = allUsers.find(x => x._id === id);
-  if (!u) return;
-  document.getElementById('modalTitle').textContent = '编辑用户';
-  document.getElementById('editId').value = id;
-  document.getElementById('formPhone').value = u.phone || '';
-  document.getElementById('formNickname').value = u.nickname || '';
-  document.getElementById('formPassword').value = '';
-  document.getElementById('formRole').value = u.role || 'user';
-  document.getElementById('formDisplayName').value = u.displayName || '';
-  document.getElementById('userModal').classList.add('active');
-}
-
-async function saveUser() {
-  const id = document.getElementById('editId').value;
-  const phone = document.getElementById('formPhone').value.trim();
-  const nickname = document.getElementById('formNickname').value.trim();
-  const password = document.getElementById('formPassword').value;
-  const role = document.getElementById('formRole').value;
-  const displayName = document.getElementById('formDisplayName').value.trim();
-
-  if (!phone && !id) { toast('请输入手机号','error'); return; }
-
-  const body = {phone, nickname, role, displayName};
-  if (password) body.password = password;
-
-  try {
-    let res;
-    if (id) {
-      res = await fetch(`/api/mongo/users/${id}`, {
-        method:'PUT', headers, body:JSON.stringify(body)
-      });
-    } else {
-      res = await fetch('/api/mongo/users', {
-        method:'POST', headers, body:JSON.stringify(body)
+  let html_out = "";
+  filtered.forEach(function(u){
+    const tags = [];
+    tags.push(u.role || "user");
+    if(u.user_tag) {
+      u.user_tag.split(/[,\s]+/).forEach(function(t){
+        const trimmed = t.trim();
+        if(trimmed) tags.push(trimmed);
       });
     }
-    if (!res.ok) { const d = await res.json(); throw new Error(d.error||'保存失败'); }
-    toast(id ? '用户已更新' : '用户已创建', 'success');
-    closeModal();
-    loadUsers();
-  } catch(e) {
-    toast(e.message, 'error');
-  }
+    const avatar_html = u.avatar ? "<img src='" + u.avatar + "' style='width:32px;height:32px;border-radius:50%;object-fit:cover'>" : "-";
+    const last_login_str = u.lastLoginAt ? u.lastLoginAt.split("T")[0] : "从未";
+    var row = "<tr>" +
+    "<td class='truncate'>" + (u.username || "-") + "</td>" +
+    "<td>" + (u.nickname || "-") + "</td>" +
+    "<td>" + avatar_html + "</td>" +
+    "<td>" + (u.locationAddress || "-") + "</td>" +
+    "<td>" + (((u.gardenStats && u.gardenStats.totalGardens) || 0)) + " 个花园</td>" +
+    "<td class='muted'>" + last_login_str + "</td>" +
+    "<td><div style='display:flex;gap:4px;flex-wrap:wrap'>" + 
+      tags.map(function(t){
+        const cls = ["super_admin","admin","operator","user"].indexOf(t) >= 0 ? ("role-tag role-" + t) : "custom-tag";
+        return "<span class='" + cls + "'>" + t + "</span>";
+      }).join("") +
+    "</div></td>" +
+    "<td><button class='btn btn-ghost btn-sm' onclick="openTagModal("" + u._id + "", "" + (u.user_tag || "").replace(/"/g, "\\'") + "")'>+添加标签</button> " +
+    "<button class='btn btn-ghost btn-sm' onclick="editUser("" + u._id + "')">编辑</button> " +
+    "<button class='btn btn-danger btn-sm' onclick="deleteUser("" + u._id + "')">删除</button></td>" +
+    "</tr>";
+    html_out += row;
+  });
+  tbody.innerHTML = html_out;
 }
 
-async function deleteUser(id, name) {
-  if (!confirm(`确定删除用户 "${name}" ?`)) return;
+function formatDate(ts){
+  if(!ts) return "-";
+  return new Date(ts).toISOString().split("T")[0];
+}
+
+async function updateUserTags(id, tags) {
   try {
-    const res = await fetch(`/api/mongo/users/${id}`, {
-      method:'DELETE', headers
+    const res = await fetch(API_BASE + "/" + id, {
+      method: "PATCH",
+      headers: headers,
+      body: JSON.stringify({user_tag: tags})
     });
-    if (!res.ok) throw new Error('删除失败');
-    toast('已删除', 'success');
-    loadUsers();
+    const result = await res.json();
+    if(result.data || result._id) {
+      showToast("标签已更新");
+      // reload from API to get latest
+      const req = await fetch(API_BASE + "?limit=1000", {headers: headers});
+      const data = await req.json();
+      currentUsers = data.data || [];
+      updateStats();
+      renderUsers();
+    } else {
+      showToast(result.error || "更新失败", "error");
+    }
   } catch(e) {
-    toast(e.message, 'error');
+    console.error(e);
+    showToast("网络错误", "error");
   }
 }
 
-function toast(msg, type) {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
+async function submitAddUser(){
+  const data={
+    username: document.getElementById("new-username").value,
+    nickname: document.getElementById("new-nickname").value,
+    phone: document.getElementById("new-phone").value,
+    role: document.getElementById("new-role").value,
+  };
+  if(!data.username){showToast("请填写用户名","error"); return;}
+  try{
+    const res=await fetch(API_BASE, {method:"POST",headers:headers,body:JSON.stringify(data)});
+    const result=await res.json();
+    if(result.data?result.data._id : result._id){
+      showToast("新增成功");
+      closeAddModal();
+      ["new-username","new-nickname","new-phone"].forEach(function(id){document.getElementById(id).value="";});
+      // reload
+      const req = await fetch(API_BASE + "?limit=1000", {headers: headers});
+      const data = await req.json();
+      currentUsers = data.data || [];
+      updateStats();
+      renderUsers();
+    }else{
+      showToast(result.error || "失败","error");
+    }
+  }catch(e){console.error(e); showToast("网络错误","error");}
 }
 
-// Init
-loadUsers();
+function updateStats(){
+  document.getElementById("totalCount").textContent=currentUsers.length;
+  document.getElementById("adminCount").textContent=currentUsers.filter(function(u){return ["admin","super_admin"].includes(u.role)}).length;
+  document.getElementById("userCount").textContent=currentUsers.filter(function(u){return u.role==="user"}).length;
+}
+
+function editUser(id){
+  alert("编辑功能 " + id);
+}
+
+function deleteUser(id){
+  if(!confirm("确定删除这个用户？")) return;
+  alert("删除功能 " + id);
+}
+
+// 合并订单系统用户（去重）到系统用户列表
+async function mergeOrderUsers() {
+  try {
+    const res = await fetch("/api/orders?limit=5000");
+    const data = await res.json();
+    const orders = data.data || [];
+    const existingPhones = new Set(currentUsers.map(function(u){return (u.phone || "").trim()}).filter(function(p){return p}));
+    let added = 0;
+    for(const o of orders) {
+      if(!o.phone || !o.member_name) continue;
+      const phone = (o.phone || "").trim();
+      if(existingPhones.has(phone)) continue;
+      const newUser = {
+        username: phone,
+        nickname: o.member_name,
+        phone: phone,
+        role: "user",
+        user_tag: "",
+      };
+      await fetch(API_BASE, {method:"POST",headers:headers,body:JSON.stringify(newUser)});
+      added += 1;
+      existingPhones.add(phone);
+    }
+    if(added>0) {
+      showToast("成功合并 " + added + " 个订单用户");
+      const req = await fetch(API_BASE + "?limit=1000", {headers: headers});
+      const data = await req.json();
+      currentUsers = data.data || [];
+      updateStats();
+      renderUsers();
+    } else {
+      showToast("无新订单用户需要合并");
+    }
+  } catch(e) {
+    console.error(e);
+    showToast("合并订单用户失败", "error");
+  }
+}
+
+// --------------- ORDER CUSTOMER ANALYSIS ---------------
+
+async function loadCustomerData() {
+  window.customerLoaded = true;
+  const q = document.getElementById("customerSearch").value.toLowerCase();
+  try {
+    const res = await fetch("/api/orders?limit=5000");
+    const data = await res.json();
+    const list = data.data || [];
+    // aggregate by member_id
+    const map = {};
+    list.forEach(function(o){
+      if(!o.member_id) return;
+      const id = String(o.member_id).trim();
+      if(!map[id]) map[id] = {
+        member_id: id,
+        member_name: o.member_name || "",
+        phone: o.phone || "",
+        business_type: o.business_type || "",
+        first_order: o.purchase_time,
+        last_order: o.purchase_time,
+        order_count: 0,
+        total_qty: 0,
+        total_amount: 0,
+        total_profit: 0,
+        delivery_address: o.delivery_address || "",
+        tags: new Set(),
+      };
+      const u = map[id];
+      u.order_count++;
+      const productCount = Array.isArray(o.product_id) ? o.product_id.length : 0;
+      u.total_qty += productCount;
+      u.total_amount += Number(o.product_subtotal || 0);
+      u.total_profit += Number(o.profit_amount || 0);
+      if(o.purchase_time > u.last_order) u.last_order = o.purchase_time;
+      // extract address tags
+      if(o.delivery_address) {
+        const addr = String(o.delivery_address).toLowerCase();
+        if(addr.includes("别墅") || addr.includes("庄园") || addr.includes("院子") || addr.includes("花园")) u.tags.add("高净值");
+        if(addr.includes("小区") || addr.includes("花园") || addr.includes("洋房")) u.tags.add("家庭园艺");
+        if(addr.includes("工程") || addr.includes("工地") || addr.includes("项目部")) u.tags.add("工程客户");
+        if(addr.includes("北京") || addr.includes("上海") || addr.includes("广州") || addr.includes("深圳")) u.tags.add("一线城市");
+        if(addr.includes("市") && !addr.includes("北京") && !addr.includes("上海")) u.tags.add("二线城市");
+        if(addr.includes("区") && addr.includes("号")) u.tags.add("详细地址");
+      }
+      if(o.personal_tag) {
+        String(o.personal_tag).split(/[,;\s]+/).forEach(function(t){if(t.trim()) u.tags.add(t.trim())});
+      }
+    });
+    // convert and score
+    const out = Object.values(map).map(function(u){
+      return {
+        ...u,
+        tags: Array.from(u.tags),
+        avg_order_value: u.order_count ? (u.total_amount / u.order_count) : 0,
+        score: calcScore(u),
+      };
+    });
+    // filter
+    const filtered = out.filter(function(u){
+      if(!q) return true;
+      return (u.member_name || "").toLowerCase().includes(q) ||
+             (u.phone || "").includes(q) ||
+             (u.delivery_address || "").toLowerCase().includes(q) ||
+             (u.tags || []).some(function(t){return t.toLowerCase().includes(q)});
+    });
+    renderCustomerTable(filtered);
+    renderScoreChart(filtered);
+  } catch(e) {
+    console.error(e); alert("加载订单客户数据失败");
+  }
+}
+function calcScore(u) {
+  let s = 0;
+  s += Math.min(u.total_amount / 100, 50);
+  s += Math.min(u.order_count * 2, 20);
+  if(u.tags.has("高净值")) s += 15;
+  if(u.tags.has("一线城市")) s += 10;
+  if(u.tags.has("工程客户")) s += 10;
+  if(u.tags.has("家庭园艺")) s += 5;
+  return Math.round(Math.min(s, 100));
+}
+function getScoreColor(score) {
+  if(score >= 80) return "#16a34a";
+  if(score >= 60) return "#65a30d";
+  if(score >= 40) return "#ca8a04";
+  if(score >= 20) return "#ea580c";
+  return "#ef4444";
+}
+function renderCustomerTable(list) {
+  const tbody = document.getElementById("customerTable");
+  if(!list.length) {
+    tbody.innerHTML = "<tr><td colspan=7 style=\"text-align:center;padding:20px;color:#999\">无匹配客户</td></tr>";
+    return;
+  }
+  let html_out = "";
+  list.forEach(function(u){
+    var sc = getScoreColor(u.score);
+    var row_html =  "<tr>" +
+      "<td style='padding:8px 14px;font-size:13px'>" + (u.member_name || "-") + "</td>" +
+      "<td style='padding:8px 14px;font-size:13px'>" + (u.phone || "-") + "</td>" +
+      "<td style='padding:8px 14px;font-size:13px;text-align:right'>" + u.order_count + "</td>" +
+      "<td style='padding:8px 14px;font-size:13px;text-align:right'>¥" + u.total_amount.toFixed(2) + "</td>" +
+      "<td style='padding:8px 14px;font-size:13px;text-align:right'>¥" + u.avg_order_value.toFixed(2) + "</td>" +
+      "<td style='padding:8px 14px;font-size:13px;text-align:right'>" +
+        "<span style='display:inline-block;padding:2px 8px;border-radius:9999px;background:" + sc + ";color:#fff;font-weight:600'>" + u.score + "</span>" +
+      "</td>" +
+      "<td style='padding:8px 14px;font-size:13px'>" +
+        "<div style='display:flex;gap:4px;flex-wrap:wrap'>" +
+          (u.tags||[]).map(function(t){return "<span style=\"font-size:11px;padding:2px 6px;background:#e6f7ff;color:#1890ff;border-radius:4px\">" + t + "</span>"}).join("") +
+          (!(u.tags||[]).length ? "-" : "") +
+        "</div>" +
+      "</td>" +
+    "</tr>";
+    html_out += row_html;
+  });
+  tbody.innerHTML = html_out;
+}
+function renderScoreChart(list) {
+  const buckets = [
+    {name:"0-20",count:0,color:"#ef4444"},
+    {name:"20-40",count:0,color:"#ea580c"},
+    {name:"40-60",count:0,color:"#ca8a04"},
+    {name:"60-80",count:0,color:"#65a30d"},
+    {name:"80-100",count:0,color:"#16a34a"},
+  ];
+  list.forEach(function(u){
+    const i = Math.floor((u.score || 0)/20);
+    buckets[Math.min(i, 4)].count++;
+  });
+  // render with Recharts from CDN (UMD)
+  if (typeof Recharts === "undefined") {
+    const root = document.getElementById("scoreChart");
+    root.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:#999'>加载图表中…</div>";
+    function loadScript(url, cb) {
+      const s = document.createElement("script");
+      s.src = url;
+      s.onload = cb;
+      document.body.appendChild(s);
+    }
+    if (typeof React === "undefined") {
+      loadScript("https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js", function() {
+        loadScript("https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js", function() {
+          loadScript("https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/umd/recharts.min.js", function() {
+            window.Recharts = Recharts;
+            renderScoreChart(list);
+          });
+        });
+      });
+    }
+    return;
+  }
+  const BarChart = Recharts.BarChart;
+  const Bar = Recharts.Bar;
+  const XAxis = Recharts.XAxis;
+  const YAxis = Recharts.YAxis;
+  const Tooltip = Recharts.Tooltip;
+  const Legend = Recharts.Legend;
+  const ResponsiveContainer = Recharts.ResponsiveContainer;
+  const Cell = Recharts.Cell;
+  const root = document.getElementById("scoreChart");
+  root.innerHTML = "<div id='rc-root' style='width:100%;height:100%'></div>";
+  const rootNode = ReactDOM.createRoot(document.getElementById("rc-root"));
+  rootNode.render(
+    React.createElement(ResponsiveContainer, {width:"100%",height:"100%"},
+      React.createElement(BarChart, {data:buckets},
+        React.createElement(XAxis, {dataKey:"name"}),
+        React.createElement(YAxis, {}),
+        React.createElement(Tooltip, {}),
+        React.createElement(Legend, {}),
+        React.createElement(Bar, {dataKey:"count",name:"客户数"},
+          buckets.map(function(entry,i){return React.createElement(Cell, {key:i,fill:entry.color})})
+        )
+      )
+    )
+  );
+}
+
+// initial render
+document.addEventListener("DOMContentLoaded", function() {
+  console.log("DOM ready, rendering", currentUsers.length, "users");
+  updateStats();
+  renderUsers();
+});
 </script>
 </body>
 </html>
