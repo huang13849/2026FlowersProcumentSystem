@@ -293,16 +293,13 @@ export default function ProductList() {
     const c = computedCostPrice(p);
     const ta = Number(p.taxRateA || 0);
     const tb = Number(p.taxRateB || 0);
-    // 甲方税 = 销售价/(1+甲方税率) * 甲方税率
-    const taxA = ta > 0 ? (s / (1 + ta/100) * ta/100) : 0;
-    // 乙方税 = 成本价/(1+乙方税率) * 乙方税率
-    const taxB = tb > 0 ? (c / (1 + tb/100) * tb/100) : 0;
-    return s - c - (taxA - taxB);
+    // 利润 = 销售价 × (1 - (甲方税率 - 乙方税率)) - 成本价；税率字段按百分比录入，如 6 表示 6%。
+    return s * (1 - ((ta - tb) / 100)) - c;
   };
   const profitRate = p => {
     const s = Number(p.sellPrice || 0);
     const pft = profit(p);
-    // 利润率 = (售价 - 成本 - (甲方税 - 乙方税)) / 销售价
+    // 利润率 = 利润 / 销售价
     return s > 0 ? (pft / s) * 100 : 0;
   };
 
@@ -1088,7 +1085,7 @@ export default function ProductList() {
                       return (
                         <td key={ci} style={{ ...tdS, textAlign:'right', fontWeight:600,
                           color: pft >= 0 ? '#52c41a' : '#ff4d4f', fontSize:13 }}>
-                          ¥{pft.toFixed(1)}
+                          ¥{pft.toFixed(2)}
                         </td>
                       );
                     }

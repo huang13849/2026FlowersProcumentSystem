@@ -73,13 +73,30 @@ const FULL_EXPORT_COLUMNS = [
   { header: "多平台发布状态", key: "publishStatus", width: 36 },
 ];
 
-function formatExportValue(p, key) {
-  const costP = Number(p.settlementPrice || 0) + Number(p.shippingFee || 0);
+function computeCostPrice(p) {
+  return Number(p.settlementPrice || 0) + Number(p.shippingFee || 0);
+}
+
+function computeProfit(p) {
   const sellP = Number(p.sellPrice || 0);
-  const pft = sellP - costP;
-  const pftRate = costP > 0 ? ((pft / costP) * 100) : 0;
+  const costP = computeCostPrice(p);
+  const taxRateA = Number(p.taxRateA || 0);
+  const taxRateB = Number(p.taxRateB || 0);
+  return sellP * (1 - ((taxRateA - taxRateB) / 100)) - costP;
+}
+
+function computeProfitRate(p) {
+  const sellP = Number(p.sellPrice || 0);
+  const pft = computeProfit(p);
+  return sellP > 0 ? ((pft / sellP) * 100) : 0;
+}
+
+function formatExportValue(p, key) {
+  const costP = computeCostPrice(p);
+  const pft = computeProfit(p);
+  const pftRate = computeProfitRate(p);
   if (key === "costPrice") return costP || "";
-  if (key === "profit") return Number.isFinite(pft) ? Number(pft.toFixed(1)) : "";
+  if (key === "profit") return Number.isFinite(pft) ? Number(pft.toFixed(2)) : "";
   if (key === "profitRate") return Number.isFinite(pftRate) ? `${pftRate.toFixed(0)}%` : "";
   if (key === "tradeType") return p.tradeType === "wholesale" ? "批发" : (p.tradeType === "mixed" ? "零批混" : "零售");
   if (key === "isListed") return p.isListed ? "已上架" : "未上架";
@@ -208,11 +225,11 @@ export async function exportToExcel(products, { imageHeight = 80, mode = "withIm
     const row = ws.getRow(rowIdx);
     row.height = imgH + 4;
 
-    // Calculate derived fields
-    const costP = Number(p.settlementPrice || 0) + Number(p.shippingFee || 0);
+    // Calculate derived fields; keep formula consistent with ProductList.jsx
+    const costP = computeCostPrice(p);
     const sellP = Number(p.sellPrice || 0);
-    const pft = sellP - costP;
-    const pftRate = costP > 0 ? ((pft / costP) * 100) : 0;
+    const pft = computeProfit(p);
+    const pftRate = computeProfitRate(p);
 
     // Fill text columns
     row.getCell("title").value = p.title || "";
@@ -230,7 +247,7 @@ export async function exportToExcel(products, { imageHeight = 80, mode = "withIm
     row.getCell("costPrice").value = costP || "";
     row.getCell("sellPrice").value = sellP || "";
     row.getCell("retailMarkupPrice").value = p.retailMarkupPrice || "";
-    row.getCell("profit").value = pft ? pft.toFixed(1) : "";
+    row.getCell("profit").value = Number.isFinite(pft) ? Number(pft.toFixed(2)) : "";
     row.getCell("profitRate").value = pftRate ? pftRate.toFixed(0) + "%" : "";
     row.getCell("taxRateA").value = p.taxRateA ?? "";
     row.getCell("taxRateB").value = p.taxRateB ?? "";
