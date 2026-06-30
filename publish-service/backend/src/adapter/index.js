@@ -6,6 +6,8 @@ const XiaohongshuAdapter = require('./XiaohongshuAdapter');
 const PinduoduoAdapter = require('./PinduoduoAdapter');
 const ShipinhaoAdapter = require('./ShipinhaoAdapter');
 
+const HuaxiangAdapter = require('./HuaxiangAdapter');
+
 /**
  * 全局适配器注册表
  * 新增平台只需在此注册即可
@@ -17,6 +19,7 @@ const adapterClasses = {
   xiaohongshu: XiaohongshuAdapter,
   pinduoduo: PinduoduoAdapter,
   shipinhao: ShipinhaoAdapter,
+  huaxiang: HuaxiangAdapter,
 };
 
 // 初始化所有适配器
@@ -35,12 +38,20 @@ function initAdapters() {
  * @returns {BasePlatformAdapter}
  * @throws 平台不支持
  */
-function getAdapter(platformKey) {
-  const adapter = adapterRegistry.get(platformKey);
-  if (!adapter) {
+function getAdapter(platformKey, options = {}) {
+  const baseAdapter = adapterRegistry.get(platformKey);
+  if (!baseAdapter) {
     throw new Error(`不支持的平台: ${platformKey}。支持: ${[...adapterRegistry.keys()].join(', ')}`);
   }
-  return adapter;
+
+  // 花乡花木支持“本次任务临时账号”，避免多个账号切换时重启服务/改 .env。
+  if (platformKey === 'huaxiang' && options.account) {
+    const adapter = new HuaxiangAdapter();
+    adapter.setAccount(options.account);
+    return adapter;
+  }
+
+  return baseAdapter;
 }
 
 /**

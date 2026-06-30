@@ -20,12 +20,12 @@ const TaskStatus = Object.freeze({
 /**
  * 支持的平台列表
  */
-const SupportedPlatforms = ['douyin', 'xiaohongshu', 'pinduoduo', 'shipinhao'];
+const SupportedPlatforms = ['douyin', 'xiaohongshu', 'pinduoduo', 'shipinhao', 'huaxiang'];
 
 /**
  * 创建发布任务对象
  */
-function createPublishTask({ productId, platforms, requestedBy }) {
+function createPublishTask({ productId, platforms, requestedBy, platformAccounts }) {
   return {
     taskId: null,           // uuid, assigned by TaskQueue
     productId,
@@ -35,6 +35,7 @@ function createPublishTask({ productId, platforms, requestedBy }) {
     errorMessage: null,
     retryCount: 0,
     requestedBy: requestedBy || 'system',
+    platformAccounts: platformAccounts || {},
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     completedAt: null,

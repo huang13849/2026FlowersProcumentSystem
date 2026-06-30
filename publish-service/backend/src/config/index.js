@@ -10,8 +10,11 @@ const config = {
 
   productService: {
     baseUrl: process.env.PRODUCT_SERVICE_URL || 'http://product-service:3001',
-    username: process.env.PRODUCT_SERVICE_USERNAME || 'admin',
-    password: process.env.PRODUCT_SERVICE_PASSWORD || 'admin123',
+    // 实际 product-service (backend/server.js) 默认是 PORT=3000,
+    // 但 docker-compose 中映射为 3001:3000
+    // 容器间通信用 http://product-service:3001
+    username: process.env.PRODUCT_SERVICE_USERNAME || '',
+    password: process.env.PRODUCT_SERVICE_PASSWORD || '',
     timeoutMs: 15000,
   },
 
@@ -51,6 +54,13 @@ const config = {
       // 微信小店配置
       freightTemplateId: process.env.WECHAT_FREIGHT_TEMPLATE_ID || '905443892004',
       afterSaleAddressId: process.env.WECHAT_AFTER_SALE_ADDRESS_ID || '62961836002',
+    },
+    huaxiang: {
+      name: '花乡花木',
+      apiBase: process.env.HUAXIANG_API_BASE || 'https://admin.huaxianghuamu.cn',
+      token: process.env.HUAXIANG_TOKEN || '',
+      cookie: process.env.HUAXIANG_COOKIE || '',
+      productCategory: parseInt(process.env.HUAXIANG_CATEGORY, 10) || 9000023,
     },
   },
 

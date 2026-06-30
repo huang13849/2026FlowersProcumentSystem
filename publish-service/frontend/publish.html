@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%237c8c9e'/%3E%3Cg transform='translate(24,24)'%3E%3Ccircle cx='0' cy='-8' r='5' fill='%238ba88a'/%3E%3Ccircle cx='7' cy='-4' r='5' fill='%238ba88a'/%3E%3Ccircle cx='4' cy='6' r='5' fill='%238ba88a'/%3E%3Ccircle cx='-4' cy='6' r='5' fill='%238ba88a'/%3E%3Ccircle cx='-7' cy='-4' r='5' fill='%238ba88a'/%3E%3Ccircle cx='0' cy='0' r='3.5' fill='%23c49a6a'/%3E%3C/g%3E%3C/svg%3E">
 <title>一键铺货 · 多平台商品发布</title>
 <style>
 :root{
@@ -103,6 +104,19 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
 .btn-primary:hover{background:var(--primary-hover)}.btn-primary:disabled{background:var(--border);color:var(--text3);cursor:not-allowed}
 .btn-green{background:var(--green);color:#fff}.btn-green:hover{opacity:.9}
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-outline:hover{background:var(--surface2)}
+.btn-xs{padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text2);font-size:11px;cursor:pointer}
+.btn-xs:hover{background:var(--surface2);color:var(--text)}
+.hx-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin:12px 0}
+.hx-box h4{font-size:13px;margin-bottom:8px;font-weight:500;color:var(--text)}
+.hx-box .hint{font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:8px}
+.hx-field{margin-bottom:8px}
+.hx-field label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px}
+.hx-field input,.hx-field textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:12px;outline:none}
+.hx-field textarea{min-height:78px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+.hx-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f0ece8;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:11px;white-space:pre-wrap;color:var(--text);margin:6px 0}
+.hx-status{font-size:11px;color:var(--text2);margin-top:6px;line-height:1.6}
+.hx-status.ok{color:var(--green)}.hx-status.err{color:var(--red)}
+.modal.wide{width:760px;max-height:86vh;overflow-y:auto}
 
 /* ── Task Center ── */
 .section{margin-bottom:24px}
@@ -205,6 +219,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
   <div class="hero-card"><div class="num error" id="h_error">-</div><div class="lbl">异常</div><div class="sub">发布失败 / 审核不通过</div></div>
   <div class="hero-card hero-connections">
     <div class="conn-row"><span class="conn-dot on"></span><span class="conn-name">微信小店</span><span class="conn-status">✓ 已连接</span></div>
+    <div class="conn-row"><span class="conn-dot on"></span><span class="conn-name">花乡花木</span><span class="conn-status">✓ 已连接</span></div>
     <div class="conn-row"><span class="conn-dot on"></span><span class="conn-name">抖音小店</span><span class="conn-status">✓ 已连接</span></div>
     <div class="conn-row"><span class="conn-dot on"></span><span class="conn-name">小红书商城</span><span class="conn-status">✓ 已连接</span></div>
     <div class="conn-row"><span class="conn-dot off"></span><span class="conn-name">淘宝 / 京东</span><span class="conn-status">待配置</span></div>
@@ -216,7 +231,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
   <!-- Left: Product Cards -->
   <div>
     <div class="products-header">
-      <h2>📋 商品池 <span style="font-size:11px;color:var(--text3);font-weight:400">（仅零售 · 有库存）</span></h2>
+      <h2>📋 商品池</h2>
       <div class="filter-group">
         <input id="searchInput" placeholder="搜索商品..." oninput="debounceSearch()" />
         <select id="catFilter" onchange="resetProducts()">
@@ -228,6 +243,12 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
           <option value="published">已发布</option>
           <option value="error">异常</option>
         </select>
+        <select id="tagFilter" onchange="resetProducts()">
+          <option value="">所有标签</option>
+        </select>
+        <select id="tagExclude" onchange="resetProducts()">
+          <option value="">不排除标签</option>
+        </select>
       </div>
     </div>
     <div id="productContainer"></div>
@@ -237,9 +258,9 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
   <!-- Task List -->
   <div style="margin:12px 0">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:15px;font-weight:500">📋 Tasks</span>
+      <span style="font-size:15px;font-weight:500">🚦 本次发布进度</span>
       <span id="tc" style="font-size:12px;color:var(--text2)">0</span>
-      <button class="btn-xs" onclick="TASK_LIST=[];rdL()" style="margin-left:auto">清空</button>
+      <button class="btn-xs" onclick="TASK_LIST=[];rdL()" style="margin-left:auto">清空本次</button>
     </div>
     <div id="tlc"></div>
   </div>
@@ -251,8 +272,14 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
         <span class="count" id="selCount">0 件</span>
       </div>
       <div class="bc-sub">已选商品将同步到所选渠道</div>
+      <div class="hx-box" id="hxMiniBox">
+        <h4>🌿 花乡账号</h4>
+        <div class="hint" id="hxMiniStatus">未设置临时账号时使用服务默认账号。</div>
+        <button class="btn-block btn-outline" onclick="openHuaxiangModal()" type="button">设置/切换花乡账号</button>
+      </div>
       <div class="channel-select">
         <div class="channel-row" data-key="wechat" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">📬 微信小店</span><span class="ch-count" id="cc_wechat">-</span></div>
+        <div class="channel-row" data-key="huaxiang" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">🌿 花乡花木</span><span class="ch-count" id="cc_huaxiang">-</span></div>
         <div class="channel-row" data-key="douyin" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">🎵 抖音小店</span><span class="ch-count" id="cc_douyin">-</span></div>
         <div class="channel-row" data-key="xiaohongshu" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">📕 小红书商城</span><span class="ch-count" id="cc_xiaohongshu">-</span></div>
         <div class="channel-row" data-key="taobao" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">🛒 淘宝</span><span class="ch-count" id="cc_taobao">-</span></div>
@@ -269,6 +296,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
     <h3>📤 确认发布</h3>
     <div class="modal-row"><span class="label">商品数量</span><span class="value" id="cm_count">0</span></div>
     <div id="cm_channels"></div>
+    <div id="cm_hx_account"></div>
     <div class="modal-actions">
       <button class="btn-block btn-outline" onclick="closeModal('confirmModal')" style="flex:1">取消</button>
       <button class="btn-block btn-primary" onclick="startBatchPublish()" style="flex:1">开始任务</button>
@@ -276,8 +304,48 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
   </div>
 </div>
 
-<!-- Section: Task Center -->
-<div class="section">
+
+<!-- Huaxiang Account Modal -->
+<div class="modal-overlay" id="huaxiangModal">
+  <div class="modal wide">
+    <h3>🌿 花乡花木账号切换</h3>
+    <div class="hx-box">
+      <h4>怎么获取 token / Cookie</h4>
+      <div class="hint">
+        1. 用浏览器打开 <b>https://admin.huaxianghuamu.cn/#/login?redirect=%2Fmall</b> 并登录目标账号。<br>
+        2. 登录成功进入后台后，按 <b>F12</b> 打开开发者工具，切到 <b>Console/控制台</b>。<br>
+        3. 粘贴下面脚本并回车，它会把需要的信息复制到剪贴板。<br>
+        4. 回到本页，点“从剪贴板粘贴/解析”，或手动粘到下面的大文本框。
+      </div>
+      <div class="hx-code" id="hxSnippet"></div>
+      <button class="btn-xs" onclick="copyHxSnippet()" type="button">复制获取脚本</button>
+    </div>
+    <div class="hx-field">
+      <label>账号备注（可选，用来区分多个账号）</label>
+      <input id="hxLabel" placeholder="例如：18600399411 / 花乡账号A" />
+    </div>
+    <div class="hx-field">
+      <label>粘贴脚本输出（推荐）</label>
+      <textarea id="hxPaste" placeholder='粘贴类似 {"token":"...","cookie":"JSESSIONID=...; Admin-Token=...; ajaxtoken=..."}'></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="btn-xs" onclick="pasteHxFromClipboard()" type="button">从剪贴板粘贴/解析</button>
+      <button class="btn-xs" onclick="parseHuaxiangPaste()" type="button">解析粘贴内容</button>
+      <button class="btn-xs" onclick="clearHuaxiangAccount()" type="button">清除临时账号</button>
+    </div>
+    <div class="hx-field"><label>Token</label><input id="hxToken" placeholder="localStorage / Cookie 中的 token" /></div>
+    <div class="hx-field"><label>Cookie（至少包含 ajaxtoken；如果能看到 JSESSIONID 也可一起带上）</label><textarea id="hxCookie" placeholder="Admin-Token=admin-token; ajaxtoken=...; JSESSIONID=...（可选）"></textarea></div>
+    <div class="hx-field"><label>运费模板 ID（默认 216）</label><input id="hxFreightId" type="number" value="216" placeholder="216" style="width:120px" /></div>
+    <div id="hxStatus" class="hx-status">当前未保存临时账号。</div>
+    <div class="modal-actions">
+      <button class="btn-block btn-outline" onclick="closeModal('huaxiangModal')" style="flex:1">关闭</button>
+      <button class="btn-block btn-primary" onclick="saveHuaxiangAccount()" style="flex:1">保存到本次页面</button>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Task Center (legacy, hidden to avoid confusing duplicate task panels) -->
+<div class="section" style="display:none">
   <div class="section-header">
     <h2>📋 发布任务中心</h2>
     <span style="font-size:11px;color:var(--text3)" id="taskCount"></span>
@@ -321,16 +389,26 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
 
 <script>
 // ===================== CONFIG =====================
-const AUTH={token:''};const PAGE_SIZE=30;const PLATFORM_LABELS={wechat:'微信小店',douyin:'抖音小店',xiaohongshu:'小红书商城',taobao:'淘宝',jd:'京东'};
-const PLATFORM_ICONS={wechat:'📬',douyin:'🎵',xiaohongshu:'📕',taobao:'🛒',jd:'🏢'};
-const PLATFORM_API={wechat:'shipinhao',douyin:'douyin',xiaohongshu:'xiaohongshu',taobao:'taobao',jd:'jd',pinduoduo:'pinduoduo'};
+const AUTH={token:''};const PAGE_SIZE=30;const PLATFORM_LABELS={wechat:'微信小店',huaxiang:'花乡花木',douyin:'抖音小店',xiaohongshu:'小红书商城',taobao:'淘宝',jd:'京东'};
+const PLATFORM_ICONS={wechat:'📬',huaxiang:'🌿',douyin:'🎵',xiaohongshu:'📕',taobao:'🛒',jd:'🏢'};
+const PLATFORM_API={wechat:'shipinhao',shipinhao:'shipinhao',huaxiang:'huaxiang',douyin:'douyin',xiaohongshu:'xiaohongshu',taobao:'taobao',jd:'jd',pinduoduo:'pinduoduo'};
+const API_PLATFORM_TO_UI={shipinhao:'wechat',huaxiang:'huaxiang',douyin:'douyin',xiaohongshu:'xiaohongshu',taobao:'taobao',jd:'jd',pinduoduo:'pinduoduo'};
 const STATUS_ORDER=['draft','unpublished','publishing','reviewing','published','offline','failed'];
+const HUAXIANG_SNIPPET=`(() => {
+  const token = localStorage.getItem('token') || localStorage.getItem('Admin-Token') || localStorage.getItem('admin-token') || '';
+  const need = ['JSESSIONID','Admin-Token','ajaxtoken'];
+  const cookie = document.cookie.split(';').map(s => s.trim()).filter(s => need.some(k => s.startsWith(k + '='))).join('; ');
+  const result = { token, cookie, href: location.href, time: new Date().toISOString() };
+  console.log(JSON.stringify(result, null, 2));
+  navigator.clipboard?.writeText(JSON.stringify(result, null, 2));
+  return result;
+})();`;
 
 let SEL={};let ALL_PRODS=[];let TOTAL=0;let PAGE=1;let PAGE_TOTAL=1;let LOADING=false;
-let searchTimer=null;let BATCH_CHANNELS=new Set();
+let searchTimer=null;let BATCH_CHANNELS=new Set();let HUAXIANG_ACCOUNT=null;
 
 // ===================== INIT =====================
-document.addEventListener("DOMContentLoaded",async()=>{await login();loadCategories();await resetProducts();loadTasks();loadSyncStatus();setInterval(()=>{loadTasks();loadSyncStatus()},15000)});
+document.addEventListener("DOMContentLoaded",async()=>{initHuaxiangAccountUI();await login();loadCategories();await resetProducts();loadTasks();loadSyncStatus();setInterval(()=>{loadTasks();loadSyncStatus()},15000)});
 
 async function login(){
   try{const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})});const d=await r.json();AUTH.token=d.token}catch(e){console.error(e)}
@@ -345,11 +423,14 @@ async function loadProducts(){
     const search=document.getElementById('searchInput').value.trim();
     const cat=document.getElementById('catFilter').value;
     const st=document.getElementById('statusFilter').value;
-    const p=new URLSearchParams({limit:PAGE_SIZE,page:PAGE,sort:'-createdAt',tradeType:'retail',inStock:'true'});
+    const tag=document.getElementById('tagFilter')?.value||'';
+    const excl=document.getElementById('tagExclude')?.value||'';
+    const p=new URLSearchParams({limit:PAGE_SIZE,page:PAGE,sort:'-createdAt'});
     if(search)p.set('search',search);if(cat)p.set('category',cat);if(st)p.set('isListed',st==='published'?'true':'false');
+    if(tag)p.set('sceneTags',tag);if(excl)p.set('excludeTag',excl);
     const r=await fetch(`http://100.96.54.109:3001/api/products?${p}`,{headers:authHeaders()});
     const d=await r.json();TOTAL=d.total||0;PAGE_TOTAL=Math.ceil(TOTAL/PAGE_SIZE);
-    const items=d.products||[];
+    let items=d.products||[];
     ALL_PRODS=[...ALL_PRODS,...items];renderProducts(false);PAGE++;
     if(PAGE>PAGE_TOTAL)document.getElementById('loader').innerHTML='';
     else document.getElementById('loader').innerHTML='↓ 滚动加载更多';
@@ -361,7 +442,6 @@ function renderProducts(clear=true){
   const c=document.getElementById('productContainer');
   if(clear)c.innerHTML='';
   ALL_PRODS.forEach(p=>{
-    if(p.tradeType!=='retail')return;if((Number(p.stock)||0)<=0)return;
     if(document.querySelector(`[data-pid="${p._id}"]`))return;
     // Check multiple image fields (product-service stores in categorized fields)
     const img=p.images?.[0]||p.panorama_images?.[0]||p.package_images?.[0]||p.detail_images?.[0]||p.scene_images?.[0]||p.selling_point_images?.[0]||p.care_images?.[0]||p.comparison_images?.[0]||p.shipping_images?.[0]||p.after_sale_images?.[0]||p.root_soil_images?.[0]||p.size_ref_images?.[0]||'';
@@ -413,7 +493,7 @@ function updateSelBanner(){
 
 function updateBatchCounts(){
   const cnt=Object.keys(SEL).length;
-  ['wechat','douyin','xiaohongshu','taobao','jd'].forEach(k=>{document.getElementById(`cc_${k}`).textContent=cnt>0?cnt+'件':'-'});
+  ['wechat','huaxiang','douyin','xiaohongshu','taobao','jd'].forEach(k=>{document.getElementById(`cc_${k}`).textContent=cnt>0?cnt+'件':'-'});
 }
 
 function resetProducts(){ALL_PRODS=[];PAGE=1;PAGE_TOTAL=1;document.getElementById('productContainer').innerHTML='<div class="empty"><span class="spinner"></span><br/>加载商品中...</div>';loadProducts()}
@@ -425,13 +505,104 @@ document.getElementById('productContainer').addEventListener('scroll',()=>{
   if(c.scrollTop+c.clientHeight>=c.scrollHeight-100&&!LOADING&&PAGE<=PAGE_TOTAL)loadProducts();
 },{passive:true});
 
-// Load categories
+// Load categories and tags
 async function loadCategories(){
-  try{const r=await fetch('http://100.96.54.109:3001/api/products?limit=1',{headers:authHeaders()});const d=await r.json();const cats=new Set();(d.products||[]).forEach(p=>{if(p.category)cats.add(p.category)});const sel=document.getElementById('catFilter');cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o)})}catch{}
+  try{
+    const r=await fetch('http://100.96.54.109:3001/api/products?limit=200',{headers:authHeaders()});
+    const d=await r.json();
+    const cats=new Set();const tags=new Set();
+    (d.products||[]).forEach(p=>{
+      if(p.category)cats.add(p.category);
+      (p.sceneTags||[]).forEach(t=>tags.add(t));
+    });
+    const sel=document.getElementById('catFilter');
+    cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o)});
+    const tagSel=document.getElementById('tagFilter');
+    if(tagSel){tags.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;tagSel.appendChild(o)})}
+    const exclSel=document.getElementById('tagExclude');
+    if(exclSel){tags.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent='排除: '+t;exclSel.appendChild(o)})}
+  }catch{}
+}
+
+
+// ===================== HUAXIANG ACCOUNT =====================
+function initHuaxiangAccountUI(){
+  const sn=document.getElementById('hxSnippet');if(sn)sn.textContent=HUAXIANG_SNIPPET;
+  try{const saved=sessionStorage.getItem('huaxiangAccount');if(saved)HUAXIANG_ACCOUNT=JSON.parse(saved)}catch(e){}
+  renderHuaxiangAccount();
+}
+function renderHuaxiangAccount(){
+  const label=HUAXIANG_ACCOUNT?.label||'';
+  const mini=document.getElementById('hxMiniStatus');
+  if(mini)mini.innerHTML=HUAXIANG_ACCOUNT?`当前临时账号：<b>${esc(label||'未命名账号')}</b>　运费模板：<b>${HUAXIANG_ACCOUNT.freightTemplateId||216}</b><br>只保存在当前浏览器会话，用于本次发布。`:'未设置临时账号时使用服务默认账号。';
+  const st=document.getElementById('hxStatus');
+  if(st){st.className='hx-status '+(HUAXIANG_ACCOUNT?'ok':'');st.textContent=HUAXIANG_ACCOUNT?`已保存临时账号：${label||'未命名账号'}。后续花乡发布会带这个 token/cookie。`:'当前未保存临时账号。';}
+}
+function openHuaxiangModal(){
+  const sn=document.getElementById('hxSnippet');if(sn)sn.textContent=HUAXIANG_SNIPPET;
+  if(HUAXIANG_ACCOUNT){document.getElementById('hxLabel').value=HUAXIANG_ACCOUNT.label||'';document.getElementById('hxToken').value=HUAXIANG_ACCOUNT.token||'';document.getElementById('hxCookie').value=HUAXIANG_ACCOUNT.cookie||'';const fi=document.getElementById('hxFreightId');if(fi)fi.value=HUAXIANG_ACCOUNT.freightTemplateId||216;}
+  document.getElementById('huaxiangModal').classList.add('open');renderHuaxiangAccount();
+}
+async function copyHxSnippet(){
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=HUAXIANG_SNIPPET;
+    ta.style.position='fixed';ta.style.top='-9999px';
+    document.body.appendChild(ta);ta.select();
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(ok)toast('脚本已复制到剪贴板');
+    else{ta=document.getElementById('hxSnippet');ta.select();toast('请按 Ctrl+C 手动复制','err')}
+  }catch(e){toast('复制失败，请手动选择上方脚本文本复制','err')}
+}
+async function pasteHxFromClipboard(){
+  try{document.getElementById('hxPaste').value=await navigator.clipboard.readText();parseHuaxiangPaste();}
+  catch(e){
+    // Fallback: focus the textarea and let user paste manually
+    document.getElementById('hxPaste').focus();
+    toast('请在此框中按 Ctrl+V 粘贴脚本输出','err');
+  }
+}
+function parseHuaxiangPaste(){
+  const txt=document.getElementById('hxPaste').value.trim();if(!txt)return;
+  let token='',cookie='',label=document.getElementById('hxLabel').value.trim();
+  try{const obj=JSON.parse(txt);token=obj.token||obj['Admin-Token']||'';cookie=obj.cookie||obj.cookies||'';if(!label)label=obj.label||obj.username||'';}catch(e){
+    const mt=txt.match(/"?token"?\s*[:=]\s*"?([^"\s,;]+)/i);if(mt)token=mt[1];
+    const mc=txt.match(/((?:JSESSIONID|Admin-Token|ajaxtoken)=[^\n]+)/i);if(mc)cookie=mc[1];
+    if(!cookie){const mc2=txt.match(/cookie:\s*["']([^"']+)["']/i);if(mc2)cookie=mc2[1];}
+    if(!token){const mt2=txt.match(/token:\s*["']([^"']+)["']/i);if(mt2)token=mt2[1];}
+    if(!cookie&&/JSESSIONID=|ajaxtoken=|Admin-Token=/i.test(txt))cookie=txt;
+  }
+  if(token)document.getElementById('hxToken').value=token;
+  if(cookie)document.getElementById('hxCookie').value=normalizeCookie(cookie);
+  if(label)document.getElementById('hxLabel').value=label;
+}
+function normalizeCookie(cookie){
+  const parts=String(cookie).split(';').map(s=>s.trim()).filter(Boolean);
+  const wanted=[];['JSESSIONID','Admin-Token','ajaxtoken'].forEach(k=>{const p=parts.find(x=>x.toLowerCase().startsWith(k.toLowerCase()+'='));if(p)wanted.push(p);});
+  if(!wanted.some(p=>/^Admin-Token=/i.test(p)))wanted.unshift('Admin-Token=admin-token');
+  return wanted.length?wanted.join('; '):String(cookie).trim();
+}
+function saveHuaxiangAccount(){
+  const label=document.getElementById('hxLabel').value.trim()||'花乡临时账号';
+  const token=document.getElementById('hxToken').value.trim();
+  const cookie=normalizeCookie(document.getElementById('hxCookie').value.trim());
+  const freightTemplateId=parseInt(document.getElementById('hxFreightId')?.value||'216',10);
+  const st=document.getElementById('hxStatus');
+  if(!token||!cookie){st.className='hx-status err';st.textContent='token 和 cookie 都不能为空';return;}
+  if(!/ajaxtoken=/i.test(cookie)){st.className='hx-status err';st.textContent='Cookie 至少需要包含 ajaxtoken；JSESSIONID 可能是 HttpOnly，读不到也没关系';return;}
+  HUAXIANG_ACCOUNT={label,token,cookie,freightTemplateId};
+  try{sessionStorage.setItem('huaxiangAccount',JSON.stringify(HUAXIANG_ACCOUNT));}catch(e){}
+  renderHuaxiangAccount();toast('花乡账号已保存到当前页面');closeModal('huaxiangModal');
+}
+function clearHuaxiangAccount(){
+  HUAXIANG_ACCOUNT=null;try{sessionStorage.removeItem('huaxiangAccount')}catch(e){}
+  ['hxLabel','hxToken','hxCookie','hxPaste'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  renderHuaxiangAccount();toast('已清除临时账号');
 }
 
 // ===================== BATCH CHANNEL =====================
-function toggleBC(el){el.classList.toggle('selected');const k=el.dataset.key;if(BATCH_CHANNELS.has(k))BATCH_CHANNELS.delete(k);else BATCH_CHANNELS.add(k);updateSelBanner()}
+function toggleBC(el){el.classList.toggle('selected');const k=el.dataset.key;if(BATCH_CHANNELS.has(k))BATCH_CHANNELS.delete(k);else BATCH_CHANNELS.add(k);updateSelBanner();if(k==='huaxiang'&&BATCH_CHANNELS.has(k)&&!HUAXIANG_ACCOUNT)openHuaxiangModal()}
 function getBC(){return[...BATCH_CHANNELS]}
 
 // ===================== CONFIRM MODAL =====================
@@ -440,16 +611,103 @@ function openConfirmModal(){
   if(!cnt||!chs.length)return;
   document.getElementById('cm_count').textContent=cnt+' 件';
   document.getElementById('cm_channels').innerHTML=chs.map(k=>`<div class="modal-row"><span class="label">${PLATFORM_ICONS[k]||''} ${PLATFORM_LABELS[k]}</span><span class="value">${cnt}</span></div>`).join('');
+  document.getElementById('cm_hx_account').innerHTML=chs.includes('huaxiang')?`<div class="modal-row"><span class="label">🌿 花乡账号</span><span class="value">${esc(HUAXIANG_ACCOUNT?.label||'服务默认账号')}</span></div>`:'';
   document.getElementById('confirmModal').classList.add('open');
 }
 
 var TASK_LIST=[];var MIG_CACHE={};
-function startBatchPublish(){closeModal("confirmModal");const ps=Object.values(SEL);const cs=getBC();if(!ps.length||!cs.length)return;(async()=>{for(let i=0;i<ps.length;i++){const p=ps[i];for(const c of cs){await run4(p,c);}}SEL={};updateSelBanner();})();SEL={};updateSelBanner();}
-async function run4(p,c){var tid=p._id+"-"+Date.now();var mid="";addL(tid,p.title||"ok",1,"start",0);stP(tid,1,"do");stG(tid,5,"Step1");try{var r=await fetch("/api/publish/migration/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId:p._id})});var d=await r.json();if(!d.success)throw new Error(d.error||"fail");mid=d.taskId||tid;MIG_CACHE[mid]=d;stP(tid,1,"ok");stG(tid,15,"done");}catch(e){var em=e.message||"fail";try{var ej=JSON.parse(e.message);em=ej.error||ej.message||em;}catch(x){}stP(tid,1,"fail");stG(tid,0,"F:"+em,1);return;}stP(tid,2,"do");stG(tid,20,"Step2");try{var r=await fetch("/api/publish/migration/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:mid})});var d2=await r.json();if(!d2.success&&d2.status!=="skipped")throw new Error(JSON.stringify({error:d2.error||d2.message||"fail",errors:d2.errors||[]}));stP(tid,2,"ok");stG(tid,40,"ok");}catch(e){var em=e.message||"fail";try{var ej=JSON.parse(e.message);if(ej.error)em=ej.error;if(ej.errors&&ej.errors.length)em=ej.errors.join("; ");}catch(x){}stP(tid,2,"fail");stG(tid,20,"F:"+em,1);return;}stP(tid,3,"do");stG(tid,50,"Step3");try{var r=await fetch("/api/publish/migration/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:mid})});var d3=await r.json();if(!d3.success)throw new Error(d3.error||"fail");stP(tid,3,"ok");stG(tid,65,"ok");}catch(e){var em=e.message||"fail";try{var ej=JSON.parse(e.message);em=ej.error||ej.message||em;}catch(x){}stP(tid,3,"fail");stG(tid,50,"F:"+em,1);return;}stP(tid,4,"do");stG(tid,80,"Step4");try{var r=await fetch("/api/publish/migration/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:mid})});var d4=await r.json();if(!d4.success)throw new Error(d4.error||"fail");stP(tid,4,"ok");stG(tid,100,"OK");addL(tid,p.title,4,"ok",100,0,d4.productId);}catch(e){stP(tid,4,"fail");stG(tid,80,"F:"+e.message,1);}}
-function addL(t,tl,s,m,p,e,i){var x=TASK_LIST.findIndex(function(t){return t.id===t});var o={id:t,title:tl,step:s||1,msg:m||'',pct:p||0,err:!!e,pid:i||'',time:new Date()};if(x>=0)TASK_LIST[x]=o;else TASK_LIST.unshift(o);rdL();}
-function stP(tid,s,st){var c=document.querySelector('[data-t="'+tid+'"]');if(!c)return;var cs=c.querySelectorAll('.ms-c');var ns=c.querySelectorAll('.ms-n');for(var i=0;i<cs.length;i++){cs[i].className='ms-c';if(i+1<s)cs[i].classList.add('ok');else if(i+1===s)cs[i].classList.add(st==='fail'?'fail':(st==='do'?'act':'ok'));}for(var j=0;j<ns.length;j++){ns[j].className='ms-n';if(cs[j]&&cs[j].classList.contains('ok'))ns[j].classList.add('ok');}}
-function stG(tid,p,m,e){var c=document.querySelector('[data-t="'+tid+'"]');if(!c)return;var f=c.querySelector('.ms-f');var g=c.querySelector('.ms-g');if(f){f.style.width=p+'%';f.style.background=e?'var(--red)':(p>=100?'var(--green)':'var(--blue)');}if(g){g.textContent=m;g.style.color=e?'var(--red)':'var(--text)';}}
-function rdL(){var el=document.getElementById('tlc');var ce=document.getElementById('tc');if(!el)return;if(!TASK_LIST.length){el.innerHTML='<div class="empty" style="padding:32px"><span style="color:var(--text3)">no tasks</span></div>';if(ce)ce.textContent='0';return;}if(ce)ce.textContent=TASK_LIST.length+'';el.innerHTML=TASK_LIST.map(function(t){var h='';for(var s=1;s<=4;s++){var cl='ms-c';if(s<t.step)cl+=' ok';else if(s===t.step){if(t.err)cl+=' fail';else cl+=' act';}h+='<div class="'+cl+'">'+(s<t.step?'\u2713':s)+'</div>';if(s<4)h+='<div class="ms-n'+(s<t.step?' ok':'')+'"></div>';}return'<div class="ms-cd" data-t="'+t.id+'"><div class="ms-h"><span class="ms-t">'+esc(t.title)+'</span>'+(t.pid?'<span class="ms-p">'+t.pid+'</span>':'')+'<span class="ms-mt">'+new Date(t.time).toLocaleTimeString()+'</span></div><div class="ms-s">'+h+'</div><div class="ms-pb"><div class="ms-b"><div class="ms-f'+(t.err?' err':(t.pct>=100?' ok':''))+'" style="width:'+t.pct+'%"></div></div><div class="ms-g">'+esc(t.msg||'')+'</div></div></div>';}).join('');}
+// stP: set step status for a task (step, state)  state: 'do'|'ok'|'fail'
+function stP(tid,step,state){
+  var idx=TASK_LIST.findIndex(function(t){return t.id===tid});
+  if(idx<0)return;
+  if(state==='ok')TASK_LIST[idx].step=step+1;
+  else if(state==='fail')TASK_LIST[idx].err=true;
+  rdL();
+}
+// stG: set progress message for a task
+function stG(tid,pct,msg,isErr){
+  var idx=TASK_LIST.findIndex(function(t){return t.id===tid});
+  if(idx<0)return;
+  TASK_LIST[idx].pct=pct;
+  if(msg)TASK_LIST[idx].msg=msg;
+  if(isErr)TASK_LIST[idx].err=true;
+  rdL();
+}
+function startBatchPublish(){
+  closeModal("confirmModal");
+  const ps=Object.values(SEL);const cs=getBC();
+  if(!ps.length||!cs.length)return;
+  if(cs.includes('huaxiang')&&!HUAXIANG_ACCOUNT){
+    toast('未设置临时账号，将使用服务默认花乡账号发布');
+  }
+  SEL={};updateSelBanner();
+  (async()=>{
+    for(const p of ps){for(const c of cs){await run4(p,c);}}
+    loadTasks();loadSyncStatus();
+  })().catch(e=>{console.error(e);toast('批量发布异常：'+(e.message||e),'err')});
+}
+async function fetchJson(url,options){
+  const ctl=new AbortController();
+  const timer=setTimeout(()=>ctl.abort(),30000);
+  try{
+    const r=await fetch(url,{...(options||{}),signal:ctl.signal});
+    const text=await r.text();let d={};
+    try{d=text?JSON.parse(text):{};}catch(e){d={raw:text};}
+    if(!r.ok)throw new Error(d.error||d.message||('HTTP '+r.status));
+    return d;
+  }catch(e){
+    if(e.name==='AbortError')throw new Error('请求超时：后端 30 秒无响应');
+    throw e;
+  }finally{clearTimeout(timer);}
+}
+async function run4(p,c){var tid=p._id+"-"+Date.now();var mid="";var label=PLATFORM_LABELS[c]||c;
+if(c==='huaxiang'){
+  addL(tid,p.title||'ok',1,"准备发布",5,0,'',c);stP(tid,1,'do');stG(tid,10,'正在提交花乡发布任务');
+  try{
+    var body={productId:p._id,platforms:["huaxiang"]};
+    if(HUAXIANG_ACCOUNT)body.platformAccounts={huaxiang:HUAXIANG_ACCOUNT};
+    var d=await fetchJson("/api/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!d.taskId)throw new Error(d.error||'提交失败：后端未返回 taskId');
+    stP(tid,1,'do');stG(tid,30,'已提交，任务ID '+d.taskId.slice(0,8));
+    var pollTid=d.taskId;
+    var done=false;
+    for(var i=0;i<90;i++){
+      await new Promise(function(res){setTimeout(res,2000);});
+      var sd=await fetchJson('/api/publish/status/'+pollTid);
+      var ch=sd.results&&sd.results.huaxiang;
+      if(ch){
+        if(ch.status==='success'){done=true;stP(tid,1,'ok');stG(tid,100,'发布成功：'+(ch.platformProductId||''));addL(tid,p.title,1,'发布成功',100,0,ch.platformProductId,c);loadSyncStatus();break;}
+        if(ch.status==='failed'){throw new Error(ch.errorMessage||'发布失败');}
+      }
+      if(sd.status==='failed'){throw new Error(sd.errorMessage||ch?.errorMessage||'发布失败');}
+      var statusMap={waiting:'等待中',processing:'处理中',fetching:'获取商品',uploading_images:'上传图片',publishing:'调用花乡接口'};
+      var pct=Math.min(95,30+Math.floor(i/90*60));stG(tid,pct,statusMap[sd.status]||('发布中：'+(sd.status||'未知')));
+    }
+    if(!done)throw new Error('发布超时，请查看发布记录/后端日志');
+  }catch(e){stP(tid,1,'fail');stG(tid,0,'F:'+(e.message||e),1);toast('花乡发布失败：'+(e.message||e),'err');}
+  return;
+}
+addL(tid,p.title||"ok",1,"准备发布",0,0,'',c);stP(tid,1,'do');stG(tid,5,'Step1');try{var r=await fetch("/api/publish/migration/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId:p._id})});var d=await r.json();if(!d.success)throw new Error(d.error||"fail");mid=d.taskId||tid;MIG_CACHE[mid]=d;stP(tid,1,'ok');stG(tid,15,'done');}catch(e){stP(tid,1,'fail');stG(tid,0,'F:'+e.message,1);return;}stP(tid,2,'do');stG(tid,20,'Step2');try{var r=await fetch("/api/publish/migration/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:mid})});var d2=await r.json();if(!d2.success&&d2.status!=="skipped")throw new Error(d2.error||"fail");stP(tid,2,'ok');stG(tid,40,'ok');}catch(e){stP(tid,2,'fail');stG(tid,20,'F:'+e.message,1);return;}stP(tid,3,'do');stG(tid,50,'Step3');try{var r=await fetch("/api/publish/migration/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:mid})});var d3=await r.json();if(!d3.success)throw new Error(d3.error||"fail");stP(tid,3,'ok');stG(tid,65,'ok');}catch(e){stP(tid,3,'fail');stG(tid,50,'F:'+e.message,1);return;}stP(tid,4,'do');stG(tid,80,'Step4');try{var r=await fetch("/api/publish/migration/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({taskId:mid})});var d4=await r.json();if(!d4.success)throw new Error(d4.error||"fail");stP(tid,4,'ok');stG(tid,100,'OK');addL(tid,p.title,4,"发布成功",100,0,d4.productId,c);loadSyncStatus();}catch(e){stP(tid,4,'fail');stG(tid,80,'F:'+e.message,1);}}
+function addL(id,title,step,msg,pct,err,pid,platform){
+  var idx=TASK_LIST.findIndex(function(item){return item.id===id});
+  var old=idx>=0?TASK_LIST[idx]:{};
+  var o={...old,id:id,title:title||old.title||'',platform:platform||old.platform||'',step:step||old.step||1,msg:msg||'',pct:pct||0,err:!!err,pid:pid||old.pid||'',time:old.time||new Date()};
+  if(idx>=0)TASK_LIST[idx]=o;else TASK_LIST.unshift(o);
+  rdL();
+}
+function statusText(t){if(t.err)return '失败';if(t.pct>=100)return '成功';return '进行中'}
+function rdL(){
+  var el=document.getElementById('tlc');var ce=document.getElementById('tc');if(!el)return;
+  if(!TASK_LIST.length){el.innerHTML='<div class="empty" style="padding:32px"><span style="color:var(--text3)">暂无本次发布任务</span></div>';if(ce)ce.textContent='0';return;}
+  if(ce)ce.textContent=TASK_LIST.length+'';
+  el.innerHTML=TASK_LIST.map(function(t){
+    var h='';var steps=t.platform==='huaxiang'?1:4;
+    for(var s=1;s<=steps;s++){var cl='ms-c';if(s<t.step||t.pct>=100)cl+=' ok';else if(s===t.step){if(t.err)cl+=' fail';else cl+=' act';}h+='<div class="'+cl+'">'+((s<t.step||t.pct>=100)?'✓':s)+'</div>';if(s<steps)h+='<div class="ms-n'+((s<t.step||t.pct>=100)?' ok':'')+'"></div>';}
+    var badge='<span class="task-status '+(t.err?'failed':(t.pct>=100?'done':'running'))+'">'+statusText(t)+'</span>';
+    var meta=(t.platform?'<span class="tag" style="background:var(--surface2);color:var(--text2)">'+esc(PLATFORM_ICONS[t.platform]||'')+' '+esc(PLATFORM_LABELS[t.platform]||t.platform)+'</span>':'')+(t.pid?'<span class="ms-p">ID: '+esc(t.pid)+'</span>':'');
+    return '<div class="ms-cd" data-t="'+t.id+'"><div class="ms-h"><span class="ms-t">'+esc(t.title)+'</span>'+badge+'<span class="ms-mt">'+new Date(t.time).toLocaleTimeString()+'</span></div><div style="display:flex;gap:6px;align-items:center;margin:6px 0">'+meta+'</div><div class="ms-s">'+h+'</div><div class="ms-pb"><div class="ms-b"><div class="ms-f'+(t.err?' err':(t.pct>=100?' ok':''))+'" style="width:'+t.pct+'%"></div></div><div class="ms-g">'+esc(t.msg||'')+'</div></div></div>';
+  }).join('');
+}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 async function pollTaskResult(id,m){return{success:false,detail:{error:'dep'}};}
 
@@ -491,31 +749,50 @@ async function loadTasks(){
 }
 
 // ===================== SYNC STATUS =====================
+async function getRecords(prodId){
+  try{const r=await fetch('/api/publish/record/'+prodId);const d=await r.json();return d.records||[]}catch(e){return[]}
+}
+function latestRecordByPlatform(records){
+  const m={};records.forEach(r=>{const ui=API_PLATFORM_TO_UI[r.platform]||r.platform;if(!m[ui])m[ui]=r;});return m;
+}
+function renderStatusLabel(r){
+  if(!r)return '<span class="platform-status unpublished">○ 未发布</span>';
+  if(r.status==='success'||r.status==='published')return '<span class="platform-status published">● 已发布</span>';
+  if(r.status==='offline')return '<span class="platform-status offline">○ 已下架</span>';
+  if(r.status==='failed')return '<span class="platform-status failed">✕ 失败</span>';
+  return '<span class="platform-status publishing">◐ '+esc(r.status||'处理中')+'</span>';
+}
 async function loadSyncStatus(){
   try{
     const r=await fetch('http://100.96.54.109:3001/api/products?limit=10',{headers:authHeaders()});
     const d=await r.json();const prods=d.products||[];
-    const platforms=['wechat','douyin','xiaohongshu','taobao','jd'];
+    const platforms=['wechat','huaxiang'];
     const grid=document.getElementById('syncStatusGrid');
-    grid.innerHTML=prods.slice(0,6).map(p=>`
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-        <div style="font-size:12px;font-weight:500;margin-bottom:8px">${p.title?.slice(0,30)||'无标题'}</div>
-        <div style="display:flex;flex-direction:column;gap:4px;font-size:11px">
-          ${platforms.map(k=>`
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <span>${PLATFORM_ICONS[k]} ${PLATFORM_LABELS[k]}</span>
-              <span style="display:flex;align-items:center;gap:4px">
-                <span class="platform-status draft">○ 未发布</span>
-              </span>
-            </div>
-          `).join('')}
+    const cards=[];
+    for(const p of prods.slice(0,6)){
+      const recs=await getRecords(p._id);const latest=latestRecordByPlatform(recs);
+      cards.push(`
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+          <div style="font-size:12px;font-weight:500;margin-bottom:8px">${esc(p.title?.slice(0,34)||'无标题')}</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:11px">
+            ${platforms.map(k=>{
+              const rr=latest[k];
+              const id=rr&&rr.platformProductId?`<span style="color:var(--text3);font-family:monospace">${esc(rr.platformProductId)}</span>`:'';
+              const canOff=rr&&(rr.status==='success'||rr.status==='published')&&rr.platformProductId;
+              return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <span>${PLATFORM_ICONS[k]} ${PLATFORM_LABELS[k]}</span>
+                <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">${id}${renderStatusLabel(rr)}${canOff?`<button class="btn-xs" onclick="openRevokeModal('${p._id}',['${k}'])">下架</button>`:''}</span>
+              </div>`;
+            }).join('')}
+          </div>
+          <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn-block btn-outline" style="font-size:10px;padding:4px 8px;width:auto;flex:none" onclick="showHistory('${p._id}')">📜 记录</button>
+          </div>
         </div>
-        <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
-          <button class="btn-block btn-outline" style="font-size:10px;padding:4px 8px;width:auto;flex:none" onclick="showHistory('${p._id}')">📜 记录</button>
-        </div>
-      </div>
-    `).join('');
-  }catch{}
+      `);
+    }
+    grid.innerHTML=cards.join('');
+  }catch(e){console.error(e)}
 }
 
 // ===================== HERO =====================
@@ -530,40 +807,63 @@ function updateHero(){
 // ===================== REVOKE =====================
 let revokeTarget={};
 function openRevokeModal(prodId,platforms){
-  revokeTarget={productId:prodId,platforms:platforms||['wechat','douyin']};
+  revokeTarget={productId:prodId,platforms:platforms||['wechat','huaxiang'],records:{}};
   document.getElementById('rm_count').textContent='1 件';
   document.getElementById('rm_prods').textContent=prodId.slice(0,16)+'...';
-  document.getElementById('rm_channels').innerHTML=revokeTarget.platforms.map(k=>`
-    <div class="revoke-channel selected" data-key="${k}" onclick="this.classList.toggle('selected')">
-      <span class="ck">✓</span><span>${PLATFORM_ICONS[k]} ${PLATFORM_LABELS[k]}</span>
-    </div>
-  `).join('');
+  document.getElementById('rm_channels').innerHTML='<div style="font-size:12px;color:var(--text2);padding:8px">正在读取已发布记录...</div>';
   document.getElementById('revokeModal').classList.add('open');
+  getRecords(prodId).then(function(records){
+    const latest=latestRecordByPlatform(records);revokeTarget.records=latest;
+    const html=revokeTarget.platforms.map(function(k){
+      const r=latest[k];const ok=r&&(r.status==='success'||r.status==='published')&&r.platformProductId;
+      return `<div class="revoke-channel ${ok?'selected':''}" data-key="${k}" data-platform-id="${ok?esc(r.platformProductId):''}" onclick="if(!this.classList.contains('disabled'))this.classList.toggle('selected')" style="${ok?'':'opacity:.55;cursor:not-allowed'}">
+        <span class="ck">✓</span><span>${PLATFORM_ICONS[k]} ${PLATFORM_LABELS[k]}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text3)">${ok?'ID: '+esc(r.platformProductId):'无已发布记录'}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('rm_channels').innerHTML=html||'<div style="font-size:12px;color:var(--red);padding:8px">没有可下架的平台记录</div>';
+  });
 }
 
 async function confirmRevoke(){
-  const chs=[...document.querySelectorAll('#rm_channels .revoke-channel.selected')].map(e=>e.dataset.key);
-  if(!chs.length){toast('请选择至少一个平台','err');return;}
+  const els=[...document.querySelectorAll('#rm_channels .revoke-channel.selected')];
+  if(!els.length){toast('没有可下架的平台，请先确认发布记录','err');return;}
   closeModal('revokeModal');
-  for(const ch of chs){
+  for(const el of els){
+    const ch=el.dataset.key;
+    const apiKey=PLATFORM_API[ch]||ch;
+    const platformProductId=el.dataset.platformId;
     try{
-      const apiKey=PLATFORM_API[ch]||ch;
-      await fetch('/api/publish/offline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platform:apiKey,platformProductId:revokeTarget.productId+'_'+ch})});
+      const resp=await fetch('/api/publish/offline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platform:apiKey,platformProductId,productId:revokeTarget.productId})});
+      const d=await resp.json();
+      if(!resp.ok||!d.success)throw new Error(d.error||d.message||'下架失败');
       toast(`✅ ${PLATFORM_LABELS[ch]} 已下架`, 'done');
     }catch(e){toast(`❌ ${PLATFORM_LABELS[ch]} 下架失败: ${e.message}`,'err')}
   }
+  loadSyncStatus();
 }
 
 // ===================== HISTORY =====================
-function showHistory(prodId){
+async function showHistory(prodId){
   document.getElementById('hm_title').textContent='📜 发布历史 · '+prodId.slice(0,12)+'...';
-  document.getElementById('hm_timeline').innerHTML=`
-    <div class="tl-item success"><div class="tl-time">05-30 10:22</div><div class="tl-text">发布到微信小店 <span class="tag" style="background:var(--green-bg);color:var(--green)">成功</span></div></div>
-    <div class="tl-item success"><div class="tl-time">05-30 10:23</div><div class="tl-text">发布到抖音小店 <span class="tag" style="background:var(--green-bg);color:var(--green)">成功</span></div></div>
-    <div class="tl-item failed"><div class="tl-time">05-30 10:25</div><div class="tl-text">发布到小红书 <span class="tag" style="background:var(--red-bg);color:var(--red)">失败: 图片规格不符</span></div></div>
-    <div class="tl-item success"><div class="tl-time">05-30 14:10</div><div class="tl-text">运营撤回 <span class="tag" style="background:var(--orange-bg);color:var(--orange)">已下架</span></div></div>
-  `;
+  const box=document.getElementById('hm_timeline');
+  box.innerHTML='<div style="font-size:12px;color:var(--text2);padding:12px">加载中...</div>';
   document.getElementById('historyModal').classList.add('open');
+  const records=await getRecords(prodId);
+  if(!records.length){box.innerHTML='<div style="font-size:12px;color:var(--text3);padding:12px">暂无发布/下架记录</div>';return;}
+  box.innerHTML=records.map(function(r){
+    const ui=API_PLATFORM_TO_UI[r.platform]||r.platform;
+    const ok=r.status==='success'||r.status==='published';
+    const off=r.status==='offline';
+    const fail=r.status==='failed';
+    const cls=fail?'failed':'success';
+    const tag= ok?'成功':(off?'已下架':(fail?'失败':'处理中'));
+    const bg= fail?'var(--red-bg)':(off?'var(--orange-bg)':'var(--green-bg)');
+    const color= fail?'var(--red)':(off?'var(--orange)':'var(--green)');
+    const id=r.platformProductId?` <span style="font-family:monospace;color:var(--text3)">${esc(r.platformProductId)}</span>`:'';
+    const err=r.errorMessage?`<div style="font-size:11px;color:var(--red);margin-top:4px">${esc(r.errorMessage)}</div>`:'';
+    return `<div class="tl-item ${cls}"><div class="tl-time">${new Date(r.createdAt).toLocaleString()}</div><div class="tl-text">${PLATFORM_ICONS[ui]||''} ${PLATFORM_LABELS[ui]||r.platform} <span class="tag" style="background:${bg};color:${color}">${tag}</span>${id}${err}</div></div>`;
+  }).join('');
 }
 
 // ===================== UTILS =====================

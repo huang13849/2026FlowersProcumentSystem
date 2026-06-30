@@ -33,7 +33,8 @@ class PublishOrchestrator {
       console.log(`[Orchestrator] 商品 ${productId} 获取成功: ${product.title}`);
 
       // Step 2: 获取平台适配器
-      const adapter = getAdapter(platformKey);
+      const platformAccount = task.platformAccounts && task.platformAccounts[platformKey];
+      const adapter = getAdapter(platformKey, { account: platformAccount });
       if (!adapter.isConfigured()) {
         throw new Error(`平台 ${platformKey} 未配置密钥，请设置环境变量`);
       }
@@ -41,11 +42,12 @@ class PublishOrchestrator {
       // Step 3: 字段映射
       stateManager.updateTask(taskId, { status: TaskStatus.PROCESSING });
       const mappedProduct = adapter.mapProductToPlatform(product);
-      console.log(`[Orchestrator] 字段映射完成 → ${adapter.platformName}`);
+      const accountLabel = adapter.getAccountLabel ? adapter.getAccountLabel() : null;
+      console.log(`[Orchestrator] 字段映射完成 → ${adapter.platformName}${accountLabel ? ' / ' + accountLabel : ''}`);
 
-      // Step 4: 上传图片到平台
+      // Step 4: 上传图片到平台（花乡花木由 adapter 内部处理，跳过避免双重上传）
       stateManager.updateTask(taskId, { status: TaskStatus.UPLOADING_IMAGES });
-      const imageMap = await imageUploadService.uploadProductImages(product, adapter);
+      const imageMap = (platformKey === 'huaxiang') ? new Map() : await imageUploadService.uploadProductImages(product, adapter);
 
       // Step 5: 发布商品
       stateManager.updateTask(taskId, { status: TaskStatus.PUBLISHING });
@@ -57,6 +59,7 @@ class PublishOrchestrator {
         platformName: adapter.platformName,
         status: 'success',
         platformProductId: publishResult.platformProductId,
+        accountLabel,
         durationMs: Date.now() - startTime,
       };
 

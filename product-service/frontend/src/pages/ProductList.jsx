@@ -116,6 +116,7 @@ export default function ProductList() {
   const [stockRange, setStockRange] = useState({ min: '', max: '' });
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [monthFilter, setMonthFilter] = useState(new Set()); // 花期月份筛选 1-12
+  const [sceneTagFilter, setSceneTagFilter] = useState(''); // 场景标签筛选
   const [exporting, setExporting] = useState(false);
   const [newRowId, setNewRowId] = useState(null);
   const tableRef = useRef(null);
@@ -185,6 +186,11 @@ export default function ProductList() {
     if (stockRange.min !== '') list = list.filter(p => (p.stock || 0) >= Number(stockRange.min));
     if (stockRange.max !== '') list = list.filter(p => (p.stock || 0) <= Number(stockRange.max));
 
+    // 场景标签筛选
+    if (sceneTagFilter) {
+      list = list.filter(p => (p.sceneTags || []).includes(sceneTagFilter));
+    }
+
     // 花期月份筛选（包含任一所选月份）
     if (monthFilter.size > 0) {
       list = list.filter(p => {
@@ -202,7 +208,7 @@ export default function ProductList() {
     });
 
     setDisplayed(list);
-  }, [allProducts, search, filters, sellerFilter, priceRange, stockRange, monthFilter]);
+  }, [allProducts, search, filters, sellerFilter, priceRange, stockRange, monthFilter, sceneTagFilter]);
 
   // ── Inline editing ──
   const startEdit = (row, col, value) => {
@@ -462,12 +468,32 @@ export default function ProductList() {
   };
 
   const uploadGridImage = async (e, product, colField) => {
-    const files = e.target.files;
-    if (!files?.length) return;
+    const rawFiles = Array.from(e.target.files || []);
+    if (!rawFiles.length) return;
+    setUploadStatus({ phase: 'compress', pct: 0, msg: '压缩中 1/' + rawFiles.length, total: rawFiles.length, current: 1 });
+    const compressed = [];
+    for (let i = 0; i < rawFiles.length; i++) {
+      try {
+        compressed.push(await compressImage(rawFiles[i]));
+        setUploadStatus({ phase: 'compress', pct: Math.round(((i + 1) / rawFiles.length) * 100), msg: `压缩中 ${i + 1}/${rawFiles.length}`, total: rawFiles.length, current: i + 1 });
+      } catch (err) {
+        setUploadStatus({ phase: 'error', pct: 0, msg: err.message || '压缩失败' });
+        setTimeout(() => setUploadStatus(null), 3000);
+        return;
+      }
+    }
     const fd = new FormData();
-    for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
+    compressed.forEach(f => fd.append('files', f));
+    setUploadStatus({ phase: 'upload', pct: 0, msg: '上传中…', total: rawFiles.length, current: rawFiles.length });
     try {
-      const r = await api.post('/images/upload-multiple', fd);
+      const r = await api.post('/images/upload-multiple', fd, {
+        timeout: 120000,
+        onUploadProgress: (ev) => {
+          if (ev.total) setUploadStatus({ phase: 'upload', pct: Math.round((ev.loaded / ev.total) * 100), msg: '上传中…', total: rawFiles.length, current: rawFiles.length });
+        },
+      });
+      setUploadStatus({ phase: 'done', pct: 100, msg: '上传完成' });
+      setTimeout(() => setUploadStatus(null), 1200);
       const urls = r.data.urls || [];
       if (urls.length) {
         const key = imgFieldKey(colField);
@@ -713,6 +739,12 @@ export default function ProductList() {
     </span>
   );
 
+  const allSceneTags = Array.from(new Set([
+    ...SCENE_TAG_OPTIONS.map(o => o.v),
+    ...customSceneTags,
+    ...allProducts.flatMap(p => p.sceneTags || [])
+  ])).filter(Boolean);
+
   // ── Render ──
   return (
     <div style={{ padding:'8px 12px', background:'#f5f5f5', minHeight:'calc(100vh - 48px)' }}>
@@ -798,6 +830,11 @@ export default function ProductList() {
         <select onChange={e => setFilters(f => ({...f, category: e.target.value}))} style={selStyle}>
           <option value="">全部分类</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        <select value={sceneTagFilter} onChange={e => setSceneTagFilter(e.target.value)} style={selStyle} title="场景标签筛选">
+          <option value="">全部标签</option>
+          {allSceneTags.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
 
         <select onChange={e => setFilters(f => ({...f, isListed: e.target.value}))} style={selStyle}>

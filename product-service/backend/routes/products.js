@@ -18,13 +18,36 @@ router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 50, search, category, isListed, sellerName, sort = '-createdAt', supplier_id } = req.query;
     const query = {};
-    if (search) query.$text = { $search: search };
+    if (search) query.title = { $regex: search, $options: 'i' };
     if (category) query.category = category;
     if (isListed !== undefined) query.isListed = isListed === 'true';
     if (sellerName) query.sellerName = sellerName;
     if (supplier_id) query.supplier_id = supplier_id;
     if (req.query.tradeType) query.tradeType = { $in: req.query.tradeType.split(",") };
+    if (req.query.floweringMonths) {
+      const months = String(req.query.floweringMonths)
+        .split(',')
+        .map(m => Number(m))
+        .filter(m => m >= 1 && m <= 12);
+      if (months.length) {
+        // 默认：包含任一所选月份（$in）；matchAll=true 时要求全部包含（$all）
+        query.floweringMonths = req.query.matchAll === 'true'
+          ? { $all: months }
+          : { $in: months };
+      }
+    }
     if (req.query.inStock === 'true') query.stock = { $gt: 0 };
+    // 标签筛选（支持多个，逗号分隔）
+    if (req.query.sceneTags) {
+      const tags = req.query.sceneTags.split(',').filter(Boolean);
+      if (tags.length === 1) query.sceneTags = tags[0];
+      else if (tags.length > 1) query.sceneTags = { $in: tags };
+    }
+    // 排除标签
+    if (req.query.excludeTags) {
+      const exTags = req.query.excludeTags.split(',').filter(Boolean);
+      if (exTags.length) query.sceneTags = { ...query.sceneTags, $nin: exTags };
+    }
     const total = await Product.countDocuments(query);
     const products = await Product.find(query)
       .sort(sort).skip((page - 1) * limit).limit(Number(limit));

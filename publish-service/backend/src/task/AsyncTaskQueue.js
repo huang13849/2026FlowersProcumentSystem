@@ -35,7 +35,8 @@ class AsyncTaskQueue extends EventEmitter {
   enqueue(task) {
     const savedTask = stateManager.createTask(task);
     this.queue.push({ ...savedTask, retryCount: savedTask.retryCount || 0 });
-    console.log(`[TaskQueue] 任务入队: ${savedTask.taskId}, platforms=${savedTask.platforms.join(',')}`);
+    const accountKeys = Object.keys(savedTask.platformAccounts || {});
+    console.log(`[TaskQueue] 任务入队: ${savedTask.taskId}, platforms=${savedTask.platforms.join(',')}${accountKeys.length ? ', accounts=' + accountKeys.join(',') : ''}`);
     this._processNext();
     return savedTask.taskId;
   }
@@ -65,6 +66,7 @@ class AsyncTaskQueue extends EventEmitter {
       results: { ...task.results },
       retryCount: (task.retryCount || 0) + 1,
       originalTaskId: taskId,
+      platformAccounts: task.platformAccounts || {},
     };
 
     if (retryTask.retryCount > config.retry.maxRetries) {
@@ -106,6 +108,21 @@ class AsyncTaskQueue extends EventEmitter {
         this._publishWithRetry(task, platformKey)
       )
     );
+
+    // _publishWithRetry 捕获最终失败后会返回 failed result；这里必须写回任务结果，
+    // 否则任务最终 failed 但 results 为空，前端只能看到卡在 publishing/准备发布。
+    results.forEach((r, idx) => {
+      const platformKey = platforms[idx];
+      if (r.status === 'fulfilled' && r.value && r.value.status === 'failed') {
+        stateManager.updateTaskResult(taskId, platformKey, r.value);
+      } else if (r.status === 'rejected') {
+        stateManager.updateTaskResult(taskId, platformKey, {
+          platform: platformKey,
+          status: 'failed',
+          errorMessage: r.reason?.message || String(r.reason || '发布失败'),
+        });
+      }
+    });
 
     // 判断整体状态
     const allSuccess = results.every(r => r.status === 'fulfilled' && r.value?.status === 'success');

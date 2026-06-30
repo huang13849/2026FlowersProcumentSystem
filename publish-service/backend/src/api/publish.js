@@ -19,6 +19,35 @@ const config = require('../config');
 
 const router = Router();
 
+function normalizeHuaxiangAccount(raw) {
+  if (!raw) return null;
+  const token = String(raw.token || '').trim();
+  let cookie = String(raw.cookie || '').trim();
+  const label = String(raw.label || raw.username || '').trim().slice(0, 80);
+  const username = String(raw.username || '').trim().slice(0, 80);
+
+  // 允许用户只粘 JSESSIONID/ajaxtoken/Admin-Token 三个值，也允许直接粘完整 Cookie。
+  const parts = [];
+  if (raw.jsessionid) parts.push(`JSESSIONID=${String(raw.jsessionid).trim()}`);
+  if (raw.adminToken) parts.push(`Admin-Token=${String(raw.adminToken).trim()}`);
+  if (raw.ajaxtoken) parts.push(`ajaxtoken=${String(raw.ajaxtoken).trim()}`);
+  if (parts.length) cookie = parts.join('; ');
+
+  if (!token || !cookie) {
+    throw new Error('花乡花木账号缺少 token 或 cookie');
+  }
+  // JSESSIONID 可能是 HttpOnly，浏览器脚本读不到；实测 token + ajaxtoken 也能覆盖多数接口。
+  // 如果用户从 DevTools Application/Cookies 手动补上 JSESSIONID，会原样携带。
+  if (!/ajaxtoken=/i.test(cookie)) {
+    throw new Error('花乡花木 Cookie 至少需要包含 ajaxtoken');
+  }
+  if (!/Admin-Token=/i.test(cookie)) {
+    cookie += '; Admin-Token=admin-token';
+  }
+  return { token, cookie, label: label || username || '花乡临时账号', username, freightTemplateId: Number(raw.freightTemplateId) || 216 };
+}
+
+
 // ==================== 1. 发布商品到多平台 ====================
 
 /**
@@ -27,7 +56,7 @@ const router = Router();
  */
 router.post('/', async (req, res) => {
   try {
-    const { productId, platforms, requestedBy } = req.body;
+    const { productId, platforms, requestedBy, accounts, platformAccounts } = req.body;
 
     // 参数校验
     if (!productId) {
@@ -46,8 +75,14 @@ router.post('/', async (req, res) => {
       });
     }
 
+    const normalizedAccounts = {};
+    const accountInput = platformAccounts || accounts || {};
+    if (platforms.includes('huaxiang') && accountInput.huaxiang) {
+      normalizedAccounts.huaxiang = normalizeHuaxiangAccount(accountInput.huaxiang);
+    }
+
     // 创建任务并入队
-    const taskData = createPublishTask({ productId, platforms: [...new Set(platforms)], requestedBy });
+    const taskData = createPublishTask({ productId, platforms: [...new Set(platforms)], requestedBy, platformAccounts: normalizedAccounts });
     const taskId = taskQueue.enqueue(taskData);
 
     return res.status(202).json({
@@ -189,11 +224,12 @@ router.post('/offline', async (req, res) => {
 
     // 记录下架操作
     stateManager.addRecord({
-      taskId: 'offline',
+      taskId: 'offline-' + Date.now(),
       productId: productId || 'unknown',
       platform,
       status: result.success ? 'offline' : 'failed',
       platformProductId,
+      errorMessage: result.success ? null : (result.errorMessage || '下架失败'),
     });
 
     return res.json({
@@ -229,20 +265,7 @@ router.get('/platforms', (req, res) => {
 /**
  * GET /api/publish/health — 健康检查
  */
-router.get('/health', (req, res) => {
-  const queueStats = taskQueue.getQueueStats();
-  const stateStats = stateManager.getStats();
-  return res.json({
-    status: 'ok',
-    service: 'publish-service',
-    uptime: process.uptime(),
-    queue: queueStats,
-    state: stateStats,
-    timestamp: new Date().toISOString(),
-  });
-});
 
-module.exports = router;
 
 /**
  * GET /api/publish/minio-stats
@@ -256,7 +279,6 @@ router.get('/minio-stats', async (req, res) => {
 
     for (const folder of folders) {
       try {
-        const prefix = config.minio.bucket + '/' + folder;
         const objects = await new Promise((resolve, reject) => {
           const items = [];
           const stream = minioClient.client.listObjects(config.minio.bucket, folder + '/', true);
@@ -278,3 +300,18 @@ router.get('/minio-stats', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+router.get('/health', (req, res) => {
+  const queueStats = taskQueue.getQueueStats();
+  const stateStats = stateManager.getStats();
+  return res.json({
+    status: 'ok',
+    service: 'publish-service',
+    uptime: process.uptime(),
+    queue: queueStats,
+    state: stateStats,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+module.exports = router;

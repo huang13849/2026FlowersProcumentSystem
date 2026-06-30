@@ -2,6 +2,54 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { gatewayApi } from '../api';
 
+// ── 图片压缩（目标 100KB 以内）──
+const IMG_LIMIT = 100 * 1024;
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      if (file.type && file.type !== '') return resolve(file);
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    let settled = false;
+    const cleanup = () => { try { URL.revokeObjectURL(url); } catch {} };
+    const done = (f) => { if (settled) return; settled = true; cleanup(); resolve(f); };
+    const fail = (e) => { if (settled) return; settled = true; cleanup(); reject(e); };
+    const timer = setTimeout(() => fail(new Error('图片处理超时')), 15000);
+    img.onerror = () => { clearTimeout(timer); fail(new Error('无法读取该图片')); };
+    img.onload = () => {
+      clearTimeout(timer);
+      try {
+        if (file.size <= IMG_LIMIT && /image\/(jpe?g|png|webp)/i.test(file.type)) return done(file);
+        let { width, height } = img;
+        const MAX_DIM = 1200;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          const r = Math.min(MAX_DIM / width, MAX_DIM / height);
+          width = Math.round(width * r); height = Math.round(height * r);
+        }
+        const canvas = document.createElement('canvas');
+        const tryCompress = (q, curW, curH) => {
+          canvas.width = curW; canvas.height = curH;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, curW, curH);
+          canvas.toBlob((blob) => {
+            if (!blob) return fail(new Error('图片压缩失败'));
+            if (blob.size <= IMG_LIMIT || (q <= 0.3 && curW <= 400)) {
+              done(new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
+            } else if (q <= 0.3) {
+              tryCompress(0.5, Math.round(curW * 0.7), Math.round(curH * 0.7));
+            } else {
+              tryCompress(q - 0.1, curW, curH);
+            }
+          }, 'image/jpeg', q);
+        };
+        tryCompress(0.8, width, height);
+      } catch (e) { fail(e); }
+    };
+    img.src = url;
+  });
+}
+
 export default function ProductForm() {
   const nav = useNavigate();
   const [form, setForm] = useState({});
@@ -32,10 +80,14 @@ export default function ProductForm() {
 
   const uploadImages = async (files, targetArray, setTargetArray) => {
     setUploading(true);
-    const fd = new FormData();
-    fd.append('folder', 'products');
-    for (const f of files) fd.append('files', f);
     try {
+      const compressed = [];
+      for (const f of files) {
+        try { compressed.push(await compressImage(f)); } catch (e) { console.warn('压缩失败，使用原图', e); compressed.push(f); }
+      }
+      const fd = new FormData();
+      fd.append('folder', 'products');
+      for (const f of compressed) fd.append('files', f);
       const r = await gatewayApi.post('/api/minio/upload-multiple', fd);
       setTargetArray(i => [...i, ...(r.data.files || []).map(f => f.url)]);
     } catch (e) { alert('上传失败'); }
@@ -81,7 +133,7 @@ export default function ProductForm() {
   };
 
   const fields = [
-    ['title','商品标题','text',true], ['productId','SKU','text'], ['category','分类','text'],
+    ['title','商品标题','text',true], ['englishTitle','英文名','text'], ['productId','SKU','text'], ['category','分类','text'],
     ['sellerName','商家名称','text',true], ['flowerName','花卉名称','text'], ['specSize','规格尺寸','text'],
     ['potColorNotes','备注','text'], ['deliveryMethod','履约方式','text'], ['origin','发货地','text'],
     ['weight','重量(kg)','number'], ['stock','库存','number'],
@@ -119,6 +171,35 @@ export default function ProductForm() {
 
       {renderImageSection('📷 商品主图', mainImages, setMainImages, mainFileRef, uploadMainImg, '#1890ff')}
       {renderImageSection('🖼️ 商品详情图', detailImages, setDetailImages, detailFileRef, uploadDetailImg, '#52c41a')}
+
+      {/* 花期选择（12月可视化）*/}
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:13, fontWeight:600, color:'#389e0d', marginBottom:8 }}>🌸 花期（点击选择开花月份）</div>
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
+          {Array.from({ length: 12 }, (_, idx) => idx + 1).map(m => {
+            const months = form.floweringMonths || [];
+            const on = months.includes(m);
+            return (
+              <span key={m}
+                onClick={() => {
+                  const cur = form.floweringMonths || [];
+                  const next = cur.includes(m) ? cur.filter(x => x !== m) : [...cur, m].sort((a,b)=>a-b);
+                  set('floweringMonths', next);
+                }}
+                style={{
+                  width:34, height:30, lineHeight:'30px', textAlign:'center', fontSize:12,
+                  cursor:'pointer', userSelect:'none', borderRadius:4,
+                  border:'1px solid ' + (on ? '#389e0d' : '#d9d9d9'),
+                  background: on ? '#52c41a' : '#fff', color: on ? '#fff' : '#999',
+                }}>{m}月</span>
+            );
+          })}
+          <button type="button" onClick={() => set('floweringMonths', (form.floweringMonths||[]).length===12 ? [] : [1,2,3,4,5,6,7,8,9,10,11,12])}
+            style={{ padding:'4px 10px', fontSize:12, border:'1px solid #1890ff', color:'#1890ff', background:'#fff', borderRadius:4, cursor:'pointer' }}>
+            {(form.floweringMonths||[]).length===12 ? '清空' : '全年'}
+          </button>
+        </div>
+      </div>
 
       <div style={{ padding:8, background:'#f6ffed', border:'1px solid #b7eb8f', borderRadius:4, marginBottom:16, fontSize:12, color:'#389e0d' }}>
         💡 提示：可以直接粘贴图片（Ctrl+V / Cmd+V）到页面，第一张粘贴为头图，之后粘贴为详情图
