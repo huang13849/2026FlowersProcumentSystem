@@ -10,6 +10,9 @@ const ShopSchema = new mongoose.Schema({
   contactName:       { type: String, default: '' },
   date:              { type: String, default: '' },
   idNumber:          { type: String, default: '' },
+  address:           { type: String, default: '' },
+  longitude:         { type: Number, default: null },
+  latitude:          { type: Number, default: null },
   // Image arrays: each item is { url, key, name }
   idCardImages:      [{ url: String, key: String, name: String }],
   bankCardImages:    [{ url: String, key: String, name: String }],

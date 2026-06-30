@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema({
   title: { type: String, required: true, index: true },
+  englishTitle: { type: String, default: '', index: true },
   isListed: { type: Boolean, default: false, index: true },
   category: { type: String, index: true },
   sellerName: String,
@@ -20,6 +21,10 @@ const productSchema = new mongoose.Schema({
   after_sale_images: [String],
   product_videos: [String],
   flowerName: String,
+  // 花期：1-12 表示有花期的月份，便于按月份筛选植物
+  floweringMonths: { type: [Number], default: [], index: true },
+  // 场景标签：用于首页「成功案例/场景」展示与按场景筛选
+  sceneTags: { type: [String], default: [], index: true },
   contactPerson: String,
   specSize: String,
   deliveryMethod: String,

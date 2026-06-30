@@ -33,3 +33,12 @@ dist/
 .DS_Store
 Thumbs.db
 ._*
+
+# Local backup/scratch files generated during hotfixes
+*.bak
+*.bak-*
+*.bak.*
+*.b64
+
+# One-off local verification scripts
+verify-*.cjs

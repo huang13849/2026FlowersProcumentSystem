@@ -14,6 +14,7 @@ const axios = require('axios');
 const config = require('../config');
 const { getAdapter } = require('../adapter');
 const minioClient = require('../client/MinioImageClient');
+const stateManager = require('../core/StateManager');
 
 const router = Router();
 
@@ -45,6 +46,7 @@ router.post('/start', async (req, res) => {
       taskId: taskId,
       productId: productId,
       product: product,
+      sourceProductId: productId,
       step: 1,
       stepName: '解析源商品',
       status: { overall: 'step1_done', step1: 'done', step2: 'waiting', step3: 'waiting', step4: 'waiting' },
@@ -367,8 +369,18 @@ router.post('/publish', async (req, res) => {
     task.status.step4 = success ? 'done' : 'failed';
     task.status.overall = success ? 'completed' : 'step4_failed';
     task.progress = success ? 100 : 75;
-    task.productId = productId || '';
+    task.platformProductId = productId || '';
     task.completedAt = success ? new Date().toISOString() : null;
+
+    // 写入统一发布记录，供 /publish 页面展示和后续下架使用
+    stateManager.addRecord({
+      taskId: taskId,
+      productId: task.sourceProductId || (task.product && task.product._id) || task.productId || 'unknown',
+      platform: 'shipinhao',
+      status: success ? 'success' : 'failed',
+      platformProductId: productId || null,
+      errorMessage: errorMsg || null,
+    });
 
     return res.json({
       success: success,

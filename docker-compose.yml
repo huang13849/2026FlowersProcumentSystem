@@ -160,6 +160,21 @@ services:
       API_KEYS: ***REMOVED_API_KEY***,***REMOVED_API_KEY***
       INTERNAL_TOKEN: ***REMOVED_INTERNAL_TOKEN***
       REDIS_HOST: 100.96.54.109
+  scene-service:
+    build: ./scene-service
+    container_name: scene-service
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      SCENE_PORT: '3012'
+      MONGO_URI: mongodb://admin:Hy%401987921@100.67.126.90:27017/supply_chain?authSource=admin&replicaSet=rs0&readPreference=secondaryPreferred
+      SCENE_DB: supply_chain
+      MINIO_ENDPOINT: 100.96.54.109:9000
+      MINIO_BUCKET: supply-chain
+      MINIO_PREFIX: scenes
+      MINIO_PUBLIC_URL: http://100.96.54.109:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
   order-service:
     build: ./order-service
     container_name: order-service
