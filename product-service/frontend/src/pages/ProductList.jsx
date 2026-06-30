@@ -35,6 +35,8 @@ const COLUMNS = [
   { field: 'sellerName',   label: '商家',     width: 110, type: 'string', editable: true },
   // 8: 花卉
   { field: 'flowerName',   label: '花卉',     width: 90,  type: 'string', editable: true },
+  // 8b: 英文名（移到花卉后面）
+  { field: 'englishTitle', label: '英文', width: 140, type: 'string', editable: true },
   // 8b: 花期（12格可视化）
   { field: 'floweringMonths', label: '花期', width: 122, type: 'flowering', editable: false },
   // 9: 零/批
@@ -131,6 +133,8 @@ export default function ProductList() {
     try { return JSON.parse(localStorage.getItem('customSceneTags') || '[]'); } catch { return []; }
   }); // 用户自定义添加的标签
   const [sceneTagInput, setSceneTagInput] = useState('');
+  // 上传进度提示: { phase: 'compress'|'upload'|'done'|'error', pct: 0-100, msg, total, current }
+  const [uploadStatus, setUploadStatus] = useState(null);
   const nav = useNavigate();
 
   // ── Load all products (no pagination) ──
@@ -303,29 +307,100 @@ export default function ProductList() {
     return s > 0 ? (pft / s) * 100 : 0;
   };
 
-  // ── Image compression ──
-  const compressImage = async (file) => {
-    if (!file.type.startsWith('image/')) return file;
-    const limit = 4 * 1024 * 1024;
-    if (file.size <= limit) return file;
-    return new Promise((resolve) => {
+  // ── Image compression（目标 2MB 以内，带超时与错误处理）──
+  const IMG_LIMIT = 2 * 1024 * 1024; // 2MB 硬上限
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) {
+        // 非标准 image/* (如手机 HEIC 有时 type 为空) 也尝试解码
+        if (file.type && file.type !== '') return resolve(file);
+      }
+      const url = URL.createObjectURL(file);
       const img = new Image();
+      let settled = false;
+      const cleanup = () => { try { URL.revokeObjectURL(url); } catch {} };
+      const done = (f) => { if (settled) return; settled = true; cleanup(); resolve(f); };
+      const fail = (e) => { if (settled) return; settled = true; cleanup(); reject(e); };
+      // 15s 超时兜底，避免 onload/onerror 都不触发导致永久挂起
+      const timer = setTimeout(() => fail(new Error('图片处理超时（可能是 HEIC 等不支持的格式，请用 JPG/PNG）')), 15000);
+      img.onerror = () => { clearTimeout(timer); fail(new Error('无法读取该图片（可能是 HEIC/损坏文件，请换 JPG/PNG）')); };
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let { width, height } = img;
-        if (width > 1920) { height = height * 1920 / width; width = 1920; }
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-        const tryCompress = (q) => {
-          canvas.toBlob((blob) => {
-            if (blob.size <= limit || q <= 0.15) resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
-            else tryCompress(q - 0.1);
-          }, 'image/jpeg', q);
-        };
-        tryCompress(0.8);
+        clearTimeout(timer);
+        try {
+          // 已经够小且是常见格式：直接用
+          if (file.size <= IMG_LIMIT && /image\/(jpe?g|png|webp)/i.test(file.type)) return done(file);
+          let { width, height } = img;
+          const MAX_DIM = 1920;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            const r = Math.min(MAX_DIM / width, MAX_DIM / height);
+            width = Math.round(width * r); height = Math.round(height * r);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const tryCompress = (q) => {
+            canvas.toBlob((blob) => {
+              if (!blob) return fail(new Error('图片压缩失败'));
+              if (blob.size <= IMG_LIMIT || q <= 0.4) {
+                if (blob.size > IMG_LIMIT && q <= 0.4) {
+                  // 质量已到底仍超 2MB → 继续缩小尺寸再压一轮
+                  const c2 = document.createElement('canvas');
+                  c2.width = Math.round(canvas.width * 0.7);
+                  c2.height = Math.round(canvas.height * 0.7);
+                  if (c2.width < 200) return fail(new Error('图片无法压缩到 2MB 以内'));
+                  c2.getContext('2d').drawImage(canvas, 0, 0, c2.width, c2.height);
+                  canvas.width = c2.width; canvas.height = c2.height;
+                  ctx.drawImage(c2, 0, 0);
+                  return tryCompress(0.8);
+                }
+                done(new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
+              } else {
+                tryCompress(q - 0.1);
+              }
+            }, 'image/jpeg', q);
+          };
+          tryCompress(0.85);
+        } catch (e) { fail(e); }
       };
-      img.src = URL.createObjectURL(file);
+      img.src = url;
     });
+  };
+
+  // ── 统一上传：压缩(带进度) → 上传(带百分比) → 返回 urls ──
+  const compressAndUpload = async (rawFiles) => {
+    const files = Array.from(rawFiles || []);
+    if (!files.length) return [];
+    const compressed = [];
+    for (let i = 0; i < files.length; i++) {
+      setUploadStatus({ phase: 'compress', pct: Math.round((i / files.length) * 100), msg: `压缩中 ${i + 1}/${files.length}`, total: files.length, current: i + 1 });
+      try {
+        compressed.push(await compressImage(files[i]));
+      } catch (e) {
+        setUploadStatus({ phase: 'error', pct: 0, msg: e.message || '图片处理失败' });
+        setTimeout(() => setUploadStatus(null), 4000);
+        throw e;
+      }
+    }
+    const fd = new FormData();
+    compressed.forEach(f => fd.append('files', f));
+    setUploadStatus({ phase: 'upload', pct: 0, msg: '上传中…', total: files.length, current: files.length });
+    try {
+      const r = await api.post('/images/upload-multiple', fd, {
+        timeout: 120000,
+        onUploadProgress: (ev) => {
+          if (ev.total) setUploadStatus({ phase: 'upload', pct: Math.round((ev.loaded / ev.total) * 100), msg: '上传中…', total: files.length, current: files.length });
+        },
+      });
+      setUploadStatus({ phase: 'done', pct: 100, msg: '上传完成' });
+      setTimeout(() => setUploadStatus(null), 1200);
+      return r.data.urls || [];
+    } catch (err) {
+      const m = err.code === 'ECONNABORTED' ? '上传超时，请重试' : (err.response?.data?.error || err.message || '上传失败');
+      setUploadStatus({ phase: 'error', pct: 0, msg: m });
+      setTimeout(() => setUploadStatus(null), 4000);
+      throw err;
+    }
   };
 
   // ── 花期月份切换（点击单格 / 全年 / 清空）──
@@ -435,26 +510,19 @@ export default function ProductList() {
     const inp = document.createElement('input');
     inp.type = 'file'; inp.multiple = true; inp.accept = 'image/*';
     inp.onchange = async (ev) => {
-      if (ev.target.files?.length) {
-        const compressed = await Promise.all(Array.from(ev.target.files).map(compressImage));
-        const fd = new FormData();
-        compressed.forEach(f => fd.append('files', f));
-        try {
-          const r = await api.post('/images/upload-multiple', fd);
-          const urls = r.data.urls || [];
-          if (urls.length) {
-            const key = imgFieldKey(colField);
-            const newUrls = [...(product[key] || []), ...urls];
-            setAllProducts(prev => prev.map(p =>
-              p._id === product._id
-                ? { ...p, [key]: newUrls }
-                : p
-            ));
-            // 持久化到数据库
-            try { await api.put('/products/' + product._id, { [key]: newUrls }); } catch (e) { console.warn('保存图片到数据库失败', e); }
-          }
-        } catch (err) { alert('上传失败'); }
-      }
+      if (!ev.target.files?.length) return;
+      try {
+        const urls = await compressAndUpload(ev.target.files);
+        if (urls.length) {
+          const key = imgFieldKey(colField);
+          const newUrls = [...(product[key] || []), ...urls];
+          setAllProducts(prev => prev.map(p =>
+            p._id === product._id ? { ...p, [key]: newUrls } : p
+          ));
+          // 持久化到数据库
+          try { await api.put('/products/' + product._id, { [key]: newUrls }); } catch (e) { console.warn('保存图片到数据库失败', e); }
+        }
+      } catch (err) { /* uploadStatus 已提示错误 */ }
     };
     inp.click();
   };
@@ -517,12 +585,8 @@ export default function ProductList() {
       if (!imageFiles.length) return;
       e.preventDefault();
 
-      const compressed = await Promise.all(imageFiles.map(compressImage));
-      const fd = new FormData();
-      compressed.forEach(f => fd.append('files', f));
       try {
-        const r = await api.post('/images/upload-multiple', fd);
-        const urls = r.data.urls || [];
+        const urls = await compressAndUpload(imageFiles);
         if (urls.length) {
           const key = imgFieldKey(colField);
           const latestProductId = productId;
@@ -539,13 +603,11 @@ export default function ProductList() {
             );
           });
         }
-      } catch (err) {
-        alert('粘贴上传失败: ' + (err.response?.data?.error || err.message));
-      }
+      } catch (err) { /* uploadStatus 已提示错误 */ }
     };
     el.addEventListener('paste', handlePaste);
     return () => el.removeEventListener('paste', handlePaste);
-  }, [pasteTarget, compressImage]);
+  }, [pasteTarget]);
 
   // ── Selection ──
   const toggle = id => {
@@ -654,6 +716,39 @@ export default function ProductList() {
   // ── Render ──
   return (
     <div style={{ padding:'8px 12px', background:'#f5f5f5', minHeight:'calc(100vh - 48px)' }}>
+      {/* ════ 上传进度浮层（压缩/上传 圆环百分比）════ */}
+      {uploadStatus && (
+        <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.35)' }}>
+          <div style={{ background:'#fff', borderRadius:12, padding:'24px 28px', minWidth:180, display:'flex', flexDirection:'column', alignItems:'center', gap:12, boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
+            {(() => {
+              const isErr = uploadStatus.phase === 'error';
+              const isDone = uploadStatus.phase === 'done';
+              const pct = Math.max(0, Math.min(100, uploadStatus.pct || 0));
+              const R = 30, C = 2 * Math.PI * R;
+              const color = isErr ? '#e74c3c' : (isDone ? '#52c41a' : '#1890ff');
+              return (
+                <svg width="76" height="76" viewBox="0 0 76 76">
+                  <circle cx="38" cy="38" r={R} fill="none" stroke="#eee" strokeWidth="7" />
+                  {!isErr && (
+                    <circle cx="38" cy="38" r={R} fill="none" stroke={color} strokeWidth="7"
+                      strokeLinecap="round" strokeDasharray={C}
+                      strokeDashoffset={C * (1 - pct / 100)}
+                      transform="rotate(-90 38 38)"
+                      style={{ transition:'stroke-dashoffset 0.2s' }} />
+                  )}
+                  <text x="38" y="38" textAnchor="middle" dominantBaseline="central"
+                    fontSize={isErr ? 28 : 16} fontWeight="600" fill={color}>
+                    {isErr ? '✕' : (isDone ? '✓' : pct + '%')}
+                  </text>
+                </svg>
+              );
+            })()}
+            <div style={{ fontSize:13, color: uploadStatus.phase === 'error' ? '#e74c3c' : '#333', textAlign:'center', maxWidth:220, lineHeight:1.4 }}>
+              {uploadStatus.msg}
+            </div>
+          </div>
+        </div>
+      )}
       {/* ════ Toolbar ════ */}
       <div style={{ display:'flex', gap:8, marginBottom:8, alignItems:'center', flexWrap:'wrap' }}>
         {/* 商家名称筛选 */}

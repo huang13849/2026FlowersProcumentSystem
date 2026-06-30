@@ -12,6 +12,7 @@ const SIMPLE_EXPORT_COLUMNS = [
   { header: "分类", key: "category", width: 14 },
   { header: "商家", key: "sellerName", width: 18 },
   { header: "花卉名称", key: "flowerName", width: 14 },
+  { header: "英文名", key: "englishTitle", width: 24 },
   { header: "花期", key: "floweringMonths", width: 16 },
   { header: "场景标签", key: "sceneTags", width: 22 },
   { header: "零批", key: "tradeType", width: 10 },
@@ -114,25 +115,70 @@ function formatExportValue(p, key) {
   return p[key] ?? "";
 }
 
-async function exportNoImageExcel(products, { mode = "simple" } = {}) {
+async function exportFullWithImages(products, { mode = "full" } = {}) {
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(mode === "full" ? "全列全量导出" : "简单导出");
-  const columns = mode === "full" ? FULL_EXPORT_COLUMNS : SIMPLE_EXPORT_COLUMNS;
+  const ws = wb.addWorksheet("全列全量导出");
+  const columns = FULL_EXPORT_COLUMNS;
   ws.columns = columns;
   const headerRow = ws.getRow(1);
   headerRow.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
-  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: mode === "full" ? "FF3B3B5C" : "FF1F7A3A" } };
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3B3B5C" } };
   headerRow.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
   headerRow.height = 24;
-  for (const p of products) {
-    const row = {};
-    for (const col of columns) row[col.key] = formatExportValue(p, col.key);
-    ws.addRow(row);
+
+  // 哪些列要嵌入图片（主图 + 场景应用图）
+  const imgEmbedCols = ["panorama_images", "scene_images"];
+  const imgH = 80;
+  const extReg = /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i;
+
+  async function fetchImage(url) {
+    if (!url) return null;
+    try {
+      const resp = await axios.get(url, { responseType: "arraybuffer", timeout: 8000 });
+      let ext = "png";
+      const m = url.match(extReg);
+      if (m) ext = m[1].toLowerCase();
+      if (ext === "jpeg") ext = "jpg";
+      return { buffer: Buffer.from(resp.data), extension: ext };
+    } catch (e) {
+      console.warn("Image download failed:", url, e.message);
+      return null;
+    }
   }
-  ws.eachRow((row, rowNumber) => {
-    if (rowNumber > 1) row.height = 22;
-    row.alignment = { vertical: "middle", wrapText: mode === "full" };
-  });
+
+  for (let i = 0; i < products.length; i++) {
+    const p = products[i];
+    const rowIdx = i + 2;
+    const row = ws.getRow(rowIdx);
+    row.height = imgH + 4;
+
+    // 填充所有文本列
+    for (const col of columns) {
+      row.getCell(col.key).value = formatExportValue(p, col.key);
+    }
+
+    // 嵌入主图和场景应用图
+    for (const imgKey of imgEmbedCols) {
+      const firstUrl = (p[imgKey] || [])[0];
+      if (firstUrl) {
+        const imgData = await fetchImage(firstUrl);
+        if (imgData) {
+          const imageId = wb.addImage({
+            buffer: imgData.buffer,
+            extension: imgData.extension,
+          });
+          const colIdx = columns.findIndex(c => c.key === imgKey);
+          const sizeW = Math.round(imgH * 0.75);
+          ws.addImage(imageId, {
+            tl: { col: colIdx, row: rowIdx - 1 },
+            ext: { width: sizeW, height: imgH },
+            editAs: "oneCell",
+          });
+        }
+      }
+    }
+  }
+
   ws.views = [{ state: "frozen", ySplit: 1, xSplit: 1 }];
   ws.autoFilter = { from: "A1", to: ws.getRow(1).getCell(columns.length).address };
   return wb.xlsx.writeBuffer();
@@ -143,8 +189,33 @@ async function exportNoImageExcel(products, { mode = "simple" } = {}) {
  * Downloads each image, adds it to the cell, and sets row height accordingly.
  */
 export async function exportToExcel(products, { imageHeight = 80, mode = "withImages" } = {}) {
-  if (mode === "simple" || mode === "full") {
-    return exportNoImageExcel(products, { mode });
+  if (mode === "simple") {
+    // 简单导出：纯文本，无图片
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("简单导出");
+    const columns = SIMPLE_EXPORT_COLUMNS;
+    ws.columns = columns;
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F7A3A" } };
+    headerRow.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    headerRow.height = 24;
+    for (const p of products) {
+      const row = {};
+      for (const col of columns) row[col.key] = formatExportValue(p, col.key);
+      ws.addRow(row);
+    }
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) row.height = 22;
+      row.alignment = { vertical: "middle", wrapText: false };
+    });
+    ws.views = [{ state: "frozen", ySplit: 1, xSplit: 1 }];
+    ws.autoFilter = { from: "A1", to: ws.getRow(1).getCell(columns.length).address };
+    return wb.xlsx.writeBuffer();
+  }
+  if (mode === "full") {
+    // 全列全量导出：所有字段 + 嵌入主图和场景应用图
+    return exportFullWithImages(products, { mode });
   }
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("商品列表");
@@ -160,6 +231,7 @@ export async function exportToExcel(products, { imageHeight = 80, mode = "withIm
     { header: "尺寸参考",     key: "size_ref_images",   width: 18 },
     // 文字/数字列
     { header: "商品标题",     key: "title",             width: 36 },
+    { header: "英文名",       key: "englishTitle",      width: 24 },
     { header: "分类",         key: "category",          width: 12 },
     { header: "商家",         key: "sellerName",        width: 16 },
     { header: "花卉名称",     key: "flowerName",        width: 14 },
@@ -233,6 +305,7 @@ export async function exportToExcel(products, { imageHeight = 80, mode = "withIm
 
     // Fill text columns
     row.getCell("title").value = p.title || "";
+    row.getCell("englishTitle").value = p.englishTitle || "";
     row.getCell("category").value = p.category || "";
     row.getCell("sellerName").value = p.sellerName || "";
     row.getCell("flowerName").value = p.flowerName || "";
@@ -322,7 +395,7 @@ export async function exportToExcel(products, { imageHeight = 80, mode = "withIm
 
 export function exportToCSV(products) {
   const fields = [
-    "productId", "title", "category", "sellerName", "flowerName",
+    "productId", "title", "englishTitle", "category", "sellerName", "flowerName",
     "contactPerson", "specSize", "deliveryMethod", "origin",
     "stock", "weight", "dropShippingCost",
     "dropShippingMarketPrice", "tradeType", "settlementPrice", "shippingFee", "minOrder", "costPrice", "sellPrice",
