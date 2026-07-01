@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: supply-chain
+  labels:
+    app: order-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+      - name: order-service
+        image: 100.76.15.64:5001/supply-chain/order-service:latest
+        imagePullPolicy: IfNotPresent
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3008
+        envFrom:
+        - configMapRef:
+            name: supply-chain-common
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3008"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3008
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3008
+          initialDelaySeconds: 3
+          periodSeconds: 10

@@ -1,0 +1,17 @@
+name: Trigger Jenkins CI/CD
+on:
+  push:
+    branches: [ main, dev ]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Jenkins
+        uses: appleboy/jenkins-action@master
+        with:
+          url: "http://100.96.54.109:30880/"
+          user: "admin"
+          token: "${{ secrets.JENKINS_TRIGGER_TOKEN }}"
+          job_name: "supply-chain-platform/deploy"
+          wait: true

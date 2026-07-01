@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: supply-chain
+  labels:
+    app: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+      - name: api-gateway
+        image: 100.76.15.64:5001/supply-chain/api-gateway:latest
+        imagePullPolicy: IfNotPresent
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3007
+        envFrom:
+        - configMapRef:
+            name: supply-chain-common
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3007"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3007
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3007
+          initialDelaySeconds: 3
+          periodSeconds: 10

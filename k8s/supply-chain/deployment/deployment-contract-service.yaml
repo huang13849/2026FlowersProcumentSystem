@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contract-service
+  namespace: supply-chain
+  labels:
+    app: contract-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: contract-service
+  template:
+    metadata:
+      labels:
+        app: contract-service
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+      - name: contract-service
+        image: 100.76.15.64:5001/supply-chain/contract-service:latest
+        imagePullPolicy: IfNotPresent
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3006
+        envFrom:
+        - configMapRef:
+            name: supply-chain-common
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3006"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3006
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3006
+          initialDelaySeconds: 3
+          periodSeconds: 10
