@@ -180,11 +180,17 @@ services:
     container_name: order-service
     restart: unless-stopped
     network_mode: host
+    env_file:
+    - ./production.secrets.env
     environment:
       PORT: 3008
       GATEWAY_URL: http://localhost:3007
       API_KEY: ***REMOVED_API_KEY***
       PG_DATABASE: supply_chain
+      PG_HOST: 100.67.126.90
+      PG_PORT: 5432
+      PG_USER: postgres
+      PG_PASSWORD: ${POSTGRES_PASSWORD}
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:1.1.0
     container_name: nginx-exporter

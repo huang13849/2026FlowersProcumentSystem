@@ -36,7 +36,7 @@ const pgPool = new Pool({
   port: process.env.PG_PORT || 5432,
   database: DB_NAME,
   user: process.env.PG_USER || 'postgres',
-  password: process.env.PG_PASSWORD || '***REMOVED_PG_PW***',
+  password: process.env.PG_PASSWORD || process.env.POSTGRES_PASSWORD || '***REMOVED_PG_PW***',
   max: 5,
   idleTimeoutMillis: 30000,
 });
@@ -53,7 +53,20 @@ async function ensureOrderSchema() {
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS coupon_discount NUMERIC(12,2) DEFAULT 0',
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS cost_amount NUMERIC(12,2) DEFAULT 0',
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS profit_amount NUMERIC(12,2) DEFAULT 0',
-    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS region VARCHAR(20) DEFAULT 'cn'"
+    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS region VARCHAR(20) DEFAULT 'cn'",
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS source_table TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS source_order_key TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS source_order_id TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS source_order_sn TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS source_shop_id TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS shop_name TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS shop_phone TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS consignee TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS order_status TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS shipping_status TEXT',
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS pay_status TEXT',
+    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_payload JSONB DEFAULT '{}'::jsonb",
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ'
   ];
   for (const sql of alters) await pgPool.query(sql);
 }
@@ -78,6 +91,18 @@ function pickOrderFields(src = {}) {
     cost_amount: src.cost_amount != null ? src.cost_amount : 0,
     profit_amount: src.profit_amount != null ? src.profit_amount : 0,
     region: src.region || 'cn',
+    source_table: src.source_table || null,
+    source_order_key: src.source_order_key || null,
+    source_order_id: src.source_order_id || null,
+    source_order_sn: src.source_order_sn || null,
+    source_shop_id: src.source_shop_id || null,
+    shop_name: src.shop_name || '',
+    shop_phone: src.shop_phone || '',
+    consignee: src.consignee || '',
+    order_status: src.order_status || '',
+    shipping_status: src.shipping_status || '',
+    pay_status: src.pay_status || '',
+    synced_at: src.synced_at || null,
   };
 }
 
@@ -110,17 +135,27 @@ function normalizeOrderList(result) {
   return result;
 }
 
-async function queryOrders({ page = 1, limit = 20, search, business_type, region, readFrom }) {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit), sort: '-created_at' });
-  const filter = {};
-  if (search) filter.member_name = { $like: `%${search}%` };
-  if (business_type && business_type !== '全部') filter.business_type = business_type;
-  if (region && region !== 'all') filter.region = region;
-  if (Object.keys(filter).length > 0) params.set('filter', JSON.stringify(filter));
-  if (readFrom) params.set('readFrom', readFrom);
-  const url = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}?${params.toString()}`;
-  const res = await axiosWithRetry({ url, method: 'get', headers, timeout: 15000 });
-  return normalizeOrderList(res.data);
+async function queryOrders({ page = 1, limit = 20, search, business_type, region, shop_name, readFrom }) {
+  const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+  const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
+  const offset = (pageNum - 1) * limitNum;
+  const conditions = [];
+  const params = [];
+  if (search) {
+    params.push(`%${search}%`);
+    conditions.push(`(member_name ILIKE $${params.length} OR phone ILIKE $${params.length} OR consignee ILIKE $${params.length} OR source_order_sn ILIKE $${params.length} OR shop_name ILIKE $${params.length})`);
+  }
+  if (business_type && business_type !== '全部') { params.push(business_type); conditions.push(`business_type = $${params.length}`); }
+  if (region && region !== 'all') { params.push(region); conditions.push(`region = $${params.length}`); }
+  if (shop_name && shop_name !== '全部') { params.push(shop_name); conditions.push(`shop_name = $${params.length}`); }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const countSql = `SELECT COUNT(*)::int AS total FROM purchase_orders ${where}`;
+  const dataSql = `SELECT * FROM purchase_orders ${where} ORDER BY COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+  const countResult = await pgPool.query(countSql, params);
+  const dataResult = await pgPool.query(dataSql, [...params, limitNum, offset]);
+  const total = countResult.rows[0]?.total || 0;
+  const result = { data: dataResult.rows, total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum), readFrom: 'primary' };
+  return normalizeOrderList(result);
 }
 
 app.get('/api/health', (req, res) => {
@@ -129,8 +164,8 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/orders', async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, business_type, region, readFrom } = req.query;
-    const result = await queryOrders({ page, limit, search, business_type, region, readFrom: readFrom || 'standby' });
+    const { page = 1, limit = 20, search, business_type, region, shop_name, readFrom } = req.query;
+    const result = await queryOrders({ page, limit, search, business_type, region, shop_name, readFrom: readFrom || 'primary' });
     res.json(result);
   } catch (err) {
     console.error('GET /api/orders error:', err.response?.status, err.response?.data || err.message);
@@ -291,18 +326,31 @@ app.get('/api/orders/stats/business-type', async (req, res) => {
 // Aggregate sum of income_amount and expense_amount
 app.get('/api/orders/stats/amount', async (req, res) => {
   try {
-    const { search, business_type, region } = req.query;
+    const { search, business_type, region, shop_name } = req.query;
     const conditions = [];
     const params = [];
-    if (search) { params.push(`%${search}%`); conditions.push(`member_name ILIKE $${params.length}`); }
+    if (search) {
+      params.push(`%${search}%`);
+      conditions.push(`(member_name ILIKE $${params.length} OR phone ILIKE $${params.length} OR consignee ILIKE $${params.length} OR source_order_sn ILIKE $${params.length} OR shop_name ILIKE $${params.length})`);
+    }
     if (business_type && business_type !== '全部') { params.push(business_type); conditions.push(`business_type = $${params.length}`); }
     if (region && region !== 'all') { params.push(region); conditions.push(`region = $${params.length}`); }
+    if (shop_name && shop_name !== '全部') { params.push(shop_name); conditions.push(`shop_name = $${params.length}`); }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await pgPool.query(
       `SELECT COALESCE(SUM(income_amount),0)::float AS total_income, COALESCE(SUM(expense_amount),0)::float AS total_expense, COALESCE(SUM(shipping_fee),0)::float AS total_shipping, COALESCE(SUM(coupon_discount),0)::float AS total_coupon, COALESCE(SUM(profit_amount),0)::float AS total_profit, COUNT(*)::int AS row_count FROM purchase_orders ${where}`,
       params
     );
     res.json({ data: rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/orders/stats/shop-name', async (req, res) => {
+  try {
+    const { rows } = await pgPool.query("SELECT COALESCE(NULLIF(shop_name,''),'未关联') AS shop_name, COUNT(*)::int AS count FROM purchase_orders GROUP BY COALESCE(NULLIF(shop_name,''),'未关联') ORDER BY count DESC");
+    res.json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
