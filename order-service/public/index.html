@@ -61,7 +61,7 @@ function EditableCell({ value, onChange, type = 'text', options }) {
 
   if (type === 'select') {
     if (editing) return (
-      <Select ref={ref} className="editable-cell-select" value={val} onChange={v => { setVal(v); setTimeout(() => { onChange(v); setEditing(false); }, 50); }}
+      <Select ref={ref} className="editable-cell-select" value={val} onChange={v => { setVal(v); setTimeout(() => { onChange(v); setEditing(false); }, 50); }
         onBlur={() => setEditing(false)} options={options} size="small" style={{ width: '100%' }}
         open onDropdownVisibleChange={v => { if (!v) setEditing(false); }} />
     );
@@ -221,7 +221,7 @@ function ProductPicker({ visible, onCancel, onConfirm, existingProducts }) {
              </div>
              <input type="checkbox" checked={isSelected(p._id)} readOnly style={{ width: 18, height: 18, cursor: 'pointer' }} />
            </div>
-         ))
+         ))}
         }
       </div>
       {total > 20 && <div style={{ marginTop: 8, textAlign: 'center' }}>
@@ -240,7 +240,7 @@ function App() {
   const [search, setSearch] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [stats, setStats] = useState([]);
-  const [amountStats, setAmountStats] = useState({ total_income: 0, total_expense: 0, row_count: 0 });
+  const [amountStats, setAmountStats] = useState({ total_income: 0, total_shipping: 0, total_coupon: 0, row_count: 0 });
   const [region, setRegion] = useState('cn');
   const [shopName, setShopName] = useState('全部');
   const [shopStats, setShopStats] = useState([]);
@@ -290,7 +290,7 @@ function App() {
       if (shopVal && shopVal !== '全部') params.set('shop_name', shopVal);
       const res = await fetch(`${API_BASE}/api/orders/stats/amount?${params}`);
       const json = await res.json();
-      setAmountStats(json.data || { total_income: 0, total_expense: 0, total_shipping: 0, total_coupon: 0, total_profit: 0, row_count: 0 });
+      setAmountStats(json.data || { total_income: 0, total_shipping: 0, total_coupon: 0, row_count: 0 });
     } catch (e) {}
   }, [search, businessType, region, shopName]);
 
@@ -307,7 +307,6 @@ function App() {
       });
       message.success('已更新');
       fetchData(pagination.current);
-      if (['income_amount', 'expense_amount', 'shipping_fee', 'coupon_discount', 'cost_amount', 'profit_amount'].includes(field)) fetchAmountStats();
     } catch (e) { message.error('更新失败'); }
   };
 
@@ -391,64 +390,109 @@ function App() {
     } catch (e) { message.error('关联产品失败'); }
   };
 
-  const columns = [
-    { title: 'ID', dataIndex: 'id', width: 55, sorter: true },
-    { title: '店铺', dataIndex: 'shop_name', width: 105, fixed: 'left',
-      render: (t) => <Tag color={t === '花哥友花' ? 'magenta' : t === '花予生活' ? 'purple' : t === '林草小店' ? 'green' : 'blue'}>{t || '-'}</Tag> },
-    { title: '源订单号', dataIndex: 'source_order_sn', width: 140, ellipsis: true, render: (t, r) => t || r.source_order_id || '-' },
-    { title: '收货人', dataIndex: 'consignee', width: 95, ellipsis: true },
-    { title: '手机号', dataIndex: 'phone', width: 120,
-      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'phone', v)} /> },
-    { title: '收货地址', dataIndex: 'delivery_address', width: 220, ellipsis: true,
-      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'delivery_address', v)} /> },
-    { title: '店铺ID', dataIndex: 'member_id', width: 100,
-      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'member_id', v)} /> },
-    { title: '店铺名', dataIndex: 'member_name', width: 140, ellipsis: true,
-      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'member_name', v)} /> },
-    { title: '经营类型', dataIndex: 'business_type', width: 100,
-      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'business_type', v)} type="select" options={businessTypeOptions} /> },
-    { title: '个人标签', dataIndex: 'personal_tag', width: 180,
-      render: (t, r) => <PersonalTagEditor value={t || ''} onChange={v => updateCell(r.id, 'personal_tag', v)} /> },
-    { title: '购买产品', dataIndex: 'product_title', width: 200,
-      render: (t, r) => {
-        const titles = Array.isArray(t) ? t : [];
-        return (
-          <div className="product-tags" onClick={() => openProductPicker(r)}>
-            {titles.map((title, i) => (
-              <Tag key={i} color="blue" style={{ margin: 0, maxWidth: 120 }} className="tag-mini" ellipsis>{title}</Tag>
-            ))}
-            <span className="add-btn">+</span>
-          </div>
-        );
-      }
+const columns = [
+    {
+      title: '序号',
+      dataIndex: 'id',
+      width: 60,
+      fixed: 'left',
+      editable: false,
     },
-    { title: '支付单号', dataIndex: 'payment_order_id', width: 155, ellipsis: true,
-      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'payment_order_id', v)} /> },
-    { title: '支付渠道', dataIndex: 'payment_channel', width: 110,
-      render: (t, r) => {
-        const currentVal = t || '微信支付';
-        return (
-          <Select value={currentVal} size="small" style={{width:'100%'}}
-            options={paymentChannelOptions}
-            onChange={v => updateCell(r.id, 'payment_channel', v)} />
-        );
-      } },
-    { title: '商品小计', dataIndex: 'product_subtotal', width: 105, align: 'right',
-      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'product_subtotal', v)} /> },
-    { title: '运费', dataIndex: 'shipping_fee', width: 90, align: 'right',
-      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'shipping_fee', v)} /> },
-    { title: '优惠券', dataIndex: 'coupon_code', width: 100,
-      render: (t, r) => <EditableCell value={t} onChange={v => updateCell(r.id, 'coupon_code', v)} /> },
-    { title: '优惠金额', dataIndex: 'coupon_discount', width: 105, align: 'right',
-      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'coupon_discount', v)} /> },
-    { title: '实收', dataIndex: 'income_amount', width: 105, align: 'right',
-      render: (t, r) => <MoneyEditableCell value={t} onChange={v => updateCell(r.id, 'income_amount', v)} /> },
-    { title: '订单状态', dataIndex: 'order_status', width: 90, render: t => t ? <Tag>{t}</Tag> : '-' },
-    { title: '发货状态', dataIndex: 'shipping_status', width: 90, render: t => t ? <Tag color="orange">{t}</Tag> : '-' },
-    { title: '支付状态', dataIndex: 'pay_status', width: 90, render: t => t ? <Tag color="green">{t}</Tag> : '-' },
-    { title: '同步时间', dataIndex: 'synced_at', width: 145, render: t => t ? dayjs(t).format('MM-DD HH:mm') : '-' },
-    { title: '购买时间', dataIndex: 'purchase_time', width: 145,
-      render: (t) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : <span style={{color:'#bbb'}}>-</span> },
+    {
+      title: '收货人',
+      dataIndex: 'consignee',
+      width: 100,
+      editable: true,
+    },
+    {
+      title: '手机号',
+      dataIndex: 'phone',
+      width: 120,
+      editable: true,
+    },
+    {
+      title: '收货地址',
+      dataIndex: 'delivery_address',
+      width: 220,
+      editable: true,
+    },
+    {
+      title: '店铺ID',
+      dataIndex: 'member_id',
+      width: 100,
+      editable: true,
+    },
+    {
+      title: '店铺名',
+      dataIndex: 'member_name',
+      width: 120,
+      editable: true,
+    },
+    {
+      title: '订单总价',
+      dataIndex: 'product_subtotal',
+      width: 100,
+      editable: true,
+      render: (val) => '¥' + val.toFixed(2),
+    },
+    {
+      title: '运费',
+      dataIndex: 'shipping_fee',
+      width: 80,
+      editable: true,
+      render: (val) => '¥' + val.toFixed(2),
+    },
+    {
+      title: '优惠码',
+      dataIndex: 'coupon_code',
+      width: 100,
+      editable: true,
+    },
+    {
+      title: '优惠金额',
+      dataIndex: 'coupon_discount',
+      width: 90,
+      editable: true,
+      render: (val) => '¥' + val.toFixed(2),
+    },
+    {
+      title: '业务类型',
+      dataIndex: 'business_type',
+      width: 100,
+      editable: true,
+      editableType: 'select',
+      options: businessTypeOptions.filter(o => o.value !== '全部'),
+    },
+    {
+      title: '订单时间',
+      dataIndex: 'purchase_time',
+      width: 180,
+      editable: true,
+      render: (val) => dayjs(val).format('YYYY-MM-DD HH:mm'),
+    },
+    {
+      title: '订单状态',
+      dataIndex: 'order_status',
+      width: 100,
+      editable: true,
+    },
+    {
+      title: '发货状态',
+      dataIndex: 'shipping_status',
+      width: 100,
+      editable: true,
+    },
+    {
+      title: '支付状态',
+      dataIndex: 'pay_status',
+      width: 100,
+      editable: true,
+    },
+    {
+      title: '操作',
+      fixed: 'right',
+      width: 120,
+    },
   ];
 
   const rowSelection = { selectedRowKeys, onChange: setSelectedRowKeys };
@@ -477,9 +521,18 @@ function App() {
       </div>
       <div className="app-content">
         <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col><Card size="small"><Statistic title="进项收入合计" value={Number(amountStats.total_income || 0)} precision={2} prefix="¥" valueStyle={{ color: '#3f8600' }} /></Card></Col>
-          <Col><Card size="small"><Statistic title="运费合计" value={Number(amountStats.total_shipping || 0)} precision={2} prefix="¥" /></Card></Col>
-          <Col><Card size="small"><Statistic title="优惠合计" value={Number(amountStats.total_coupon || 0)} precision={2} prefix="¥" /></Card></Col>
+          <Col span={6}>
+            <Card size="small"><Statistic title="订单总数" value={stats.reduce((s,x)=>s + (x.count || 0),0)} /></Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small"><Statistic title="总金额" value={Number(amountStats.total_income || 0)} precision={2} prefix="¥" valueStyle={{ color: '#3f8600' }} /></Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small"><Statistic title="总运费" value={Number(amountStats.total_shipping || 0)} precision={2} prefix="¥" /></Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small"><Statistic title="总优惠" value={Number(amountStats.total_coupon || 0)} precision={2} prefix="¥" /></Card>
+          </Col>
           {shopStats.filter(s => ['三度花','花予生活','花哥友花','林草小店'].includes(s.shop_name)).map(s => (
             <Col key={s.shop_name}>
               <Card size="small"><Statistic title={`店铺 ${s.shop_name}`} value={parseInt(s.count)} /></Card>
@@ -506,3 +559,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
+

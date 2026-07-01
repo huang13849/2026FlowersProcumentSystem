@@ -6,7 +6,7 @@
  * - 商品详情图 (imageArray) ← 其他所有图片（场景应用+包装+细节等），每张间隔 1s 上传
  *
  * 配送方式: distributionMode '0,1' = 快递发货+自提
- * 运费模板: template 字段 = 运费模板ID，expressFreight=1 表示运费模板模式
+ * 运费: expressFreight=0 表示统一运费；expressFreight=1 + template 表示运费模板模式
  */
 const BasePlatformAdapter = require('./BasePlatformAdapter');
 const axios = require('axios');
@@ -91,11 +91,16 @@ class HuaxiangAdapter extends BasePlatformAdapter {
     return this._qiniuToken;
   }
 
-  async _getFirstFreightTemplateId() {
-    // 从账号配置中读取运费模板ID，默认 216
-    const id = (this.account && this.account.freightTemplateId) || 216;
-    console.log(`[Huaxiang] 运费模板ID: ${id}`);
-    return id;
+  _getFreightConfig() {
+    const mode = (this.account && this.account.freightMode === 'template') ? 'template' : 'uniform';
+    const templateId = Number(this.account && this.account.freightTemplateId) || 216;
+    const uniformPostage = Math.max(0, Number(this.account && this.account.uniformPostage) || 0);
+    if (mode === 'template') {
+      console.log(`[Huaxiang] 运费模式: 运费模板 ${templateId}`);
+      return { mode, templateId, uniformPostage: 0 };
+    }
+    console.log(`[Huaxiang] 运费模式: 统一运费 ${uniformPostage}`);
+    return { mode, templateId, uniformPostage };
   }
 
   async uploadImage(imageBuffer, fileName) {
@@ -114,7 +119,7 @@ class HuaxiangAdapter extends BasePlatformAdapter {
       console.warn(`[Huaxiang] sharp 压缩失败，使用原图:`, e.message);
     }
 
-    // 重试3次，每次30秒超时
+    // 重试3次，每次90秒超时（花乡七牛上传偶发慢，避免前端误判超时）
     let lastErr;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
@@ -123,7 +128,7 @@ class HuaxiangAdapter extends BasePlatformAdapter {
         formData.append('key', key);
         formData.append('file', uploadBuffer, { filename: fileName || 'product.jpg', contentType: 'image/jpeg' });
         const resp = await axios.post('https://up-z1.qiniup.com/', formData, {
-          headers: formData.getHeaders(), timeout: 30000,
+          headers: formData.getHeaders(), timeout: 90000,
           maxContentLength: Infinity, maxBodyLength: Infinity,
         });
         if (resp.status === 200 && resp.data.key) {
@@ -139,7 +144,7 @@ class HuaxiangAdapter extends BasePlatformAdapter {
     throw lastErr;
   }
 
-  async uploadImages(images, intervalMs = 1000) {
+  async uploadImages(images, intervalMs = 300) {
     const uploaded = [];
     for (let i = 0; i < images.length; i++) {
       const img = images[i];
@@ -157,7 +162,7 @@ class HuaxiangAdapter extends BasePlatformAdapter {
         console.error(`[Huaxiang] 图片 ${i + 1}/${images.length} 上传失败:`, err.message);
         uploaded.push(img.url);
       }
-      // 图片之间间隔，避免七牛云限流
+      // 图片之间间隔，避免七牛云限流，从1000ms改为300ms加速
       if (i < images.length - 1 && intervalMs > 0) {
         await new Promise(r => setTimeout(r, intervalMs));
       }
@@ -279,12 +284,21 @@ class HuaxiangAdapter extends BasePlatformAdapter {
     // 商品详情图
     mappedProduct.imageArray = uploadedDetail;
 
-    const freightId = await this._getFirstFreightTemplateId();
-    mappedProduct.template = freightId;  // 花乡 API 字段名是 template
-    mappedProduct.freight = freightId;   // 兼容
+    const freight = this._getFreightConfig();
+    if (freight.mode === 'template') {
+      mappedProduct.expressFreight = 1;
+      mappedProduct.template = freight.templateId;  // 花乡 API 字段名是 template
+      mappedProduct.freight = freight.templateId;   // 兼容
+      mappedProduct.uniformPostage = 0;
+    } else {
+      mappedProduct.expressFreight = 0;
+      mappedProduct.template = null;
+      mappedProduct.freight = null;
+      mappedProduct.uniformPostage = freight.uniformPostage;
+    }
 
     const url = this._buildUrl('/weidao/weidaoyun/admin/product/newSaveProduct.jhtml');
-    const resp = await axios.post(url, mappedProduct, { headers: this._buildHeaders(), timeout: 30000 });
+    const resp = await axios.post(url, mappedProduct, { headers: this._buildHeaders(), timeout: 60000 });
 
     const data = resp.data;
     if (data.code == 200 || data.code === '200') {

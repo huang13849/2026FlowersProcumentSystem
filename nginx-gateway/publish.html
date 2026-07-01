@@ -267,9 +267,9 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
       </div>
       <div class="bc-sub">已选商品将同步到所选渠道</div>
       <div class="hx-box" id="hxMiniBox">
-        <h4>🌿 花乡账号</h4>
-        <div class="hint" id="hxMiniStatus">未设置临时账号时使用服务默认账号。</div>
-        <button class="btn-block btn-outline" onclick="openHuaxiangModal()" type="button">设置/切换花乡账号</button>
+        <h4>🌿 花乡花木配置</h4>
+        <div class="hint" id="hxMiniStatus">勾选“花乡花木”后，可在这里设置/切换账号与运费。</div>
+        <button class="btn-block btn-outline" onclick="openHuaxiangModal()" type="button">设置/切换账号与运费</button>
       </div>
       <div class="channel-select">
         <div class="channel-row" data-key="wechat" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">📬 微信小店</span><span class="ch-count" id="cc_wechat">-</span></div>
@@ -329,6 +329,16 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
     </div>
     <div class="hx-field"><label>Token</label><input id="hxToken" placeholder="localStorage / Cookie 中的 token" /></div>
     <div class="hx-field"><label>Cookie（至少包含 ajaxtoken；如果能看到 JSESSIONID 也可一起带上）</label><textarea id="hxCookie" placeholder="Admin-Token=admin-token; ajaxtoken=...; JSESSIONID=...（可选）"></textarea></div>
+    <div class="hx-box" style="margin-top:10px">
+      <h4>运费设置（上架时同步到花乡）</h4>
+      <div class="hint">可选“统一运费”，也可选“运费模板”并填写模板编号；保存后本次批量发布按这里上架。</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin:8px 0">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="radio" name="hxFreightMode" value="uniform" onchange="toggleHxFreightFields()" checked>统一运费</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="radio" name="hxFreightMode" value="template" onchange="toggleHxFreightFields()">运费模板</label>
+      </div>
+      <div id="hxUniformWrap" class="hx-field"><label>统一运费金额（元，默认 0）</label><input id="hxUniformPostage" type="number" min="0" step="0.01" value="0" placeholder="0" style="width:140px" /></div>
+      <div id="hxTemplateWrap" class="hx-field" style="display:none"><label>运费模板编号</label><input id="hxFreightId" type="number" min="1" value="216" placeholder="例如：216" style="width:160px" /></div>
+    </div>
     <div id="hxStatus" class="hx-status">当前未保存临时账号。</div>
     <div class="modal-actions">
       <button class="btn-block btn-outline" onclick="closeModal('huaxiangModal')" style="flex:1">关闭</button>
@@ -507,20 +517,66 @@ function initHuaxiangAccountUI(){
   try{const saved=sessionStorage.getItem('huaxiangAccount');if(saved)HUAXIANG_ACCOUNT=JSON.parse(saved)}catch(e){}
   renderHuaxiangAccount();
 }
+function getHxFreightMode(){return document.querySelector('input[name="hxFreightMode"]:checked')?.value||'uniform'}
+function hxFreightSummary(acc){
+  const a=acc||HUAXIANG_ACCOUNT||{};
+  const mode=a.freightMode||'uniform';
+  if(mode==='template')return '运费模板：'+(a.freightTemplateId||216);
+  return '统一运费：¥'+(Number(a.uniformPostage||0).toFixed(2));
+}
+function setHxFreightMode(mode){
+  mode=mode==='template'?'template':'uniform';
+  document.querySelectorAll('input[name="hxFreightMode"]').forEach(function(r){r.checked=(r.value===mode)});
+  toggleHxFreightFields();
+}
+function toggleHxFreightFields(){
+  const mode=getHxFreightMode();
+  const u=document.getElementById('hxUniformWrap');const t=document.getElementById('hxTemplateWrap');
+  if(u)u.style.display=mode==='uniform'?'block':'none';
+  if(t)t.style.display=mode==='template'?'block':'none';
+}
 function renderHuaxiangAccount(){
   const label=HUAXIANG_ACCOUNT?.label||'';
+  const selected=BATCH_CHANNELS&&BATCH_CHANNELS.has('huaxiang');
   const mini=document.getElementById('hxMiniStatus');
-  if(mini)mini.innerHTML=HUAXIANG_ACCOUNT?`当前临时账号：<b>${esc(label||'未命名账号')}</b><br>只保存在当前浏览器会话，用于本次发布。`:'未设置临时账号时使用服务默认账号。';
+  if(mini){
+    if(HUAXIANG_ACCOUNT){
+      mini.innerHTML=`${selected?'已选择花乡花木':'花乡未勾选'}<br>当前账号：<b>${esc(label||'未命名账号')}</b><br>${esc(hxFreightSummary(HUAXIANG_ACCOUNT))}`;
+    }else{
+      mini.innerHTML=selected?'已选择花乡花木，请点下方按钮设置/切换账号与运费。':'勾选“花乡花木”后，可在这里设置/切换账号与运费。';
+    }
+  }
   const st=document.getElementById('hxStatus');
-  if(st){st.className='hx-status '+(HUAXIANG_ACCOUNT?'ok':'');st.textContent=HUAXIANG_ACCOUNT?`已保存临时账号：${label||'未命名账号'}。后续花乡发布会带这个 token/cookie。`:'当前未保存临时账号。';}
+  if(st){st.className='hx-status '+(HUAXIANG_ACCOUNT?'ok':'');st.textContent=HUAXIANG_ACCOUNT?`已保存：${label||'未命名账号'}；${hxFreightSummary(HUAXIANG_ACCOUNT)}。后续花乡发布会带此配置。`:'当前未保存临时账号/运费配置。';}
 }
 function openHuaxiangModal(){
   const sn=document.getElementById('hxSnippet');if(sn)sn.textContent=HUAXIANG_SNIPPET;
-  if(HUAXIANG_ACCOUNT){document.getElementById('hxLabel').value=HUAXIANG_ACCOUNT.label||'';document.getElementById('hxToken').value=HUAXIANG_ACCOUNT.token||'';document.getElementById('hxCookie').value=HUAXIANG_ACCOUNT.cookie||'';}
+  const acc=HUAXIANG_ACCOUNT||{};
+  document.getElementById('hxLabel').value=acc.label||'';
+  document.getElementById('hxToken').value=acc.token||'';
+  document.getElementById('hxCookie').value=acc.cookie||'';
+  const fi=document.getElementById('hxFreightId');if(fi)fi.value=acc.freightTemplateId||216;
+  const up=document.getElementById('hxUniformPostage');if(up)up.value=(acc.uniformPostage??0);
+  setHxFreightMode(acc.freightMode||'uniform');
   document.getElementById('huaxiangModal').classList.add('open');renderHuaxiangAccount();
 }
-async function copyHxSnippet(){try{await navigator.clipboard.writeText(HUAXIANG_SNIPPET);toast('脚本已复制')}catch(e){toast('复制失败，请手动选择脚本','err')}}
-async function pasteHxFromClipboard(){try{document.getElementById('hxPaste').value=await navigator.clipboard.readText();parseHuaxiangPaste();}catch(e){toast('浏览器不允许读取剪贴板，请手动粘贴','err')}}
+async function copyHxSnippet(){
+  try{
+    if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(HUAXIANG_SNIPPET);toast('脚本已复制到剪贴板');return;}
+  }catch(e){}
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=HUAXIANG_SNIPPET;ta.setAttribute('readonly','');
+    ta.style.position='fixed';ta.style.left='-9999px';ta.style.top='-9999px';
+    document.body.appendChild(ta);ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);
+    const ok=document.execCommand('copy');document.body.removeChild(ta);
+    if(ok)toast('脚本已复制到剪贴板');else toast('复制失败，请手动选择上方脚本文本复制','err');
+  }catch(e){toast('复制失败，请手动选择上方脚本文本复制','err')}
+}
+async function pasteHxFromClipboard(){
+  try{document.getElementById('hxPaste').value=await navigator.clipboard.readText();parseHuaxiangPaste();}
+  catch(e){document.getElementById('hxPaste').focus();toast('浏览器不允许读取剪贴板，请在此框中按 Ctrl+V 粘贴','err')}
+}
 function parseHuaxiangPaste(){
   const txt=document.getElementById('hxPaste').value.trim();if(!txt)return;
   let token='',cookie='',label=document.getElementById('hxLabel').value.trim();
@@ -545,21 +601,27 @@ function saveHuaxiangAccount(){
   const label=document.getElementById('hxLabel').value.trim()||'花乡临时账号';
   const token=document.getElementById('hxToken').value.trim();
   const cookie=normalizeCookie(document.getElementById('hxCookie').value.trim());
+  const freightMode=getHxFreightMode();
+  const freightTemplateId=parseInt(document.getElementById('hxFreightId')?.value||'216',10);
+  const uniformPostage=Math.max(0,parseFloat(document.getElementById('hxUniformPostage')?.value||'0')||0);
   const st=document.getElementById('hxStatus');
   if(!token||!cookie){st.className='hx-status err';st.textContent='token 和 cookie 都不能为空';return;}
   if(!/ajaxtoken=/i.test(cookie)){st.className='hx-status err';st.textContent='Cookie 至少需要包含 ajaxtoken；JSESSIONID 可能是 HttpOnly，读不到也没关系';return;}
-  HUAXIANG_ACCOUNT={label,token,cookie};
+  if(freightMode==='template'&&(!freightTemplateId||freightTemplateId<1)){st.className='hx-status err';st.textContent='选择运费模板时必须填写有效模板编号';return;}
+  HUAXIANG_ACCOUNT={label,token,cookie,freightMode,freightTemplateId,uniformPostage};
   try{sessionStorage.setItem('huaxiangAccount',JSON.stringify(HUAXIANG_ACCOUNT));}catch(e){}
-  renderHuaxiangAccount();toast('花乡账号已保存到当前页面');closeModal('huaxiangModal');
+  renderHuaxiangAccount();toast('花乡账号与运费配置已保存');closeModal('huaxiangModal');
 }
 function clearHuaxiangAccount(){
   HUAXIANG_ACCOUNT=null;try{sessionStorage.removeItem('huaxiangAccount')}catch(e){}
   ['hxLabel','hxToken','hxCookie','hxPaste'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
-  renderHuaxiangAccount();toast('已清除临时账号');
+  const up=document.getElementById('hxUniformPostage');if(up)up.value='0';
+  const fi=document.getElementById('hxFreightId');if(fi)fi.value='216';
+  setHxFreightMode('uniform');renderHuaxiangAccount();toast('已清除临时账号与运费配置');
 }
 
 // ===================== BATCH CHANNEL =====================
-function toggleBC(el){el.classList.toggle('selected');const k=el.dataset.key;if(BATCH_CHANNELS.has(k))BATCH_CHANNELS.delete(k);else BATCH_CHANNELS.add(k);updateSelBanner();if(k==='huaxiang'&&BATCH_CHANNELS.has(k)&&!HUAXIANG_ACCOUNT)openHuaxiangModal()}
+function toggleBC(el){el.classList.toggle('selected');const k=el.dataset.key;if(BATCH_CHANNELS.has(k))BATCH_CHANNELS.delete(k);else BATCH_CHANNELS.add(k);updateSelBanner();renderHuaxiangAccount();if(k==='huaxiang'&&BATCH_CHANNELS.has(k))openHuaxiangModal()}
 function getBC(){return[...BATCH_CHANNELS]}
 
 // ===================== CONFIRM MODAL =====================
@@ -568,17 +630,35 @@ function openConfirmModal(){
   if(!cnt||!chs.length)return;
   document.getElementById('cm_count').textContent=cnt+' 件';
   document.getElementById('cm_channels').innerHTML=chs.map(k=>`<div class="modal-row"><span class="label">${PLATFORM_ICONS[k]||''} ${PLATFORM_LABELS[k]}</span><span class="value">${cnt}</span></div>`).join('');
-  document.getElementById('cm_hx_account').innerHTML=chs.includes('huaxiang')?`<div class="modal-row"><span class="label">🌿 花乡账号</span><span class="value">${esc(HUAXIANG_ACCOUNT?.label||'服务默认账号')}</span></div>`:'';
+  document.getElementById('cm_hx_account').innerHTML=chs.includes('huaxiang')?`<div class="modal-row"><span class="label">🌿 花乡账号</span><span class="value">${esc(HUAXIANG_ACCOUNT?.label||'未设置')}</span></div><div class="modal-row"><span class="label">🚚 花乡运费</span><span class="value">${esc(HUAXIANG_ACCOUNT?hxFreightSummary(HUAXIANG_ACCOUNT):'未设置')}</span></div>`:'';
   document.getElementById('confirmModal').classList.add('open');
 }
 
 var TASK_LIST=[];var MIG_CACHE={};
+// stP: set step status for a task (step, state)  state: 'do'|'ok'|'fail'
+function stP(tid,step,state){
+  var idx=TASK_LIST.findIndex(function(t){return t.id===tid});
+  if(idx<0)return;
+  if(state==='do')TASK_LIST[idx].step=step;
+  else if(state==='ok')TASK_LIST[idx].step=step+1;
+  else if(state==='fail'){TASK_LIST[idx].step=step;TASK_LIST[idx].err=true;}
+  rdL();
+}
+// stG: set progress message for a task
+function stG(tid,pct,msg,isErr){
+  var idx=TASK_LIST.findIndex(function(t){return t.id===tid});
+  if(idx<0)return;
+  TASK_LIST[idx].pct=pct;
+  if(msg)TASK_LIST[idx].msg=msg;
+  if(isErr)TASK_LIST[idx].err=true;
+  rdL();
+}
 function startBatchPublish(){
   closeModal("confirmModal");
   const ps=Object.values(SEL);const cs=getBC();
   if(!ps.length||!cs.length)return;
   if(cs.includes('huaxiang')&&!HUAXIANG_ACCOUNT){
-    toast('请先设置/保存花乡临时账号，再提交发布','err');
+    toast('请先设置/保存花乡账号与运费，再提交发布','err');
     openHuaxiangModal();
     return;
   }
@@ -590,15 +670,15 @@ function startBatchPublish(){
 }
 async function fetchJson(url,options){
   const ctl=new AbortController();
-  const timer=setTimeout(()=>ctl.abort(),30000);
+  const timer=setTimeout(()=>ctl.abort(),60000);
   try{
-    const r=await fetch(url,{...(options||{}),signal:ctl.signal});
+    const r=await fetch(url,{cache:'no-store',...(options||{}),signal:ctl.signal});
     const text=await r.text();let d={};
     try{d=text?JSON.parse(text):{};}catch(e){d={raw:text};}
     if(!r.ok)throw new Error(d.error||d.message||('HTTP '+r.status));
     return d;
   }catch(e){
-    if(e.name==='AbortError')throw new Error('请求超时：后端 30 秒无响应');
+    if(e.name==='AbortError')throw new Error('请求超时：后端 60 秒无响应');
     throw e;
   }finally{clearTimeout(timer);}
 }
@@ -613,9 +693,9 @@ if(c==='huaxiang'){
     stP(tid,1,'do');stG(tid,30,'已提交，任务ID '+d.taskId.slice(0,8));
     var pollTid=d.taskId;
     var done=false;
-    for(var i=0;i<90;i++){
+    for(var i=0;i<360;i++){
       await new Promise(function(res){setTimeout(res,2000);});
-      var sd=await fetchJson('/api/publish/status/'+pollTid);
+      var sd=await fetchJson('/api/publish/status/'+pollTid+'?t='+Date.now());
       var ch=sd.results&&sd.results.huaxiang;
       if(ch){
         if(ch.status==='success'){done=true;stP(tid,1,'ok');stG(tid,100,'发布成功：'+(ch.platformProductId||''));addL(tid,p.title,1,'发布成功',100,0,ch.platformProductId,c);loadSyncStatus();break;}
@@ -623,9 +703,9 @@ if(c==='huaxiang'){
       }
       if(sd.status==='failed'){throw new Error(sd.errorMessage||ch?.errorMessage||'发布失败');}
       var statusMap={waiting:'等待中',processing:'处理中',fetching:'获取商品',uploading_images:'上传图片',publishing:'调用花乡接口'};
-      var pct=Math.min(95,30+Math.floor(i/90*60));stG(tid,pct,statusMap[sd.status]||('发布中：'+(sd.status||'未知')));
+      var pct=Math.min(95,30+Math.floor(i/360*60));stG(tid,pct,(statusMap[sd.status]||('发布中：'+(sd.status||'未知')))+'（花乡图片上传较慢时请耐心等待）');
     }
-    if(!done)throw new Error('发布超时，请查看发布记录/后端日志');
+    if(!done)throw new Error('发布等待超时（超过12分钟），请查看发布记录/后端日志');
   }catch(e){stP(tid,1,'fail');stG(tid,0,'F:'+(e.message||e),1);toast('花乡发布失败：'+(e.message||e),'err');}
   return;
 }

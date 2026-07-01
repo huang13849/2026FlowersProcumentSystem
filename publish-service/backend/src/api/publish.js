@@ -33,6 +33,23 @@ function normalizeHuaxiangAccount(raw) {
   if (raw.ajaxtoken) parts.push(`ajaxtoken=${String(raw.ajaxtoken).trim()}`);
   if (parts.length) cookie = parts.join('; ');
 
+  const freightMode = raw.freightMode === 'template' ? 'template' : 'uniform';
+  const freightTemplateId = Number(raw.freightTemplateId) || 216;
+  const uniformPostage = Math.max(0, Number(raw.uniformPostage) || 0);
+  if (freightMode === 'template' && (!freightTemplateId || freightTemplateId < 1)) {
+    throw new Error('选择运费模板时必须填写有效模板编号');
+  }
+
+  // 如果只传运费设置，允许继续使用服务默认花乡账号。
+  const account = {
+    label: label || username || '花乡临时账号',
+    username,
+    freightMode,
+    freightTemplateId,
+    uniformPostage,
+  };
+
+  if (!token && !cookie) return account;
   if (!token || !cookie) {
     throw new Error('花乡花木账号缺少 token 或 cookie');
   }
@@ -44,7 +61,7 @@ function normalizeHuaxiangAccount(raw) {
   if (!/Admin-Token=/i.test(cookie)) {
     cookie += '; Admin-Token=admin-token';
   }
-  return { token, cookie, label: label || username || '花乡临时账号', username, freightTemplateId: Number(raw.freightTemplateId) || 216 };
+  return { ...account, token, cookie };
 }
 
 

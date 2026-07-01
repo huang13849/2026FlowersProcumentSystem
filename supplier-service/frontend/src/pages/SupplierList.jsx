@@ -99,10 +99,14 @@ export default function SupplierList() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [salesPeriodFilter, setSalesPeriodFilter] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false)
   const [allSupplierNames, setAllSupplierNames] = useState([])
+  const [allCategories, setAllCategories] = useState([])
   const [productCounts, setProductCounts] = useState({})
   const supplierInputRef = useRef(null)
+  const categoryInputRef = useRef(null)
   const suggestionsRef = useRef(null)
+  const categorySuggestionsRef = useRef(null)
   const [dragIndex, setDragIndex] = useState(null)
   const [dropTargetIndex, setDropTargetIndex] = useState(null)
   const [isSavingOrder, setIsSavingOrder] = useState(false)
@@ -287,7 +291,11 @@ export default function SupplierList() {
       const r = await api.get('/api/suppliers', { params: p })
       const data = r.data.suppliers || []
       setItems(data)
-      setAllSupplierNames([...new Set(data.map(s => s.name).filter(Boolean))])
+      setAllSupplierNames([...new Set(data.flatMap(s => [s.name, s.shop_name]).filter(Boolean))])
+      setAllCategories([...new Set(data.flatMap(s => [
+        s.company_info?.main_business,
+        ...(s.business_items || []).map(b => b?.main_business)
+      ]).filter(Boolean).flatMap(v => String(v).split(/[、；;，,\/\s]+/).map(x => x.trim()).filter(Boolean)))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
     } catch (e) { console.error(e) }
     setLoading(false)
   }
@@ -303,14 +311,24 @@ export default function SupplierList() {
 
   const handleSupplierFilterChange = (value) => {
     setSupplierFilter(value)
-    if (value.trim()) {
-      const f = allSupplierNames.filter(n => n.toLowerCase().includes(value.toLowerCase()))
-      setShowSuggestions(f.length > 0)
-    } else { setShowSuggestions(false) }
+    const f = allSupplierNames.filter(n => n.toLowerCase().includes(value.toLowerCase()))
+    setShowSuggestions(f.length > 0)
+  }
+
+  const getCategorySuggestions = () => {
+    const q = categoryFilter.trim().toLowerCase()
+    return allCategories.filter(c => !q || c.toLowerCase().includes(q)).slice(0, 80)
+  }
+  const handleCategoryFilterChange = (value) => {
+    setCategoryFilter(value)
+    setShowCategorySuggestions(getCategorySuggestions().length > 0 || allCategories.length > 0)
   }
 
   useEffect(() => {
-    const h = (e) => { if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) && supplierInputRef.current && !supplierInputRef.current.contains(e.target)) setShowSuggestions(false) }
+    const h = (e) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) && supplierInputRef.current && !supplierInputRef.current.contains(e.target)) setShowSuggestions(false)
+      if (categorySuggestionsRef.current && !categorySuggestionsRef.current.contains(e.target) && categoryInputRef.current && !categoryInputRef.current.contains(e.target)) setShowCategorySuggestions(false)
+    }
     document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
   }, [])
 
@@ -633,6 +651,10 @@ export default function SupplierList() {
   /* ── 表格样式 ── */
   const thBase = { padding: '10px 10px', borderBottom: '2px solid #3E7B5B', fontWeight: 700, fontSize: 12, color: '#2e5230', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f1f8e9', userSelect: 'none', textAlign: 'left', letterSpacing: 0.2, fontFamily: "'Microsoft YaHei','微软雅黑',sans-serif" }
   const tdBase = { padding: '8px 10px', borderBottom: '1px solid #e0e0e0', fontSize: 13, verticalAlign: 'middle', overflow: 'visible', color: '#333', fontFamily: "'Microsoft YaHei','微软雅黑',sans-serif" }
+  const stickyHead = (left, edge = false) => ({ position: 'sticky', left, zIndex: 30, background: '#f1f8e9', boxShadow: edge ? '3px 0 8px rgba(46,82,48,0.12)' : 'none' })
+  const stickySelect = { position: 'sticky', left: 0, zIndex: 8, background: 'inherit' }
+  const stickyDrag = { position: 'sticky', left: 32, zIndex: 8, background: 'inherit' }
+  const stickyName = { position: 'sticky', left: 68, zIndex: 8, background: 'inherit', boxShadow: '3px 0 8px rgba(46,82,48,0.10)' }
 
   return (
     <div style={{ padding: 16, background: '#F5F7F4', minHeight: 'calc(100vh - 48px)', fontFamily: "'Microsoft YaHei','微软雅黑',sans-serif", fontSize: 14 }}>
@@ -663,7 +685,16 @@ export default function SupplierList() {
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder='搜索联系人/税号/备注' style={{ ...INPUT_BASE, width: 200, fontSize: 12, padding: '5px 8px' }} />
         <input value={regionFilter} onChange={e => setRegionFilter(e.target.value)} placeholder='按地区筛选' style={{ ...INPUT_BASE, width: 140, fontSize: 12, padding: '5px 8px' }} />
-        <input value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} placeholder='主营品类' style={{ ...INPUT_BASE, width: 140, fontSize: 12, padding: '5px 8px' }} />
+        <div style={{ position: 'relative' }}>
+          <input ref={categoryInputRef} value={categoryFilter} onChange={e => handleCategoryFilterChange(e.target.value)}
+            onFocus={() => setShowCategorySuggestions(allCategories.length > 0)}
+            placeholder='主营品类' style={{ ...INPUT_BASE, width: 160, fontSize: 12, padding: '5px 24px 5px 8px' }} />
+          {categoryFilter && <button onClick={() => { setCategoryFilter(''); setShowCategorySuggestions(allCategories.length > 0) }} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#999', padding: 0, lineHeight: 1 }}>×</button>}
+          {showCategorySuggestions && <div ref={categorySuggestionsRef} style={{ position: 'absolute', top: '100%', left: 0, zIndex: 1000, background: '#fff', border: '1px solid #e0e0e0', borderRadius: 6, maxHeight: 240, overflowY: 'auto', width: 220, boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
+            {getCategorySuggestions().map((name, i) => <div key={i} onClick={() => { setCategoryFilter(name); setShowCategorySuggestions(false) }} onMouseDown={e => e.preventDefault()} style={{ padding: '6px 10px', fontSize: 12, cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>{name}</div>)}
+            {getCategorySuggestions().length === 0 && <div style={{ padding: '8px 10px', fontSize: 12, color: '#999' }}>无匹配品类</div>}
+          </div>}
+        </div>
         <input value={salesPeriodFilter} onChange={e => setSalesPeriodFilter(e.target.value)} placeholder='销售期' style={{ ...INPUT_BASE, width: 120, fontSize: 12, padding: '5px 8px' }} />
         <select value={status} onChange={e => setStatus(e.target.value)} style={{ ...INPUT_BASE, width: 110, fontSize: 12, padding: '5px 8px', cursor: 'pointer' }}>
           {STATUS_OPTIONS.map(s => <option key={s} value={s === '全部' ? '' : s}>{s === '全部' ? '全部状态' : s}</option>)}
@@ -700,9 +731,9 @@ export default function SupplierList() {
       <div style={{ overflow: 'auto', background: '#fff', borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #e0e0e0', maxHeight: 'calc(100vh - 310px)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead><tr>{[
-            { w: 32, t: <input type="checkbox" checked={isAllSelected} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} /> },
-            { w: 36, t: '☰' },
-            { w: 300, t: '供应商名称 / 商家名称' },
+            { w: 32, fixedLeft: 0, t: <input type="checkbox" checked={isAllSelected} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} /> },
+            { w: 36, fixedLeft: 32, t: '☰' },
+            { w: 300, fixedLeft: 68, edge: true, t: '供应商名称 / 商家名称' },
             { w: 100, t: '状态' },
             { w: 280, t: '联系人' },
             { w: 150, t: '税号' },
@@ -714,7 +745,7 @@ export default function SupplierList() {
             { w: 240, t: '备注' },
             { w: 110, t: '更新时间' },
             { w: 90, t: '操作' },
-          ].map((h, i) => <th key={i} style={{ ...thBase, width: h.w, minWidth: h.w }}>{h.t}</th>)}</tr></thead>
+          ].map((h, i) => <th key={i} style={{ ...thBase, width: h.w, minWidth: h.w, ...(h.fixedLeft !== undefined ? stickyHead(h.fixedLeft, h.edge) : {}) }}>{h.t}</th>)}</tr></thead>
           <tbody>
             {(() => {
               if (loading) return <tr><td colSpan={14} style={{ textAlign: 'center', padding: 30, color: '#888' }}>加载中...</td></tr>
@@ -722,9 +753,9 @@ export default function SupplierList() {
               if (showNewRow) {
                 rows.push(
                   <tr key="__new" style={{ background: '#fffde7', borderBottom: '1px solid #ffe082' }}>
-                    <td style={{ ...tdBase, textAlign: 'center' }}><span style={{ color: '#ef6c00', fontSize: 12, fontWeight: 600 }}>新</span></td>
-                    <td style={{ ...tdBase, textAlign: 'center', color: '#ef6c00', fontSize: 16 }}>➕</td>
-                    <td style={{ ...tdBase, minWidth: 300 }}>
+                    <td style={{ ...tdBase, ...stickySelect, textAlign: 'center' }}><span style={{ color: '#ef6c00', fontSize: 12, fontWeight: 600 }}>新</span></td>
+                    <td style={{ ...tdBase, ...stickyDrag, textAlign: 'center', color: '#ef6c00', fontSize: 16 }}>➕</td>
+                    <td style={{ ...tdBase, ...stickyName, minWidth: 300 }}>
                       <textarea value={newRow.name} onChange={e => setNewRow(p => ({ ...p, name: e.target.value }))} placeholder='供应商名称 *' style={{ ...INPUT_BASE, minWidth: 280, resize: 'vertical', fontWeight: 700, color: '#2e5230' }} autoFocus rows={2} onClick={e => e.stopPropagation()} />
                       <input value={newRow.shop_name} onChange={e => setNewRow(p => ({ ...p, shop_name: e.target.value }))} placeholder='商家名称' style={{ ...SMALL_INPUT, marginTop: 4, fontWeight: 500, borderColor: '#c5e1a5' }} onClick={e => e.stopPropagation()} />
                     </td>
@@ -776,11 +807,11 @@ export default function SupplierList() {
                     style={{ borderBottom: '1px solid #e0e0e0', background: rowBg, cursor: 'grab', opacity: isDragging ? 0.5 : 1, boxShadow: isDropTarget ? '0 -2px 0 0 #3E7B5B inset' : 'none' }}
                     onMouseEnter={e => { if (!isDragging) e.currentTarget.style.background = '#f1f8e9' }}
                     onMouseLeave={e => { if (!isDragging) e.currentTarget.style.background = selected ? '#e8f5e9' : (isAbnormal ? '#FFECEC' : (i % 2 === 0 ? '#fff' : '#fafafa')) }}>
-                    <td style={{ ...tdBase, textAlign: 'center', padding: '4px 6px' }}>
+                    <td style={{ ...tdBase, ...stickySelect, textAlign: 'center', padding: '4px 6px' }}>
                       <input type="checkbox" checked={selected} onChange={() => toggleSelect(r._id)} onClick={e => e.stopPropagation()} style={{ cursor: 'pointer' }} />
                     </td>
-                    <td style={{ ...tdBase, textAlign: 'center', padding: '4px 6px', color: '#bbb', fontSize: 16, cursor: 'grab' }} title='拖拽调整排序'>☰</td>
-                    <td style={{ ...tdBase, minWidth: 300, maxWidth: 340 }}>
+                    <td style={{ ...tdBase, ...stickyDrag, textAlign: 'center', padding: '4px 6px', color: '#bbb', fontSize: 16, cursor: 'grab' }} title='拖拽调整排序'>☰</td>
+                    <td style={{ ...tdBase, ...stickyName, minWidth: 300, maxWidth: 340 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         <textarea title={r.name} value={r.name || ''} onChange={e => updateItem(r._id, 'name', e.target.value)} style={{ ...INPUT_BASE, minWidth: 280, resize: 'vertical', fontWeight: 700, color: '#2e5230', fontSize: 14 }} rows={2} onClick={e => e.stopPropagation()} />
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
