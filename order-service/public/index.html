@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>购买订单管理</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=ding-20260701">
+<link rel="apple-touch-icon" href="/favicon.svg?v=ding-20260701">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/reset.min.css">
 <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
@@ -44,6 +46,7 @@ const typeColors = { '微商': 'green', '单店': 'blue', '团购/电商': 'purp
 const paymentChannelOptions = [{value:'微信支付'},{value:'支付宝'},{value:'Stripe'},{value:'PayPal'}];
 const businessTypeOptions = [{value:'未设置'},{value:'微商'},{value:'单店'},{value:'团购/电商'},{value:'连锁'},{value:'企业采购'}];
 const businessTypeFilterOptions = [{ value: '全部', label: '全部类型' }, { value: '微商' }, { value: '单店' }, { value: '团购/电商' }, { value: '连锁' }, { value: '企业采购' }, { value: '未设置' }];
+const targetShopOptions = [{ value: '全部', label: '全部店铺' }, { value: '三度花' }, { value: '花予生活' }, { value: '花哥友花' }, { value: '林草小店' }];
 
 function EditableCell({ value, onChange, type = 'text', options }) {
   const [editing, setEditing] = useState(false);
