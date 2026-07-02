@@ -169,11 +169,13 @@ class ProductClient {
       after_sale_images: product.after_sale_images || [],
       main_images: product.main_images || [],
       // 价格字段（映射自 API 返回的实际字段名）
+      // ecommerceReferenceUrl 是商品管理里“平台参考价/划线价”，花乡发布 market 字段优先用它。
       price: product.price || product.sellPrice || product.salesPrice || 0,
-      marketPrice: product.marketPrice || product.retailMarkupPrice || product.costPrice || 0,
+      marketPrice: product.ecommerceReferenceUrl || product.marketPrice || product.retailMarkupPrice || product.costPrice || product.sellPrice || 0,
       sellPrice: product.sellPrice || product.price || 0,
       costPrice: product.costPrice || 0,
       retailMarkupPrice: product.retailMarkupPrice || 0,
+      ecommerceReferenceUrl: product.ecommerceReferenceUrl || '',
       stock: product.stock || product.quantity || product.inventory || 0,
       weight: product.weight || 0,
       category: product.category || product.categories || '',
