@@ -255,15 +255,6 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
     <div class="infinite-loader" id="loader">↓ 滚动加载更多</div>
   </div>
 
-  <!-- Task List -->
-  <div style="margin:12px 0">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:15px;font-weight:500">🚦 本次发布进度</span>
-      <span id="tc" style="font-size:12px;color:var(--text2)">0</span>
-      <button class="btn-xs" onclick="TASK_LIST=[];rdL()" style="margin-left:auto">清空本次</button>
-    </div>
-    <div id="tlc"></div>
-  </div>
   <!-- Right: Batch Bar -->
   <div class="batch-bar">
     <div class="batch-card">
@@ -360,6 +351,16 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
     <span style="font-size:11px;color:var(--text3)" id="taskCount"></span>
   </div>
   <div class="task-center" id="taskCenter"></div>
+</div>
+
+<!-- Task List: above product sync status -->
+<div class="task-list-panel" style="margin:12px 0">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <span style="font-size:15px;font-weight:500">🚦 本次发布进度</span>
+    <span id="tc" style="font-size:12px;color:var(--text2)">0</span>
+    <button class="btn-xs" onclick="TASK_LIST=[];rdL()" style="margin-left:auto">清空本次</button>
+  </div>
+  <div id="tlc"></div>
 </div>
 
 <!-- Section: Platform Status -->

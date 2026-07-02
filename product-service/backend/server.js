@@ -30,8 +30,10 @@ express.static.mime && express.static.mime.define && express.static.mime.define(
 
 app.use('/images', express.static(UPLOAD_DIR));
 
-// Frontend static files - ./dist (Docker) or ../frontend/dist (bare metal)
-const frontendDir = existsSync('./dist') ? './dist' : '../frontend/dist';
+// Frontend static files. Prefer the Vite build output in ../frontend/dist.
+// In k3s the process starts from /app/backend; an old backend/dist can exist in the image,
+// so preferring ./dist serves stale UI assets.
+const frontendDir = existsSync('../frontend/dist') ? '../frontend/dist' : './dist';
 app.use(express.static(frontendDir, {
   setHeaders: (res, path) => {
     if (path.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
