@@ -61,7 +61,7 @@ function EditableCell({ value, onChange, type = 'text', options }) {
 
   if (type === 'select') {
     if (editing) return (
-      <Select ref={ref} className="editable-cell-select" value={val} onChange={v => { setVal(v); setTimeout(() => { onChange(v); setEditing(false); }, 50); }
+      <Select ref={ref} className="editable-cell-select" value={val} onChange={v => { setVal(v); setTimeout(() => { onChange(v); setEditing(false); }, 50); }}
         onBlur={() => setEditing(false)} options={options} size="small" style={{ width: '100%' }}
         open onDropdownVisibleChange={v => { if (!v) setEditing(false); }} />
     );
@@ -433,14 +433,14 @@ const columns = [
       dataIndex: 'product_subtotal',
       width: 100,
       editable: true,
-      render: (val) => '¥' + val.toFixed(2),
+      render: (val) => '¥' + Number(val || 0).toFixed(2),
     },
     {
       title: '运费',
       dataIndex: 'shipping_fee',
       width: 80,
       editable: true,
-      render: (val) => '¥' + val.toFixed(2),
+      render: (val) => '¥' + Number(val || 0).toFixed(2),
     },
     {
       title: '优惠码',
@@ -453,7 +453,7 @@ const columns = [
       dataIndex: 'coupon_discount',
       width: 90,
       editable: true,
-      render: (val) => '¥' + val.toFixed(2),
+      render: (val) => '¥' + Number(val || 0).toFixed(2),
     },
     {
       title: '业务类型',

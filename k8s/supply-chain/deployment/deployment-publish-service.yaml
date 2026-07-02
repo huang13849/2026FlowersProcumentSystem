@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: publish-service
+  namespace: supply-chain
+  labels:
+    app: publish-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: publish-service
+  template:
+    metadata:
+      labels:
+        app: publish-service
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+        - name: publish-service
+          image: 100.76.15.64:5001/supply-chain/publish-service:publish-k3s-20260702072754
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3005
+          envFrom:
+            - secretRef:
+                name: publish-env
+          volumeMounts:
+            - name: publish-data
+              mountPath: /app/data
+      volumes:
+        - name: publish-data
+          hostPath:
+            path: /home/huangfra-ubun-master/supply-chain-platform/publish-service-data-k3s
+            type: DirectoryOrCreate

@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: price-service
+  namespace: supply-chain
+  labels:
+    app: price-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: price-service
+  template:
+    metadata:
+      labels:
+        app: price-service
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+        - name: price-service
+          image: 100.76.15.64:5001/supply-chain/price-service:price-k3s-20260702063005
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3009
+          env:
+            - name: PORT
+              value: "3009"
+          envFrom:
+            - secretRef:
+                name: price-env

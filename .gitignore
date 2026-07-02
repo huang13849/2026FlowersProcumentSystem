@@ -42,3 +42,5 @@ Thumbs.db
 
 # One-off local verification scripts
 verify-*.cjs
+backups/
+publish-service-data-k3s/

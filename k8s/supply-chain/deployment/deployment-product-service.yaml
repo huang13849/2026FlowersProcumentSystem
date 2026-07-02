@@ -21,7 +21,7 @@ spec:
       - name: product-service
         image: 100.76.15.64:5001/supply-chain/product-service:latest
         imagePullPolicy: IfNotPresent
-        imagePullPolicy: IfNotPresent
+        command: ["sh", "-lc", "cd /app/backend && node server.js"]
         ports:
         - containerPort: 3000
         envFrom:
@@ -32,6 +32,16 @@ spec:
           value: "production"
         - name: PORT
           value: "3000"
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: product-mongo-env
+              key: MONGODB_URI
+        - name: MONGODB_URI_FALLBACK
+          valueFrom:
+            secretKeyRef:
+              name: product-mongo-env
+              key: MONGODB_URI_FALLBACK
         resources:
           requests:
             cpu: 100m
