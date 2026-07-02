@@ -99,10 +99,21 @@ class ProductClient {
    */
   async getProductById(productId) {
     try {
-      const headers = await this._getHeaders();
-      const { data } = await this.client.get('/api/products/' + productId, { headers });
+      // product-service 已去登录化；先匿名读取，只有遇到 401 再走旧登录逻辑。
+      // 避免 k3s 环境未配置 JWT_SECRET 时 /api/auth/login 返回 500，导致一键铺货误报“无法获取商品”。
+      const { data } = await this.client.get('/api/products/' + productId);
       return this.normalizeProduct(data);
     } catch (err) {
+      if (err.response?.status === 401) {
+        try {
+          const headers = await this._getHeaders();
+          const { data } = await this.client.get('/api/products/' + productId, { headers });
+          return this.normalizeProduct(data);
+        } catch (authErr) {
+          console.error('[ProductClient] 获取商品失败 productId=' + productId + ':', authErr.message);
+          throw new Error('无法获取商品 ' + productId + ': ' + authErr.message);
+        }
+      }
       console.error('[ProductClient] 获取商品失败 productId=' + productId + ':', err.message);
       throw new Error('无法获取商品 ' + productId + ': ' + err.message);
     }
@@ -113,14 +124,21 @@ class ProductClient {
    * GET /api/products
    */
   async getProductBatch(productIds) {
+    const params = { limit: 50, _ids: productIds.join(',') };
     try {
-      const headers = await this._getHeaders();
-      const { data } = await this.client.get('/api/products', {
-        params: { limit: 50, _ids: productIds.join(',') },
-        headers,
-      });
+      const { data } = await this.client.get('/api/products', { params });
       return (Array.isArray(data?.products) ? data.products : []).map(p => this.normalizeProduct(p));
     } catch (err) {
+      if (err.response?.status === 401) {
+        try {
+          const headers = await this._getHeaders();
+          const { data } = await this.client.get('/api/products', { params, headers });
+          return (Array.isArray(data?.products) ? data.products : []).map(p => this.normalizeProduct(p));
+        } catch (authErr) {
+          console.error('[ProductClient] 批量获取商品失败:', authErr.message);
+          throw new Error('无法批量获取商品: ' + authErr.message);
+        }
+      }
       console.error('[ProductClient] 批量获取商品失败:', err.message);
       throw new Error('无法批量获取商品: ' + err.message);
     }
