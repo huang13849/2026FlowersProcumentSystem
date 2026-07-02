@@ -244,6 +244,7 @@ function App() {
   const [region, setRegion] = useState('cn');
   const [shopName, setShopName] = useState('全部');
   const [shopStats, setShopStats] = useState([]);
+  const [syncStatus, setSyncStatus] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickingOrderId, setPickingOrderId] = useState(null);
@@ -294,7 +295,18 @@ function App() {
     } catch (e) {}
   }, [search, businessType, region, shopName]);
 
-  useEffect(() => { fetchData(); fetchStats(); fetchShopStats(); fetchAmountStats(); }, []);
+
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/orders/sync-status`);
+      const json = await res.json();
+      setSyncStatus(json);
+    } catch (e) {}
+  }, []);
+
+  const formatSyncTime = (val) => val ? dayjs(val).format('YYYY-MM-DD HH:mm:ss') : '-';
+
+  useEffect(() => { fetchData(); fetchStats(); fetchShopStats(); fetchAmountStats(); fetchSyncStatus(); }, []);
 
   const handleTableChange = (pag) => { fetchData(pag.current, pag.pageSize, search, businessType, region, shopName); };
   const onSearch = (val) => { setSearch(val); fetchData(1, 20, val, businessType, region, shopName); fetchAmountStats(val, businessType, region, shopName); };
@@ -520,6 +532,21 @@ const columns = [
         </Space>
       </div>
       <div className="app-content">
+
+        <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '10px 14px' }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <Space wrap size="large">
+              <span><b>🔄 订单同步状态</b></span>
+              <span>最近扫描：{formatSyncTime(syncStatus?.latestRun?.started_at || syncStatus?.state?.last_run_at)}</span>
+              <span>源表：{syncStatus?.latestRun?.source_table || syncStatus?.state?.source_table || '-'}</span>
+              <span>扫描/匹配/新增：{syncStatus?.latestRun ? `${syncStatus.latestRun.scanned_count}/${syncStatus.latestRun.matched_count}/${syncStatus.latestRun.inserted_count}` : '-'}</span>
+              <span>状态：<Tag color={syncStatus?.latestRun?.status === 'success' ? 'green' : 'orange'}>{syncStatus?.latestRun?.status || '未知'}</Tag></span>
+              <span>游标：{syncStatus?.state?.last_seen_value || '-'}</span>
+              <span>最新入库：{syncStatus?.latestOrder ? `${syncStatus.latestOrder.source_order_sn || '-'} / ${syncStatus.latestOrder.shop_name || '-'} / ${formatSyncTime(syncStatus.latestOrder.synced_at || syncStatus.latestOrder.created_at)}` : '-'}</span>
+            </Space>
+            <Button size="small" onClick={fetchSyncStatus}>刷新同步状态</Button>
+          </div>
+        </Card>
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col span={6}>
             <Card size="small"><Statistic title="订单总数" value={stats.reduce((s,x)=>s + (x.count || 0),0)} /></Card>

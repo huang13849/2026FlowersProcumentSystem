@@ -173,6 +173,56 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
+
+app.get('/api/orders/sync-status', async (req, res) => {
+  try {
+    const runSql = `
+      SELECT source_table, scanned_count, matched_count, inserted_count, updated_count,
+             status, started_at, finished_at, error_message, git_sha, image_tag
+      FROM order_sync_runs
+      ORDER BY started_at DESC
+      LIMIT 1
+    `;
+    const stateSql = `
+      SELECT source_table, last_seen_value, last_run_at
+      FROM order_sync_state
+      ORDER BY last_run_at DESC
+      LIMIT 1
+    `;
+    const latestOrderSql = `
+      SELECT source_table, source_order_sn, shop_name, consignee, purchase_time, synced_at, created_at
+      FROM purchase_orders
+      WHERE source_table IS NOT NULL
+      ORDER BY COALESCE(synced_at, created_at) DESC
+      LIMIT 1
+    `;
+
+    const [runResult, stateResult, latestOrderResult] = await Promise.all([
+      pgPool.query(runSql).catch(err => ({ rows: [], error: err })),
+      pgPool.query(stateSql).catch(err => ({ rows: [], error: err })),
+      pgPool.query(latestOrderSql).catch(err => ({ rows: [], error: err })),
+    ]);
+
+    const latestRun = runResult.rows?.[0] || null;
+    const state = stateResult.rows?.[0] || null;
+    const latestOrder = latestOrderResult.rows?.[0] || null;
+    res.json({
+      latestRun,
+      state,
+      latestOrder,
+      now: new Date().toISOString(),
+      errors: {
+        latestRun: runResult.error?.message,
+        state: stateResult.error?.message,
+        latestOrder: latestOrderResult.error?.message,
+      },
+    });
+  } catch (err) {
+    console.error('GET /api/orders/sync-status error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/orders/:id', async (req, res) => {
   try {
     const url = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}/${req.params.id}?readFrom=standby`;
