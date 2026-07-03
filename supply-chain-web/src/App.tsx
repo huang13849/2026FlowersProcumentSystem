@@ -21,13 +21,13 @@ function DashboardPage() {
       </Row>
       <Row gutter={16}>
         <Col span={12}>
-          <Card title="商品管理" size="small" extra={<a href="http://100.96.54.109:3001" target="_blank">打开 ›</a>}>
-            <iframe src="http://100.96.54.109:3001" style={{ width: '100%', height: 400, border: '1px solid #f0f0f0', borderRadius: 4 }} />
+          <Card title="商品管理" size="small" extra={<a href="http://100.96.54.109:31001" target="_blank">打开 ›</a>}>
+            <iframe src="http://100.96.54.109:31001" style={{ width: '100%', height: 400, border: '1px solid #f0f0f0', borderRadius: 4 }} />
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="供应商管理" size="small" extra={<a href="http://100.96.54.109:3002" target="_blank">打开 ›</a>}>
-            <iframe src="http://100.96.54.109:3002" style={{ width: '100%', height: 400, border: '1px solid #f0f0f0', borderRadius: 4 }} />
+          <Card title="供应商管理" size="small" extra={<a href="http://100.96.54.109:31002" target="_blank">打开 ›</a>}>
+            <iframe src="http://100.96.54.109:31002" style={{ width: '100%', height: 400, border: '1px solid #f0f0f0', borderRadius: 4 }} />
           </Card>
         </Col>
       </Row>
@@ -47,8 +47,8 @@ const App: React.FC = () => {
           <Menu theme="dark" mode="inline" defaultSelectedKeys={['dashboard']}
             items={menuItems}
             onClick={({ key }) => {
-              if (key === 'products') window.open('http://100.96.54.109:3001', '_blank');
-              if (key === 'suppliers') window.open('http://100.96.54.109:3002', '_blank');
+              if (key === 'products') window.open('http://100.96.54.109:31001', '_blank');
+              if (key === 'suppliers') window.open('http://100.96.54.109:31002', '_blank');
             }}
           />
         </Sider>

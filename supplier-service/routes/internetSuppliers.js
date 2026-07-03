@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const axios = require('axios');
 
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://100.96.54.109:3007';
+const GATEWAY_URL = process.env.GATEWAY_URL || 'http://100.96.54.109:31007';
 const GATEWAY_API_KEY = process.env.GATEWAY_API_KEY || '***REMOVED_API_KEY***';
 const DB = 'supply_chain';
 const TABLE = 'flower_internet_supplier';
