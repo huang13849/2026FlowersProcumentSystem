@@ -414,7 +414,7 @@ let searchTimer=null;let BATCH_CHANNELS=new Set();let HUAXIANG_ACCOUNT=null;
 document.addEventListener("DOMContentLoaded",async()=>{initHuaxiangAccountUI();await login();loadCategories();await resetProducts();loadTasks();loadSyncStatus();setInterval(()=>{loadTasks();loadSyncStatus()},15000)});
 
 async function login(){
-  try{const r=await fetch('http://100.96.54.109:3001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})});const d=await r.json();AUTH.token=d.token}catch(e){console.error(e)}
+  try{const r=await fetch('http://100.96.54.109:31001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})});const d=await r.json();AUTH.token=d.token}catch(e){console.error(e)}
 }
 function authHeaders(){return{Authorization:'Bearer '+AUTH.token,'Content-Type':'application/json'}}
 
@@ -428,7 +428,7 @@ async function loadProducts(){
     const st=document.getElementById('statusFilter').value;
     const p=new URLSearchParams({limit:PAGE_SIZE,page:PAGE,sort:'-createdAt'});
     if(search)p.set('search',search);if(cat)p.set('category',cat);if(st)p.set('isListed',st==='published'?'true':'false');
-    const r=await fetch(`http://100.96.54.109:3001/api/products?${p}`,{headers:authHeaders()});
+    const r=await fetch(`http://100.96.54.109:31001/api/products?${p}`,{headers:authHeaders()});
     const d=await r.json();TOTAL=d.total||0;PAGE_TOTAL=Math.ceil(TOTAL/PAGE_SIZE);
     const items=d.products||[];
     ALL_PRODS=[...ALL_PRODS,...items];renderProducts(false);PAGE++;
@@ -507,7 +507,7 @@ document.getElementById('productContainer').addEventListener('scroll',()=>{
 
 // Load categories
 async function loadCategories(){
-  try{const r=await fetch('http://100.96.54.109:3001/api/products?limit=1',{headers:authHeaders()});const d=await r.json();const cats=new Set();(d.products||[]).forEach(p=>{if(p.category)cats.add(p.category)});const sel=document.getElementById('catFilter');cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o)})}catch{}
+  try{const r=await fetch('http://100.96.54.109:31001/api/products?limit=1',{headers:authHeaders()});const d=await r.json();const cats=new Set();(d.products||[]).forEach(p=>{if(p.category)cats.add(p.category)});const sel=document.getElementById('catFilter');cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o)})}catch{}
 }
 
 
@@ -786,7 +786,7 @@ function renderStatusLabel(r){
 }
 async function loadSyncStatus(){
   try{
-    const r=await fetch('http://100.96.54.109:3001/api/products?limit=10',{headers:authHeaders()});
+    const r=await fetch('http://100.96.54.109:31001/api/products?limit=10',{headers:authHeaders()});
     const d=await r.json();const prods=d.products||[];
     const platforms=['wechat','huaxiang'];
     const grid=document.getElementById('syncStatusGrid');

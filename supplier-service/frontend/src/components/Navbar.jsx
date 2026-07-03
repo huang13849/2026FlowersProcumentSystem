@@ -15,8 +15,8 @@ export default function Navbar() {
         <span style={{fontWeight:'bold',fontSize:15}}>供应商管理系统</span>
         <button style={tabStyle(tab==='supplier')} onClick={()=>n('/')}>📋 供应商管理</button>
         <button style={tabStyle(tab==='internet')} onClick={()=>n('/internet-suppliers')}>🌐 花卉互联网供应商</button>
-        <a href="http://100.96.54.109:3001" style={linkStyle}>商品管理</a>
-        <a href="http://100.96.54.109:3004" style={linkStyle}>经销商系统</a>
+        <a href="http://100.96.54.109:31001" style={linkStyle}>商品管理</a>
+        <a href="http://100.96.54.109:31004" style={linkStyle}>经销商系统</a>
         <a href="http://106.12.91.182/map" style={linkStyle}>地图</a>
       </div>
       <div>

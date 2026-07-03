@@ -20,12 +20,12 @@ p{color:#666;margin-bottom:32px;font-size:14px}
   <h1>🌺 花卉供应链管理平台</h1>
   <p>请选择要进入的管理系统</p>
   <div class="cards">
-    <a href="http://100.96.54.109:3001" class="card">
+    <a href="http://100.96.54.109:31001" class="card">
       <h2>📦 商品管理</h2>
       <p>商品 SKU / 采购 / 库存</p>
       <div class="port">port 3001</div>
     </a>
-    <a href="http://100.96.54.109:3002" class="card">
+    <a href="http://100.96.54.109:31002" class="card">
       <h2>🤝 供应商管理</h2>
       <p>供应商 / 合同 / 资质</p>
       <div class="port">port 3002</div>

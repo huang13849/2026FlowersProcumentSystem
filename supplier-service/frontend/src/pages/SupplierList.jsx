@@ -3,7 +3,7 @@ import api from '../api'
 import axios from 'axios'
 import { gatewayApi } from '../api'
 
-const shopApi = axios.create({ baseURL: 'http://100.96.54.109:3004' })
+const shopApi = axios.create({ baseURL: 'http://100.96.54.109:31004' })
 
 // ============ 状态枚举 ============
 const STATUS_OPTIONS = ['全部', '已完成', '待整理', '合同异常']
@@ -340,7 +340,7 @@ export default function SupplierList() {
     return matchName && matchRegion && matchCategory && matchPeriod
   })
 
-  const goProducts = (s) => { const name = s.shop_name || s.name; window.open('http://100.96.54.109:3001/#/?sellerName=' + encodeURIComponent(name), '_blank') }
+  const goProducts = (s) => { const name = s.shop_name || s.name; window.open('http://100.96.54.109:31001/#/?sellerName=' + encodeURIComponent(name), '_blank') }
 
   const handleDelete = async (e, id) => { e.stopPropagation(); if (!confirm('确认删除？')) return; await api.delete('/api/suppliers/' + id); load() }
 
@@ -351,8 +351,8 @@ export default function SupplierList() {
       const res = await shopApi.get('/api/shops', { params: { search: shopName } })
       const shops = res.data.shops || []
       const match = shops.find(s => s.shopName === shopName)
-      if (match) { window.open('http://100.96.54.109:3004/', '_blank') }
-      else { await shopApi.post('/api/shops', { shopName, contactName: r.contact?.name || '', phone: r.contact?.phone || '' }); window.open('http://100.96.54.109:3004/', '_blank') }
+      if (match) { window.open('http://100.96.54.109:31004/', '_blank') }
+      else { await shopApi.post('/api/shops', { shopName, contactName: r.contact?.name || '', phone: r.contact?.phone || '' }); window.open('http://100.96.54.109:31004/', '_blank') }
     } catch (e) { alert('店铺操作失败: ' + (e.response?.data?.error || e.message)) }
   }
 
@@ -849,7 +849,7 @@ export default function SupplierList() {
                     <td style={tdBase}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <button onClick={e => { e.stopPropagation(); goShop(r) }} onMouseDown={e => e.stopPropagation()} style={{ padding: '3px 0', border: '1px solid #7e57c2', background: '#f3e5f5', color: '#7e57c2', borderRadius: 4, cursor: 'pointer', fontSize: 11, textAlign: 'center', width: '100%' }}>🏪 店铺</button>
-                        <button onClick={e => { e.stopPropagation(); window.open('http://100.96.54.109:3006/' + '?supplierId=' + r._id + '&name=' + encodeURIComponent(r.name), '_blank') }} style={{ padding: '3px 0', border: '1px solid #2e7d32', background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, cursor: 'pointer', fontSize: 11, textAlign: 'center', width: '100%' }}>📄 合同</button>
+                        <button onClick={e => { e.stopPropagation(); window.open('http://100.96.54.109:31006/' + '?supplierId=' + r._id + '&name=' + encodeURIComponent(r.name), '_blank') }} style={{ padding: '3px 0', border: '1px solid #2e7d32', background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, cursor: 'pointer', fontSize: 11, textAlign: 'center', width: '100%' }}>📄 合同</button>
                         <button onClick={e => { e.stopPropagation(); goProducts(r) }} onMouseDown={e => e.stopPropagation()} style={{ padding: '3px 0', border: '1px solid #1565c0', background: '#e3f2fd', color: '#1565c0', borderRadius: 4, cursor: 'pointer', fontSize: 11, textAlign: 'center', width: '100%' }}>🛒 商品</button>
                         <button onClick={e => handleDelete(e, r._id)} style={{ padding: '3px 0', border: '1px solid #c62828', background: '#ffebee', color: '#c62828', borderRadius: 4, cursor: 'pointer', fontSize: 11, textAlign: 'center', width: '100%' }}>🗑️ 删除</button>
                       </div>

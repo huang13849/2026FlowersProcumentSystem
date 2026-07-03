@@ -7,8 +7,8 @@ export default function Navbar() {
     }}>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
         <span style={{ fontWeight: 'bold', fontSize: 15 }}>🏪 经销商系统</span>
-        <a href="http://100.96.54.109:3001" style={linkStyle}>商品管理</a>
-        <a href="http://100.96.54.109:3002" style={linkStyle}>供应商管理</a>
+        <a href="http://100.96.54.109:31001" style={linkStyle}>商品管理</a>
+        <a href="http://100.96.54.109:31002" style={linkStyle}>供应商管理</a>
         <a href="http://106.12.91.182/map" style={linkStyle}>地图</a>
       </div>
     </nav>

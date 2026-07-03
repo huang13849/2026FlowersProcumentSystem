@@ -7,8 +7,8 @@ export default function Navbar() {
       <div style={{ display:'flex', gap:16, alignItems:'center' }}>
         <span style={{ fontWeight:'bold', fontSize:15 }}>🌺 花卉采购系统</span>
         <span style={{ opacity:.5, fontSize:13 }}>商品管理表格</span>
-        <a href="http://100.96.54.109:3002" style={linkStyle}>供应商管理</a>
-        <a href="http://100.96.54.109:3004" style={linkStyle}>经销商系统</a>
+        <a href="http://100.96.54.109:31002" style={linkStyle}>供应商管理</a>
+        <a href="http://100.96.54.109:31004" style={linkStyle}>经销商系统</a>
         <a href="http://106.12.91.182/map" style={linkStyle}>地图</a>
       </div>
       <div style={{ display:'flex', gap:12, alignItems:'center' }}>

@@ -122,13 +122,13 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
     <div class="sidebar-nav">
       <div class="nav-section">导航</div>
       <a class="nav-item active" href="/"><span class="icon">📊</span><span>总览仪表盘</span></a>
-      <a class="nav-item" href="http://100.96.54.109:3001"><span class="icon">📦</span><span>商品中心</span><span class="badge">3001</span></a>
-      <a class="nav-item" href="http://100.96.54.109:3002"><span class="icon">🤝</span><span>供应商</span><span class="badge">3002</span></a>
-      <a class="nav-item" href="http://100.96.54.109:3004"><span class="icon">🏪</span><span>店铺注册</span><span class="badge">3004</span></a>
-      <a class="nav-item" href="/ai"><span class="icon">🤖</span><span>AI 助手</span><span class="badge">3003</span></a>
-      <a class="nav-item" href="http://100.96.54.109:3008"><span class="icon">🛒</span><span>购买订单</span><span class="badge">3008</span></a>
-      <a class="nav-item" href="http://100.96.54.109:3005"><span class="icon">📦</span><span>一键铺货</span><span class="badge">3005</span></a>
-      <a class="nav-item" href="/price"><span class="icon">💰</span><span>价格指数</span><span class="badge">3009</span></a>
+      <a class="nav-item" href="http://100.96.54.109:31001"><span class="icon">📦</span><span>商品中心</span><span class="badge">31001</span></a>
+      <a class="nav-item" href="http://100.96.54.109:31002"><span class="icon">🤝</span><span>供应商</span><span class="badge">31002</span></a>
+      <a class="nav-item" href="http://100.96.54.109:31004"><span class="icon">🏪</span><span>店铺注册</span><span class="badge">31004</span></a>
+      <a class="nav-item" href="/ai"><span class="icon">🤖</span><span>AI 助手</span><span class="badge">31003</span></a>
+      <a class="nav-item" href="http://100.96.54.109:31008"><span class="icon">🛒</span><span>购买订单</span><span class="badge">31008</span></a>
+      <a class="nav-item" href="http://100.96.54.109:31005"><span class="icon">📦</span><span>一键铺货</span><span class="badge">31005</span></a>
+      <a class="nav-item" href="/price"><span class="icon">💰</span><span>价格指数</span><span class="badge">31009</span></a>
       <a class="nav-item" href="http://100.109.206.83:3000" target="_blank"><span class="icon">📡</span><span>服务器监控</span><span class="badge">新</span></a>
       <a class="nav-item" href="/users"><span class="icon">👥</span><span>用户管理</span><span class="badge">新</span></a>
       <a class="nav-item" href="http://100.96.54.109:9001"><span class="icon">🖼️</span><span>MinIO 图床</span><span class="badge">9001</span></a>
@@ -185,7 +185,7 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
 
       <!-- Quick Access Services -->
       <div class="services">
-        <a class="service-card" href="http://100.96.54.109:3001">
+        <a class="service-card" href="http://100.96.54.109:31001">
           <div class="icon">📦</div>
           <h3>商品管理系统</h3>
           <p>管理花卉商品信息、库存、价格、上下架</p>
@@ -195,7 +195,7 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
           </div>
           <span class="arrow">→</span>
         </a>
-        <a class="service-card" href="http://100.96.54.109:3002">
+        <a class="service-card" href="http://100.96.54.109:31002">
           <div class="icon">🤝</div>
           <h3>供应商管理系统</h3>
           <p>管理供应商资质、合同、营业执照、往来文件</p>
@@ -205,7 +205,7 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
           </div>
           <span class="arrow">→</span>
         </a>
-        <a class="service-card" href="http://100.96.54.109:3004">
+        <a class="service-card" href="http://100.96.54.109:31004">
           <div class="icon">🏪</div>
           <h3>店铺注册管理系统</h3>
           <p>管理店铺注册信息、拉卡拉/微信/支付宝商户号、资质图片</p>
@@ -225,7 +225,7 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
           </div>
           <span class="arrow">→</span>
         </a>
-        <a class="service-card" href="http://100.96.54.109:3005">
+        <a class="service-card" href="http://100.96.54.109:31005">
           <div class="icon">📦</div>
           <h3>一键铺货 · 多平台发布</h3>
           <p>抖店、小红书、拼多多、视频号 — 智能映射、批量发布、状态追踪</p>
@@ -235,7 +235,7 @@ body{background:var(--bg-primary);color:var(--text-primary);min-height:100vh;ove
           </div>
           <span class="arrow">→</span>
         </a>
-        <a class="service-card" href="http://100.96.54.109:3008" target="_blank">
+        <a class="service-card" href="http://100.96.54.109:31008" target="_blank">
           <div class="icon">🛒</div>
           <h3>购买订单管理</h3>
           <p>会员购买订单管理，支持搜索、筛选、新增、编辑、删除</p>
@@ -362,10 +362,10 @@ document.getElementById("startTime").textContent = new Date().toLocaleTimeString
 // Health check all services
 async function checkServices() {
   const services = [
-    { name: "价格服务", url: "http://100.96.54.109:3009/api/prices/health", key: "price" },
-    { name: "商品服务", url: "http://100.96.54.109:3001/api/health", key: "product" },
-    { name: "供应商服务", url: "http://100.96.54.109:3002/api/health", key: "supplier" },
-    { name: "AI 服务", url: "http://100.96.54.109:3003/api/ai/health", key: "ai" },
+    { name: "价格服务", url: "http://100.96.54.109:31009/api/prices/health", key: "price" },
+    { name: "商品服务", url: "http://100.96.54.109:31001/api/health", key: "product" },
+    { name: "供应商服务", url: "http://100.96.54.109:31002/api/health", key: "supplier" },
+    { name: "AI 服务", url: "http://100.96.54.109:31003/api/ai/health", key: "ai" },
     { name: "MinIO API", url: "http://100.96.54.109:9000/minio/health/live", key: "minio" },
     { name: "Ollama LLM", url: "http://100.96.54.109:11434/api/tags", key: "ollama" },
   ];
@@ -387,7 +387,7 @@ async function checkServices() {
 async function loadStats() {
   try {
     // Product count
-    const prodRes = await fetch("http://100.96.54.109:3001/api/products?limit=1", {
+    const prodRes = await fetch("http://100.96.54.109:31001/api/products?limit=1", {
       headers: { "Authorization": "Bearer " },
       signal: AbortSignal.timeout(5000)
     });
@@ -398,7 +398,7 @@ async function loadStats() {
   } catch {}
   
   try {
-    const supRes = await fetch("http://100.96.54.109:3002/api/suppliers", {
+    const supRes = await fetch("http://100.96.54.109:31002/api/suppliers", {
       signal: AbortSignal.timeout(5000)
     });
     if (supRes.ok) {
@@ -430,7 +430,7 @@ async function loadStats() {
 // Check AI model status
 async function checkAI() {
   try {
-    const res = await fetch("http://100.96.54.109:3003/api/ai/health", {
+    const res = await fetch("http://100.96.54.109:31003/api/ai/health", {
       signal: AbortSignal.timeout(5000)
     });
     if (res.ok) {

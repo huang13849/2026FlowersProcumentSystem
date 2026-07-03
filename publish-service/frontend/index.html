@@ -313,13 +313,13 @@ pre{background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);f
   async function loadMinioStats() {
     const c = document.getElementById('minioStats');
     try {
-      const r = await fetch('http://100.96.54.109:3001/api/health', { signal:AbortSignal.timeout(3000) });
+      const r = await fetch('http://100.96.54.109:31001/api/health', { signal:AbortSignal.timeout(3000) });
       // We'll try multiple ways to get MinIO counts
       let totalCount = '?', folderCounts = {};
       
       // Try product-service export/count-files endpoint
       try {
-        const cr = await fetch('http://100.96.54.109:3001/api/export/count-files', { signal:AbortSignal.timeout(3000) });
+        const cr = await fetch('http://100.96.54.109:31001/api/export/count-files', { signal:AbortSignal.timeout(3000) });
         if (cr.ok) {
           const cd = await cr.json();
           totalCount = cd.total || 0;

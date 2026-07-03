@@ -93,7 +93,7 @@ body::before{content:"";position:fixed;inset:0;background:url("data:image/svg+xm
   </div>
 </div>
 <script>
-const AI_API="http://100.96.54.109:3003/api/ai";
+const AI_API="http://100.96.54.109:31003/api/ai";
 function showPanel(i){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel'+i).classList.add('active');document.getElementById('panel'+i).scrollIntoView({behavior:'smooth',block:'start'})}
 function previewImage(i){var f=i.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){document.getElementById('preview0').src=e.target.result;document.getElementById('preview0').style.display='block';document.getElementById('uploadPlaceholder0').style.display='none';document.getElementById('uploadArea0').classList.add('has-image')};r.readAsDataURL(f)}
 function loadBtn(id,loading){var b=document.getElementById(id);b.disabled=loading;b.innerHTML=loading?'<span class="spinner"></span>处理中...':b.dataset.orig;if(!b.dataset.orig)b.dataset.orig=b.innerHTML}
