@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { Supplier } = require('../models/Supplier');
+const { fromReq } = require('../services/supplierService');
 
 function supplierModel(req, role) {
   return req.app.locals[role] || Supplier;
@@ -8,26 +9,19 @@ function supplierModel(req, role) {
 // ── Batch reorder (MUST be before /:id) ──
 router.post('/reorder', async (req, res) => {
   try {
-    const SupplierWrite = supplierModel(req, 'SupplierWrite');
-    const { orders } = req.body;
-    if (!Array.isArray(orders)) return res.status(400).json({ error: 'orders must be an array' });
-    const bulkOps = orders.map(({ id, sortOrder }) => ({
-      updateOne: { filter: { _id: id }, update: { $set: { sortOrder } } }
-    }));
-    await SupplierWrite.bulkWrite(bulkOps);
-    res.json({ success: true, updated: orders.length });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const svc = fromReq(req);
+    const result = await svc.reorder(req.body.orders);
+    res.json(result);
+  } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
 // ── Batch delete (MUST be before /:id) ──
 router.post('/batch-delete', async (req, res) => {
   try {
-    const SupplierWrite = supplierModel(req, 'SupplierWrite');
-    const { ids } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids must be a non-empty array' });
-    const result = await SupplierWrite.deleteMany({ _id: { $in: ids } });
-    res.json({ success: true, deleted: result.deletedCount });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const svc = fromReq(req);
+    const result = await svc.batchDelete(req.body.ids);
+    res.json(result);
+  } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
 // ── Batch import from Excel ──
@@ -147,28 +141,16 @@ router.get('/product-stats', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const SupplierRead = supplierModel(req, 'SupplierRead');
-    const { search, status } = req.query;
-    const query = {};
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { shop_name: { $regex: search, $options: 'i' } },
-        { 'contact.name': { $regex: search, $options: 'i' } },
-        { 'company_info.tax_id': { $regex: search, $options: 'i' } },
-        { notes: { $regex: search, $options: 'i' } }
-      ];
-    }
-    if (status) query.status = status;
-    const data = await SupplierRead.find(query).sort({ updatedAt: -1 });
-    res.json({ suppliers: data, total: data.length });
+    const svc = fromReq(req);
+    const result = await svc.list(req.query);
+    res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/:id', async (req, res) => {
   try {
-    const SupplierRead = supplierModel(req, 'SupplierRead');
-    const supplier = await SupplierRead.findById(req.params.id);
+    const svc = fromReq(req);
+    const supplier = await svc.get(req.params.id);
     if (!supplier) return res.status(404).json({ error: 'Supplier not found' });
     res.json(supplier);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -176,33 +158,26 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const SupplierWrite = supplierModel(req, 'SupplierWrite');
-    const body = { ...req.body };
-    if (body.sortOrder === undefined) {
-      const last = await SupplierWrite.findOne().sort({ sortOrder: -1 }).select('sortOrder');
-      body.sortOrder = (last?.sortOrder ?? 0) + 10;
-    }
-    const s = await SupplierWrite.create(body);
+    const svc = fromReq(req);
+    const s = await svc.create(req.body);
     res.status(201).json(s);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
 router.put('/:id', async (req, res) => {
   try {
-    const SupplierWrite = supplierModel(req, 'SupplierWrite');
-    const s = await SupplierWrite.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const svc = fromReq(req);
+    const s = await svc.update(req.params.id, req.body);
     res.json(s);
-  }
-  catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
 router.delete('/:id', async (req, res) => {
   try {
-    const SupplierWrite = supplierModel(req, 'SupplierWrite');
-    await SupplierWrite.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Deleted' });
-  }
-  catch (err) { res.status(500).json({ error: err.message }); }
+    const svc = fromReq(req);
+    const r = await svc.remove(req.params.id);
+    res.json(r);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── V2.3: 地址转经纬度（高德首选 + Nominatim备选） ──

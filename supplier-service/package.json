@@ -1,10 +1,12 @@
 {
   "name": "supplier-service",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Supplier management microservice",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:system": "node --test tests/system/",
+    "migrate:geo": "node scripts/migrate-geo.js"
   },
   "dependencies": {
     "axios": "^1.17.0",

@@ -18,6 +18,19 @@ pipeline {
                 sh 'find . -name "package.json" -exec npm test {} \\; || true'
             }
         }
+        stage('Supplier Geo System Test') {
+            steps {
+                echo 'Running supplier geo unification system test...'
+                dir('supplier-service') {
+                    sh '''
+                        npm install --silent --no-audit --no-fund
+                        # 测试库使用同一 Mongo，独立 db supply_chain_test
+                        TEST_URI=$(echo "$MONGODB_URI" | sed 's#/supply_chain?#/supply_chain_test?#' | sed 's#readPreference=secondaryPreferred#readPreference=primary#')
+                        TEST_MONGODB_URI="$TEST_URI" node --test tests/system/
+                    '''
+                }
+            }
+        }
         stage('Build & Push Images') {
             steps {
                 script {
