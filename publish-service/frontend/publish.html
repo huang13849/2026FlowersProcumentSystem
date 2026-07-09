@@ -266,7 +266,8 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
       <div class="hx-box" id="hxMiniBox">
         <h4>🌿 花乡花木配置</h4>
         <div class="hint" id="hxMiniStatus">勾选“花乡花木”后，可在这里设置/切换账号与运费。</div>
-        <button class="btn-block btn-outline" onclick="openHuaxiangModal()" type="button">设置/切换账号与运费</button>
+        <div id="hxAccountsList" style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px"></div>
+        <button class="btn-block btn-outline" onclick="openHuaxiangModal()" type="button">➕ 新增 / 修改账号与运费设置</button>
       </div>
       <div class="channel-select">
         <div class="channel-row" data-key="wechat" onclick="toggleBC(this)"><span class="ck">✓</span><span class="ch-name">📬 微信小店</span><span class="ch-count" id="cc_wechat">-</span></div>
@@ -339,7 +340,8 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 32px}
     <div id="hxStatus" class="hx-status">当前未保存临时账号。</div>
     <div class="modal-actions">
       <button class="btn-block btn-outline" onclick="closeModal('huaxiangModal')" style="flex:1">关闭</button>
-      <button class="btn-block btn-primary" onclick="saveHuaxiangAccount()" style="flex:1">保存到本次页面</button>
+      <button class="btn-block btn-outline" onclick="saveHuaxiangAccount(true)" style="flex:1">➕ 另存为新账号</button>
+      <button class="btn-block btn-primary" onclick="saveHuaxiangAccount(false)" style="flex:1">💾 保存 / 更新当前账号</button>
     </div>
   </div>
 </div>
@@ -415,7 +417,7 @@ const HUAXIANG_SNIPPET=`(() => {
 })();`;
 
 let SEL={};let ALL_PRODS=[];let TOTAL=0;let PAGE=1;let PAGE_TOTAL=1;let LOADING=false;
-let searchTimer=null;let BATCH_CHANNELS=new Set();let HUAXIANG_ACCOUNT=null;
+let searchTimer=null;let BATCH_CHANNELS=new Set();let HUAXIANG_ACCOUNT=null;let HUAXIANG_ACCOUNTS=[];let HUAXIANG_ACTIVE_ID=null;
 
 // ===================== INIT =====================
 document.addEventListener("DOMContentLoaded",async()=>{initHuaxiangAccountUI();await login();loadCategories();await resetProducts();loadTasks();loadSyncStatus();setInterval(()=>{loadTasks();loadSyncStatus()},15000)});
@@ -538,8 +540,76 @@ async function loadCategories(){
 // ===================== HUAXIANG ACCOUNT =====================
 function initHuaxiangAccountUI(){
   const sn=document.getElementById('hxSnippet');if(sn)sn.textContent=HUAXIANG_SNIPPET;
-  try{const saved=sessionStorage.getItem('huaxiangAccount');if(saved)HUAXIANG_ACCOUNT=JSON.parse(saved)}catch(e){}
+  // 加载多账号
+  try{const list=localStorage.getItem('huaxiangAccounts');if(list){HUAXIANG_ACCOUNTS=JSON.parse(list)||[];}}catch(e){HUAXIANG_ACCOUNTS=[]}
+  try{HUAXIANG_ACTIVE_ID=localStorage.getItem('huaxiangActiveId')||null}catch(e){}
+  // 迁移旧的单账号 sessionStorage
+  try{const legacy=sessionStorage.getItem('huaxiangAccount');
+    if(legacy&&!HUAXIANG_ACCOUNTS.length){
+      const acc=JSON.parse(legacy);acc.id=acc.id||('hx_'+Date.now());acc.label=acc.label||'默认账号';
+      HUAXIANG_ACCOUNTS=[acc];HUAXIANG_ACTIVE_ID=acc.id;
+      localStorage.setItem('huaxiangAccounts',JSON.stringify(HUAXIANG_ACCOUNTS));
+      localStorage.setItem('huaxiangActiveId',HUAXIANG_ACTIVE_ID);
+    }
+  }catch(e){}
+  // 应用当前激活账号
+  if(HUAXIANG_ACTIVE_ID){
+    const a=HUAXIANG_ACCOUNTS.find(x=>x.id===HUAXIANG_ACTIVE_ID);
+    if(a){HUAXIANG_ACCOUNT=Object.assign({},a);}
+  }else if(HUAXIANG_ACCOUNTS.length===1){
+    HUAXIANG_ACTIVE_ID=HUAXIANG_ACCOUNTS[0].id;HUAXIANG_ACCOUNT=Object.assign({},HUAXIANG_ACCOUNTS[0]);
+    try{localStorage.setItem('huaxiangActiveId',HUAXIANG_ACTIVE_ID)}catch(e){}
+  }
   renderHuaxiangAccount();
+  renderHuaxiangAccountsChips();
+}
+
+function persistHuaxiangAccounts(){
+  try{localStorage.setItem('huaxiangAccounts',JSON.stringify(HUAXIANG_ACCOUNTS));}catch(e){}
+  try{if(HUAXIANG_ACTIVE_ID)localStorage.setItem('huaxiangActiveId',HUAXIANG_ACTIVE_ID);else localStorage.removeItem('huaxiangActiveId');}catch(e){}
+}
+
+function renderHuaxiangAccountsChips(){
+  const box=document.getElementById('hxAccountsList');if(!box)return;
+  if(!HUAXIANG_ACCOUNTS.length){box.innerHTML='<span class="hint" style="color:#999">暂无已保存账号，点下方按钮新增。</span>';return;}
+  box.innerHTML=HUAXIANG_ACCOUNTS.map(function(a){
+    const active=a.id===HUAXIANG_ACTIVE_ID;
+    const fr=hxFreightSummary(a);
+    const style='padding:6px 10px;border-radius:14px;cursor:pointer;font-size:12px;border:1px solid '+(active?'#2ecc71':'#d0d0d0')+';background:'+(active?'#e8fbef':'#fff')+';display:inline-flex;align-items:center;gap:6px';
+    return '<span data-hxid="'+esc(a.id)+'" style="'+style+'" onclick="activateHuaxiangAccount(this.dataset.hxid)">'
+      +(active?'<span style="color:#2ecc71;font-weight:600">●</span> ':'○ ')
+      +esc(a.label||'未命名')
+      +' <span style="color:#888">('+esc(fr)+')</span>'
+      +' <span style="color:#c33;font-size:11px;padding:0 4px;border-radius:8px;background:#faecec" onclick="event.stopPropagation();deleteHuaxiangAccountById(\''+esc(a.id)+'\')" title="删除">×</span>'
+      +'</span>';
+  }).join('');
+}
+
+async function activateHuaxiangAccount(id){
+  const a=HUAXIANG_ACCOUNTS.find(x=>x.id===id);if(!a){toast('账号不存在','err');return;}
+  HUAXIANG_ACTIVE_ID=id;HUAXIANG_ACCOUNT=Object.assign({},a);persistHuaxiangAccounts();
+  renderHuaxiangAccount();renderHuaxiangAccountsChips();
+  toast('已切换到账号：'+(a.label||'未命名')+'，正在测试连通性...');
+  try{
+    const r=await fetch('/api/publish/huaxiang/ping',{method:'POST',headers:{'Content-Type':'application/json',...AUTH},body:JSON.stringify({token:a.token,cookie:a.cookie})});
+    const d=await r.json();
+    const st=document.getElementById('hxMiniStatus');
+    if(d.ok){
+      if(st)st.innerHTML='<b style="color:#2ecc71">✓ 花乡账号「'+esc(a.label)+'」已就绪</b><br>响应 '+d.elapsed_ms+'ms，'+esc(hxFreightSummary(a));
+      toast('花乡账号「'+(a.label||'')+'」连通性 OK ('+d.elapsed_ms+'ms)');
+    }else{
+      if(st)st.innerHTML='<b style="color:#e74c3c">✗ 「'+esc(a.label)+'」连通失败</b>：'+esc(d.hint||d.error||'未知')+'<br><a href="#" onclick="openHuaxiangModal();return false" style="color:#3498db">点此更新 token/cookie</a>';
+      toast('账号「'+(a.label||'')+'」连通失败：'+(d.hint||d.error||''),'err');
+    }
+  }catch(e){toast('连通性测试请求失败：'+e.message,'err')}
+}
+
+function deleteHuaxiangAccountById(id){
+  const a=HUAXIANG_ACCOUNTS.find(x=>x.id===id);if(!a)return;
+  if(!confirm('删除账号「'+(a.label||'未命名')+'」？')) return;
+  HUAXIANG_ACCOUNTS=HUAXIANG_ACCOUNTS.filter(x=>x.id!==id);
+  if(HUAXIANG_ACTIVE_ID===id){HUAXIANG_ACTIVE_ID=null;HUAXIANG_ACCOUNT=null}
+  persistHuaxiangAccounts();renderHuaxiangAccount();renderHuaxiangAccountsChips();toast('已删除账号');
 }
 function getHxFreightMode(){return document.querySelector('input[name="hxFreightMode"]:checked')?.value||'uniform'}
 function hxFreightSummary(acc){
@@ -621,31 +691,66 @@ function normalizeCookie(cookie){
   if(!wanted.some(p=>/^Admin-Token=/i.test(p)))wanted.unshift('Admin-Token=admin-token');
   return wanted.length?wanted.join('; '):String(cookie).trim();
 }
-function saveHuaxiangAccount(){
+function saveHuaxiangAccount(saveAsNew){
   const label=document.getElementById('hxLabel').value.trim()||'花乡临时账号';
   const token=document.getElementById('hxToken').value.trim();
   const cookie=normalizeCookie(document.getElementById('hxCookie').value.trim());
   const freightMode=getHxFreightMode();
-  const freightTemplateId=parseInt(document.getElementById('hxFreightId')?.value||'216',10);
-  const uniformPostage=Math.max(0,parseFloat(document.getElementById('hxUniformPostage')?.value||'0')||0);
+  const freightTemplateId=parseInt((document.getElementById('hxFreightId')||{}).value||'216',10);
+  const uniformPostage=Math.max(0,parseFloat((document.getElementById('hxUniformPostage')||{}).value||'0')||0);
   const st=document.getElementById('hxStatus');
   if(!token||!cookie){st.className='hx-status err';st.textContent='token 和 cookie 都不能为空';return;}
   if(!/ajaxtoken=/i.test(cookie)){st.className='hx-status err';st.textContent='Cookie 至少需要包含 ajaxtoken；JSESSIONID 可能是 HttpOnly，读不到也没关系';return;}
   if(freightMode==='template'&&(!freightTemplateId||freightTemplateId<1)){st.className='hx-status err';st.textContent='选择运费模板时必须填写有效模板编号';return;}
-  HUAXIANG_ACCOUNT={label,token,cookie,freightMode,freightTemplateId,uniformPostage};
-  try{sessionStorage.setItem('huaxiangAccount',JSON.stringify(HUAXIANG_ACCOUNT));}catch(e){}
-  renderHuaxiangAccount();toast('花乡账号与运费配置已保存');closeModal('huaxiangModal');
+  // 新增 or 更新
+  let acc;
+  if(!saveAsNew&&HUAXIANG_ACTIVE_ID){
+    // 更新现有激活账号
+    acc=HUAXIANG_ACCOUNTS.find(a=>a.id===HUAXIANG_ACTIVE_ID);
+    if(acc){Object.assign(acc,{label,token,cookie,freightMode,freightTemplateId,uniformPostage});}
+  }
+  if(!acc){
+    acc={id:'hx_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),label,token,cookie,freightMode,freightTemplateId,uniformPostage};
+    HUAXIANG_ACCOUNTS.push(acc);HUAXIANG_ACTIVE_ID=acc.id;
+  }
+  HUAXIANG_ACCOUNT=Object.assign({},acc);
+  persistHuaxiangAccounts();
+  renderHuaxiangAccount();renderHuaxiangAccountsChips();
+  toast(saveAsNew?('已新增账号：'+label):('已保存账号：'+label));
+  closeModal('huaxiangModal');
 }
 function clearHuaxiangAccount(){
-  HUAXIANG_ACCOUNT=null;try{sessionStorage.removeItem('huaxiangAccount')}catch(e){}
+  // 清空 modal 表单,方便新增另一个账号(不动 localStorage 里的账号列表)
   ['hxLabel','hxToken','hxCookie','hxPaste'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
   const up=document.getElementById('hxUniformPostage');if(up)up.value='0';
   const fi=document.getElementById('hxFreightId');if(fi)fi.value='216';
-  setHxFreightMode('uniform');renderHuaxiangAccount();toast('已清除临时账号与运费配置');
+  setHxFreightMode('uniform');
+  // 取消当前激活(留在这里做"新增账号"时的干净起点)
+  HUAXIANG_ACTIVE_ID=null;HUAXIANG_ACCOUNT=null;persistHuaxiangAccounts();
+  renderHuaxiangAccount();renderHuaxiangAccountsChips();
+  toast('已清空表单，可继续填写新账号');
 }
 
 // ===================== BATCH CHANNEL =====================
-function toggleBC(el){el.classList.toggle('selected');const k=el.dataset.key;if(BATCH_CHANNELS.has(k))BATCH_CHANNELS.delete(k);else BATCH_CHANNELS.add(k);updateSelBanner();renderHuaxiangAccount();if(k==='huaxiang'&&BATCH_CHANNELS.has(k))openHuaxiangModal()}
+function toggleBC(el){
+  el.classList.toggle('selected');
+  const k=el.dataset.key;
+  if(BATCH_CHANNELS.has(k))BATCH_CHANNELS.delete(k);
+  else BATCH_CHANNELS.add(k);
+  updateSelBanner();
+  renderHuaxiangAccount();
+  if(k==='huaxiang'&&BATCH_CHANNELS.has(k)){
+    // 花乡被勾选:如果没保存过账号,弹 modal 让用户设置;如果有账号且未激活,自动激活并测连通
+    if(!HUAXIANG_ACCOUNTS.length){
+      openHuaxiangModal();
+    }else if(!HUAXIANG_ACTIVE_ID){
+      activateHuaxiangAccount(HUAXIANG_ACCOUNTS[0].id);
+    }else{
+      // 已有激活账号,测一下连通性
+      activateHuaxiangAccount(HUAXIANG_ACTIVE_ID);
+    }
+  }
+}
 function getBC(){return[...BATCH_CHANNELS]}
 
 // ===================== CONFIRM MODAL =====================

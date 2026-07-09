@@ -19,8 +19,8 @@ spec:
         kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
       containers:
         - name: price-service
-          image: 100.76.15.64:5001/supply-chain/price-service:price-k3s-20260702063005
-          imagePullPolicy: IfNotPresent
+          image: 100.76.15.64:5001/supply-chain/price-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 3009
           env:

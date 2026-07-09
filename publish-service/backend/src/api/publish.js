@@ -318,6 +318,50 @@ router.get('/minio-stats', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/publish/huaxiang/ping
+ * 用前端提供的 token+cookie 测试花乡账号连通性(轻接口:七牛上传凭证)
+ * body: { token, cookie }
+ */
+router.post('/huaxiang/ping', async (req, res) => {
+  try {
+    const { token, cookie } = req.body || {};
+    if (!token || !cookie) return res.status(400).json({ ok: false, error: 'token/cookie 必填' });
+    const HuaxiangAdapter = require('../adapter/HuaxiangAdapter');
+    const axios = require('axios');
+    const adapter = new HuaxiangAdapter(config);
+    adapter.account = { token, cookie };
+    const started = Date.now();
+    // 用需要 auth 的 admin 接口:getShopSelfMall
+    const url = adapter._buildUrl('/weidao/weidaoyun/admin/product/getShopSelfMall.jhtml');
+    const resp = await axios.get(url, { headers: adapter._buildHeaders(), timeout: 15000, validateStatus: () => true });
+    const elapsed = Date.now() - started;
+    const data = resp.data;
+    const isExpired = data && (data.code === -100 || /登录过期|登录失效|未登录|未登陆/i.test(String(data.status || data.msg || '')));
+    const ok = !isExpired && resp.status >= 200 && resp.status < 400 && data && data.code !== -100;
+    return res.json({
+      ok,
+      elapsed_ms: elapsed,
+      http_status: resp.status,
+      remote_code: data && data.code,
+      remote_status: data && (data.status || data.msg || null),
+      preview: data && data.data ? (Array.isArray(data.data) ? '['+data.data.length+' items]' : (typeof data.data === 'object' ? Object.keys(data.data).slice(0,5).join(',') : String(data.data).slice(0,40))) : '',
+      message: ok ? '连通,账号有效' : (isExpired ? 'token/cookie 已失效' : '返回异常'),
+      hint: isExpired ? '请重新在花乡后台按脚本获取最新 token/cookie' : '',
+    });
+  } catch (err) {
+    console.error('[huaxiang-ping] error:', err.message);
+    return res.json({
+      ok: false,
+      error: err.message,
+      status: err.response && err.response.status,
+      hint: (err.response && err.response.status === 401) || /token|登录|未登陆|未登录/i.test(err.message)
+        ? 'token 或 cookie 已失效,请重新获取'
+        : '接口异常,详见 error',
+    });
+  }
+});
+
 router.get('/health', (req, res) => {
   const queueStats = taskQueue.getQueueStats();
   const stateStats = stateManager.getStats();

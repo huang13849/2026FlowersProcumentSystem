@@ -20,8 +20,8 @@ spec:
       containers:
       - name: shop-service
         image: 100.76.15.64:5001/supply-chain/shop-service:latest
-        imagePullPolicy: IfNotPresent
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
+        imagePullPolicy: Always
         ports:
         - containerPort: 3004
         envFrom:

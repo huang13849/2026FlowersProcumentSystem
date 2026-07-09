@@ -107,28 +107,46 @@ class HuaxiangAdapter extends BasePlatformAdapter {
     const qiniuToken = await this._getQiniuToken();
     const key = `images/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
 
-    // 压缩图片（max 1200x1200, quality 80），避免大文件上传超时
+    // 压缩到 <=100KB:降尺寸 + 降质量迭代;命中即停
+    const TARGET = 100 * 1024;
     let uploadBuffer = imageBuffer;
     try {
-      uploadBuffer = await sharp(imageBuffer)
-        .jpeg({ quality: 80, progressive: true })
-        .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-        .toBuffer();
-      console.log(`[Huaxiang] 图片压缩: ${imageBuffer.length} → ${uploadBuffer.length} bytes`);
+      const attempts = [
+        { w: 1200, q: 80 },
+        { w: 1200, q: 65 },
+        { w: 1000, q: 60 },
+        { w: 900,  q: 55 },
+        { w: 800,  q: 50 },
+        { w: 700,  q: 45 },
+        { w: 600,  q: 40 },
+      ];
+      let picked = null;
+      for (const a of attempts) {
+        const buf = await sharp(imageBuffer)
+          .rotate() // 保留 EXIF 方向,再擦掉元数据(减重)
+          .resize(a.w, a.w, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: a.q, progressive: true, mozjpeg: true, chromaSubsampling: '4:2:0' })
+          .toBuffer();
+        picked = { buf, a };
+        if (buf.length <= TARGET) break;
+      }
+      uploadBuffer = picked.buf;
+      const ratio = ((1 - uploadBuffer.length / imageBuffer.length) * 100).toFixed(1);
+      console.log(`[Huaxiang] 图片压缩: ${imageBuffer.length} → ${uploadBuffer.length}B (${ratio}%↓, w=${picked.a.w} q=${picked.a.q}${uploadBuffer.length <= TARGET ? '' : ' 未达 100KB'})`);
     } catch (e) {
-      console.warn(`[Huaxiang] sharp 压缩失败，使用原图:`, e.message);
+      console.warn(`[Huaxiang] sharp 压缩失败,使用原图:`, e.message);
     }
 
-    // 重试3次，每次90秒超时（花乡七牛上传偶发慢，避免前端误判超时）
+    // 重试2次,单张 25s 超时(七牛正常上传应在数秒内),重试间隔 800ms
     let lastErr;
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const formData = new FormData();
         formData.append('token', qiniuToken);
         formData.append('key', key);
         formData.append('file', uploadBuffer, { filename: fileName || 'product.jpg', contentType: 'image/jpeg' });
         const resp = await axios.post('https://up-z1.qiniup.com/', formData, {
-          headers: formData.getHeaders(), timeout: 90000,
+          headers: formData.getHeaders(), timeout: 25000,
           maxContentLength: Infinity, maxBodyLength: Infinity,
         });
         if (resp.status === 200 && resp.data.key) {
@@ -138,36 +156,47 @@ class HuaxiangAdapter extends BasePlatformAdapter {
       } catch (err) {
         lastErr = err;
         console.warn(`[Huaxiang] 上传第${attempt}次失败: ${err.message}`);
-        if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+        if (attempt < 2) await new Promise(r => setTimeout(r, 800));
       }
     }
     throw lastErr;
   }
 
-  async uploadImages(images, intervalMs = 300) {
-    const uploaded = [];
-    for (let i = 0; i < images.length; i++) {
-      const img = images[i];
-      try {
-        let buffer;
-        if (img.buffer) { buffer = img.buffer; }
-        else {
-          const resp = await axios.get(img.url, { responseType: 'arraybuffer', timeout: 60000 });
-          buffer = Buffer.from(resp.data);
+  async uploadImages(images, intervalMs = 0, concurrency = 4) {
+    // 并发上传,保留原顺序;失败的图使用原 URL 兜底,不阻塞整体
+    const results = new Array(images.length);
+    let cursor = 0;
+    const t0 = Date.now();
+
+    const worker = async () => {
+      while (true) {
+        const i = cursor++;
+        if (i >= images.length) return;
+        const img = images[i];
+        try {
+          let buffer;
+          if (img.buffer) { buffer = img.buffer; }
+          else {
+            // 下载原图,超时 20s(避免下游图站慢卡死整个批次)
+            const resp = await axios.get(img.url, { responseType: 'arraybuffer', timeout: 20000 });
+            buffer = Buffer.from(resp.data);
+          }
+          const result = await this.uploadImage(buffer, `product_${i}.jpg`);
+          results[i] = result.url;
+          console.log(`[Huaxiang] 图片 ${i + 1}/${images.length} 上传成功: ${result.url}`);
+        } catch (err) {
+          console.error(`[Huaxiang] 图片 ${i + 1}/${images.length} 上传失败:`, err.message);
+          results[i] = img.url; // 兜底使用原 URL
         }
-        const result = await this.uploadImage(buffer, `product_${i}.jpg`);
-        uploaded.push(result.url);
-        console.log(`[Huaxiang] 图片 ${i + 1}/${images.length} 上传成功: ${result.url}`);
-      } catch (err) {
-        console.error(`[Huaxiang] 图片 ${i + 1}/${images.length} 上传失败:`, err.message);
-        uploaded.push(img.url);
+        // 保留可选的节流(默认 0),部分场景需要控速时可以外部传大值
+        if (intervalMs > 0) await new Promise(r => setTimeout(r, intervalMs));
       }
-      // 图片之间间隔，避免七牛云限流，从1000ms改为300ms加速
-      if (i < images.length - 1 && intervalMs > 0) {
-        await new Promise(r => setTimeout(r, intervalMs));
-      }
-    }
-    return uploaded;
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, images.length) }, () => worker());
+    await Promise.all(workers);
+    console.log(`[Huaxiang] 批量上传完成: ${images.length} 张 / ${(Date.now() - t0)}ms (并发 ${concurrency})`);
+    return results;
   }
 
   _collectMainImages(product) {
@@ -268,8 +297,8 @@ class HuaxiangAdapter extends BasePlatformAdapter {
     const uniqueUrls = allUrls.filter(url => { if (seen.has(url)) return false; seen.add(url); return true; });
     const imagesToUpload = uniqueUrls.map(url => ({ url }));
 
-    console.log(`[Huaxiang] 开始上传 ${imagesToUpload.length} 张图片（间隔1s）...`);
-    const uploadedUrls = await this.uploadImages(imagesToUpload, 1000);
+    console.log(`[Huaxiang] 开始上传 ${imagesToUpload.length} 张图片(并发 6)...`);
+    const uploadedUrls = await this.uploadImages(imagesToUpload, 0, 6);
 
     let uploadIdx = 0;
     const nextUrl = () => uploadedUrls[uploadIdx++] || uploadedUrls[uploadedUrls.length - 1] || '';

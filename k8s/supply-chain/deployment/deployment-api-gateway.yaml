@@ -20,8 +20,8 @@ spec:
       containers:
       - name: api-gateway
         image: 100.76.15.64:5001/supply-chain/api-gateway:latest
-        imagePullPolicy: IfNotPresent
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
+        imagePullPolicy: Always
         ports:
         - containerPort: 3007
         envFrom:

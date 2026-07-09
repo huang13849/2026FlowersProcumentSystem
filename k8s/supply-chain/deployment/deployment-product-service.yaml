@@ -20,7 +20,7 @@ spec:
       containers:
       - name: product-service
         image: 100.76.15.64:5001/supply-chain/product-service:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command: ["sh", "-lc", "cd /app/backend && node server.js"]
         ports:
         - containerPort: 3000
