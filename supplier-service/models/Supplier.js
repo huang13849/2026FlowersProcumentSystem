@@ -1,20 +1,21 @@
 const mongoose = require('mongoose');
 
 // ─────────────────────────────────────────────────────────────
-// 供应商 Schema
+// 供应商 Schema —— 【经纬度铁律 v2 · 单字段唯一】
 //
-// 【经纬度存储铁律 —— Single Source of Truth】
-//   主字段 : location = { type:'Point', coordinates:[lng, lat] }  (GeoJSON, 2dsphere)
-//   派生字段: longitude / latitude  (由 hook 自动从 location.coordinates 同步)
+//   唯一存储 : location = { type:'Point', coordinates:[lng, lat] }  (GeoJSON, 2dsphere)
+//   longitude/latitude 已从 schema 中移除。
 //
-//   写入规则（由 normalizeGeo 处理）：
-//     1) 若传入 longitude/latitude 且合法 → 同步写 location.coordinates
-//     2) 若传入 location.coordinates 且合法 → 同步写 longitude/latitude
-//     3) (0,0) 视为「未设置」，等价于 null
-//     4) 非法坐标（超出 -180~180 / -90~90）→ 抛错
+//   兼容层（normalizeGeoPayload）：
+//     - 入口 payload 里若还带 longitude/latitude，会被归一到 location.coordinates
+//       并从 payload 中 delete，不再落库；
+//     - 若同时传 location.coordinates，则以 location 为准；
+//     - (0,0) 视为「未设置」，写入前会归一为 [0,0] 占位；
+//     - 非法坐标（超出 -180~180 / -90~90 或 NaN）→ 抛错。
 //
-//   读取规则：调用方可读 location.coordinates / longitude / latitude 任一，保证一致
-//   历史遗留：顶层 `address` 字段废弃（保留结构但不再使用），公司注册地址请用 company_info.address
+//   读取：调用方只能通过 doc.location.coordinates[0/1] 拿到经纬度。
+//         若需要 lng/lat 简化视图，请调用 SupplierService.toGeoView(doc)。
+//   历史遗留：顶层 address 字段已废弃，公司注册地址请用 company_info.address
 // ─────────────────────────────────────────────────────────────
 
 const SupplierSchema = new mongoose.Schema({
@@ -35,16 +36,11 @@ const SupplierSchema = new mongoose.Schema({
   // @deprecated 顶层 address —— 请使用 company_info.address；保留字段仅为向后兼容读取
   address: { type: String, default: '' },
 
-  // ↓↓↓ 派生字段（由 normalizeGeo hook 从 location.coordinates 自动同步；不要直接依赖）↓↓↓
-  longitude: { type: Number, default: null },
-  latitude:  { type: Number, default: null },
-  // ↑↑↑
-
   planting_area: { type: Number, default: null },
   estimated_inventory: { type: Number, default: null },
   sales_period: { type: [String], default: [] },
 
-  // ↓↓↓ 主字段 —— 经纬度唯一存储位置 ↓↓↓
+  // ↓↓↓ 经纬度唯一存储 ↓↓↓
   location: {
     type: { type: String, enum: ['Point'], default: 'Point' },
     coordinates: { type: [Number], default: [0, 0] }
@@ -74,42 +70,43 @@ function isValidCoord(lng, lat) {
 }
 
 /**
- * 把 payload 里的 longitude/latitude/location 三种形态统一：
- *   - 有效坐标 → 三处一致
- *   - 无效 / 空 → longitude=null, latitude=null, location.coordinates=[0,0]
- * 该函数是幂等的，可反复调用。
+ * 把 payload 里的 longitude/latitude/location 三种入口形态统一到 location.coordinates。
+ * 处理完后 payload 上不会残留 longitude/latitude。
+ *   - 有效坐标 → location.coordinates=[lng,lat]
+ *   - 无效 / 空 → location.coordinates=[0,0]（视为未设置）
+ * 幂等，可反复调用。
  */
 function normalizeGeoPayload(payload) {
   if (!payload || typeof payload !== 'object') return payload;
 
   let lng = null, lat = null;
 
-  // 优先取 location.coordinates（主字段）
+  // 优先取 location.coordinates（唯一存储）
   if (payload.location && Array.isArray(payload.location.coordinates) && payload.location.coordinates.length === 2) {
     const [a, b] = payload.location.coordinates;
     if (isValidCoord(a, b)) { lng = a; lat = b; }
   }
 
-  // 没主字段就取派生字段
+  // 兼容旧入口：payload.longitude / latitude
   if (lng === null && payload.longitude != null && payload.latitude != null) {
     const a = Number(payload.longitude);
     const b = Number(payload.latitude);
-    if (isValidCoord(a, b)) { lng = a; lat = b; }
-    else if ((a !== 0 || b !== 0) && (Number.isNaN(a) || Number.isNaN(b) || a < -180 || a > 180 || b < -90 || b > 90)) {
+    if (isValidCoord(a, b)) {
+      lng = a; lat = b;
+    } else if ((a !== 0 || b !== 0) && (Number.isNaN(a) || Number.isNaN(b) || a < -180 || a > 180 || b < -90 || b > 90)) {
       throw new Error(`Invalid coordinates: longitude=${payload.longitude}, latitude=${payload.latitude}`);
     }
   }
 
+  // 无论如何都要把 longitude/latitude 从 payload 移除，杜绝再写入 DB
+  delete payload.longitude;
+  delete payload.latitude;
+
   if (lng !== null) {
-    payload.longitude = lng;
-    payload.latitude = lat;
     payload.location = { type: 'Point', coordinates: [lng, lat] };
   } else {
-    // 显式提到过 geo 字段之一时才清零，避免 patch 时误清
-    const geoTouched = ('longitude' in payload) || ('latitude' in payload) || ('location' in payload);
+    const geoTouched = ('location' in payload) || arguments[1] === true; // arg2=forceReset
     if (geoTouched) {
-      payload.longitude = null;
-      payload.latitude = null;
       payload.location = { type: 'Point', coordinates: [0, 0] };
     }
   }
@@ -119,35 +116,48 @@ function normalizeGeoPayload(payload) {
 SupplierSchema.statics.normalizeGeoPayload = normalizeGeoPayload;
 SupplierSchema.statics.isValidCoord = isValidCoord;
 
-// pre-save: 完整文档保存前归一化
+// pre-validate: 保存前归一化文档 geo 状态
 SupplierSchema.pre('validate', function(next) {
   try {
-    // this 是 document；取其 geo 三字段构造 payload，归一化后回填
-    const payload = {
-      longitude: this.longitude,
-      latitude: this.latitude,
-      location: this.location ? { coordinates: this.location.coordinates } : undefined,
-    };
+    // 若因某种历史原因 doc 上还挂着 longitude/latitude（旧数据 hydrate），当作 payload 归一
+    const payload = {};
+    if (this.location && this.location.coordinates) {
+      payload.location = { coordinates: this.location.coordinates };
+    }
+    // this.get('longitude') 拿 schema 外字段（strict:false 时可能存在），主动清理
+    const stray_lng = this.get && this.get('longitude', null, { strict: false });
+    const stray_lat = this.get && this.get('latitude', null, { strict: false });
+    if (stray_lng != null) payload.longitude = stray_lng;
+    if (stray_lat != null) payload.latitude  = stray_lat;
+
     normalizeGeoPayload(payload);
-    this.longitude = payload.longitude;
-    this.latitude = payload.latitude;
-    this.location = { type: 'Point', coordinates: payload.location.coordinates };
+    if (payload.location) {
+      this.location = { type: 'Point', coordinates: payload.location.coordinates };
+    }
+    // 清理 doc 上残留字段
+    if (this.set) {
+      this.set('longitude', undefined, { strict: false });
+      this.set('latitude',  undefined, { strict: false });
+    }
     next();
   } catch (e) { next(e); }
 });
 
-// pre-update: findOneAndUpdate / updateOne / updateMany 前归一化 $set
+// pre-update: findOneAndUpdate / updateOne / updateMany 前归一化 $set + $unset
 function normalizeUpdateHook(next) {
   try {
     const upd = this.getUpdate() || {};
-    // $set 场景
-    if (upd.$set) {
-      normalizeGeoPayload(upd.$set);
-    }
-    // 直接顶层字段场景 (findByIdAndUpdate(id, {longitude, latitude}))
+
+    if (upd.$set) normalizeGeoPayload(upd.$set);
     if ('longitude' in upd || 'latitude' in upd || 'location' in upd) {
       normalizeGeoPayload(upd);
     }
+
+    // 无论如何都清理掉可能残留的 longitude/latitude 字段
+    upd.$unset = upd.$unset || {};
+    upd.$unset.longitude = '';
+    upd.$unset.latitude  = '';
+
     this.setUpdate(upd);
     next();
   } catch (e) { next(e); }

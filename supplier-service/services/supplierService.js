@@ -58,15 +58,45 @@ class SupplierService {
   }
 
   // ── Geo 专用入口 ──
-  async setGeo(id, { longitude, latitude }) {
-    return this.update(id, { longitude, latitude });
+  /**
+   * 唯一 geo 写入入口 —— 只写 location.coordinates
+   * @param {string} id
+   * @param {{lng:number,lat:number}|{longitude:number,latitude:number}} pos
+   */
+  async setGeo(id, pos = {}) {
+    const lng = pos.lng ?? pos.longitude;
+    const lat = pos.lat ?? pos.latitude;
+    return this.update(id, { location: { type: 'Point', coordinates: [Number(lng), Number(lat)] } });
   }
 
-  async findNear({ longitude, latitude, maxMeters = 50000, limit = 20 }) {
+  async clearGeo(id) {
+    return this.update(id, { location: { type: 'Point', coordinates: [0, 0] } });
+  }
+
+  /**
+   * 从 supplier doc 提取一份对外 geo 视图（其他应用调用用）
+   * @returns {{lng:number|null, lat:number|null, hasGeo:boolean, geojson:object|null}}
+   */
+  static toGeoView(doc) {
+    if (!doc) return { lng: null, lat: null, hasGeo: false, geojson: null };
+    const coords = doc.location && Array.isArray(doc.location.coordinates) ? doc.location.coordinates : [0, 0];
+    const [lng, lat] = coords;
+    const hasGeo = !(lng === 0 && lat === 0) && typeof lng === 'number' && typeof lat === 'number';
+    return {
+      lng: hasGeo ? lng : null,
+      lat: hasGeo ? lat : null,
+      hasGeo,
+      geojson: hasGeo ? { type: 'Point', coordinates: [lng, lat] } : null,
+    };
+  }
+
+  async findNear({ longitude, latitude, lng, lat, maxMeters = 50000, limit = 20 }) {
+    const x = lng ?? longitude;
+    const y = lat ?? latitude;
     return this.R.find({
       location: {
         $near: {
-          $geometry: { type: 'Point', coordinates: [longitude, latitude] },
+          $geometry: { type: 'Point', coordinates: [Number(x), Number(y)] },
           $maxDistance: maxMeters
         }
       }
