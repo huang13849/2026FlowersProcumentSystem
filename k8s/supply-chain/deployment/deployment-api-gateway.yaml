@@ -32,6 +32,16 @@ spec:
           value: "production"
         - name: PORT
           value: "3007"
+        - name: ZITADEL_PG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: supply-chain-secrets
+              key: ZITADEL_PG_PASSWORD
+        - name: PG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: supply-chain-secrets
+              key: PG_PASSWORD
         resources:
           requests:
             cpu: 100m

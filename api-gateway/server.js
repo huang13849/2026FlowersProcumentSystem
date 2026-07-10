@@ -77,6 +77,7 @@ function inferService(path) {
   if (path.startsWith('/api/mysql')) return 'mysql';
   if (path.startsWith('/api/minio')) return 'minio';
   if (path.startsWith('/api/unified')) return 'unified';
+  if (path.startsWith('/api/zitadel')) return 'zitadel';
   if (path.startsWith('/api/health') || path.startsWith('/metrics')) return 'system';
   return 'unknown';
 }
@@ -130,6 +131,7 @@ app.use('/api/pg', authMiddleware);
 app.use('/api/redis', authMiddleware);
 app.use('/api/mysql', authMiddleware);
 app.use('/api/unified', authMiddleware);
+app.use('/api/zitadel', authMiddleware);
 app.use('/api/minio', authMiddleware);
 
 // ===== 路由 =====
@@ -139,6 +141,7 @@ app.use('/api/pg', require('./routes/postgres'));
 app.use('/api/redis', require('./routes/redis'));
 app.use('/api/mysql', require('./routes/mysql'));
 app.use('/api/unified', require('./routes/unified'));
+app.use('/api/zitadel', require('./routes/zitadel'));
 app.use('/api/minio', require('./routes/minio'));
 
 // 404
@@ -177,7 +180,7 @@ async function start() {
 
   app.listen(PORT, () => {
     console.log('🚪 API Gateway running on port ' + PORT);
-    console.log('📋 Endpoints: /api/mongo | /api/pg | /api/redis | /api/mysql | /api/minio | /api/unified');
+    console.log('📋 Endpoints: /api/mongo | /api/pg | /api/redis | /api/mysql | /api/minio | /api/unified | /api/zitadel');
   });
 }
 

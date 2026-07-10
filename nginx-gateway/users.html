@@ -84,6 +84,7 @@ tr:hover{background:var(--hover)}
 <div class="tabs">
 <button class="tab-btn active" data-tab="system">系统用户</button>
 <button class="tab-btn" data-tab="customer">订单客户分析</button>
+<button class="tab-btn" data-tab="zitadel">🔐 Zitadel 身份用户</button>
 </div>
 
 <!-- SYSTEM USERS -->
@@ -191,6 +192,36 @@ tr:hover{background:var(--hover)}
 <div style="display:flex;gap:12px"><div style="flex:1"><label>入场时间</label><input type="datetime-local" id="prkEntry"></div><div style="flex:1"><label>出场时间</label><input type="datetime-local" id="prkExit"></div></div>
 <label>费用</label><input type="number" id="prkFee" value="15">
 <div class="form-actions"><button class="btn btn-ghost" id="btnClosePrk">取消</button><button class="btn btn-primary" id="btnSavePrk">保存</button></div>
+</div></div>
+
+<!-- ZITADEL IDENTITY USERS (READ-ONLY) -->
+<div id="panel-zitadel" class="tab-panel"><div class="content">
+<div class="stats">
+<div class="stat">身份用户总数 <strong id="zTotal">-</strong></div>
+<div class="stat">Human <strong id="zHuman">-</strong></div>
+<div class="stat">Machine <strong id="zMachine">-</strong></div>
+<div class="stat">Instance <strong id="zInst">-</strong></div>
+</div>
+<div class="toolbar">
+<input type="text" class="search-box" id="zSearch" placeholder="搜索 用户名/登录名/邮箱/手机/姓名...">
+<select id="zInstanceFilter" class="search-box" style="flex:0;min-width:180px"><option value="">全部 Instance</option></select>
+<select id="zOrgFilter" class="search-box" style="flex:0;min-width:180px"><option value="">全部 Organization</option></select>
+<select id="zStateFilter" class="search-box" style="flex:0;min-width:120px">
+  <option value="">全部状态</option>
+  <option value="active">Active</option>
+  <option value="inactive">Inactive</option>
+  <option value="locked">Locked</option>
+  <option value="initial">Initial</option>
+  <option value="deleted">Deleted</option>
+</select>
+<span class="muted" style="margin-left:auto;font-size:12px">只读 · 数据源: Zitadel PostgreSQL projections</span>
+</div>
+<table>
+<thead><tr>
+<th>Instance</th><th>组织 (Org)</th><th>用户名</th><th>姓名</th><th>邮箱</th><th>手机</th><th>类型</th><th>状态</th><th>语言</th><th>创建时间</th>
+</tr></thead>
+<tbody id="zTableBody"></tbody>
+</table>
 </div></div>
 
 <script>
@@ -467,6 +498,88 @@ document.getElementById("btnRefreshParking").addEventListener("click",loadAllCrm
 
 // INIT
 updateStats();renderUsers();
+
+
+// ===== Zitadel Identity Users (read-only) =====
+var zAllUsers = [];
+var zLoaded = false;
+function zFmtDate(s){ if(!s) return '-'; return String(s).replace('T',' ').replace(/\..+$/,''); }
+function zStateBadge(s){
+  var m = { active:'#2e7d32', inactive:'#9e9e9e', locked:'#d32f2f', initial:'#f57c00', deleted:'#616161', suspend:'#c62828' };
+  var color = m[s] || '#607d8b';
+  return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+color+';color:#fff;font-size:11px">'+s+'</span>';
+}
+function zTypeBadge(t){ return t==='human' ? '<span style="color:#4fc3f7">👤 Human</span>' : '<span style="color:#ff8a65">🤖 Machine</span>'; }
+function zRenderStats(list){
+  document.getElementById('zTotal').textContent = list.length;
+  document.getElementById('zHuman').textContent = list.filter(function(u){return u.type_label==='human'}).length;
+  document.getElementById('zMachine').textContent = list.filter(function(u){return u.type_label==='machine'}).length;
+  var inst = {}; list.forEach(function(u){ if(u.instance_name) inst[u.instance_name]=1 });
+  document.getElementById('zInst').textContent = Object.keys(inst).length;
+}
+function zFilter(){
+  var s = (document.getElementById('zSearch').value||'').toLowerCase();
+  var inst = document.getElementById('zInstanceFilter').value;
+  var org = document.getElementById('zOrgFilter').value;
+  var st = document.getElementById('zStateFilter').value;
+  return zAllUsers.filter(function(u){
+    if(inst && u.instance_name !== inst) return false;
+    if(org && u.org_name !== org) return false;
+    if(st && u.state_label !== st) return false;
+    if(!s) return true;
+    var hay = ((u.username||'')+'|'+(u.email||'')+'|'+(u.phone||'')+'|'+(u.first_name||'')+(u.last_name||'')+(u.display_name||'')+(u.nick_name||'')+(u.org_name||'')).toLowerCase();
+    return hay.indexOf(s) >= 0;
+  });
+}
+function zRender(){
+  var f = zFilter();
+  var t = document.getElementById('zTableBody');
+  if(!f.length){ t.innerHTML='<tr><td colspan=10 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
+  t.innerHTML = f.map(function(u){
+    var name = [u.first_name||'', u.last_name||''].join(' ').trim() || u.display_name || u.nick_name || '-';
+    var email = u.email ? (u.email + (u.is_email_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
+    var phone = u.phone ? (u.phone + (u.is_phone_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
+    var instTag = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:#37474f;color:#fff;font-size:11px">'+(u.instance_name||'-')+'</span>';
+    return '<tr>'
+      + '<td>'+instTag+'</td>'
+      + '<td class="muted">'+(u.org_name||'-')+'</td>'
+      + '<td>'+(u.username||'-')+'</td>'
+      + '<td>'+name+'</td>'
+      + '<td class="truncate">'+email+'</td>'
+      + '<td>'+phone+'</td>'
+      + '<td>'+zTypeBadge(u.type_label)+'</td>'
+      + '<td>'+zStateBadge(u.state_label)+'</td>'
+      + '<td class="muted">'+(u.preferred_language||'-')+'</td>'
+      + '<td class="muted">'+zFmtDate(u.creation_date)+'</td>'
+      + '</tr>';
+  }).join('');
+}
+function zPopulateFilters(){
+  var instSet = {}, orgSet = {};
+  zAllUsers.forEach(function(u){ if(u.instance_name) instSet[u.instance_name]=1; if(u.org_name) orgSet[u.org_name]=1; });
+  var iSel = document.getElementById('zInstanceFilter');
+  Object.keys(instSet).sort().forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; iSel.appendChild(o); });
+  var oSel = document.getElementById('zOrgFilter');
+  Object.keys(orgSet).sort().forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; oSel.appendChild(o); });
+}
+function zLoad(){
+  if(zLoaded) return; zLoaded = true;
+  fetch('/api/zitadel/users',{headers:H}).then(function(r){return r.json()}).then(function(d){
+    if(!d.success){ showToast('加载失败: '+(d.error||''),'err'); zLoaded=false; return; }
+    zAllUsers = d.data || [];
+    zRenderStats(zAllUsers);
+    zPopulateFilters();
+    zRender();
+  }).catch(function(e){ showToast('网络错误: '+e.message,'err'); zLoaded=false; });
+}
+document.getElementById('zSearch').addEventListener('input', zRender);
+document.getElementById('zInstanceFilter').addEventListener('change', zRender);
+document.getElementById('zOrgFilter').addEventListener('change', zRender);
+document.getElementById('zStateFilter').addEventListener('change', zRender);
+// hook into tab switcher — trigger load when Zitadel tab clicked
+document.querySelectorAll('.tab-btn').forEach(function(b){
+  b.addEventListener('click', function(){ if(b.dataset.tab === 'zitadel') zLoad(); });
+});
 </script>
 </body>
 </html>

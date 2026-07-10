@@ -35,6 +35,15 @@ const config = {
     max: 5,
     idleTimeoutMillis: 30000,
   },
+  zitadelPg: {
+    host: process.env.ZITADEL_PG_HOST || '100.67.126.90',
+    port: parseInt(process.env.ZITADEL_PG_PORT || '5432'),
+    user: process.env.ZITADEL_PG_USER || 'zitadel',
+    password: process.env.ZITADEL_PG_PASSWORD || undefined,
+    database: process.env.ZITADEL_PG_DATABASE || 'zitadel',
+    max: 5,
+    idleTimeoutMillis: 30000,
+  },
   redis: {
     sentinel: process.env.REDIS_SENTINEL_HOSTS
       ? process.env.REDIS_SENTINEL_HOSTS.split(',').map(h => ({ host: h.split(':')[0], port: parseInt(h.split(':')[1]) || 26379 }))
@@ -112,6 +121,30 @@ async function connectPostgresStandby() {
 function getPgStandbyPool() {
   return pgStandbyPool;
 }
+
+// ===== PostgreSQL Zitadel (RPi8, read-only aggregation) =====
+let zitadelPgPool = null;
+
+async function connectZitadelPg() {
+  if (zitadelPgPool) return zitadelPgPool;
+  try {
+    zitadelPgPool = new Pool(config.zitadelPg);
+    const client = await zitadelPgPool.connect();
+    console.log('✅ PostgreSQL Zitadel connected: ' + config.zitadelPg.host + ':' + config.zitadelPg.port + '/' + config.zitadelPg.database);
+    client.release();
+    return zitadelPgPool;
+  } catch (err) {
+    console.warn('⚠️  PostgreSQL Zitadel connection failed:', err.message);
+    zitadelPgPool = null;
+    return null;
+  }
+}
+
+function getZitadelPgPool() {
+  if (!zitadelPgPool) throw new Error('Zitadel PostgreSQL not connected');
+  return zitadelPgPool;
+}
+
 
 // ===== Redis =====
 let redisClient = null;
@@ -200,6 +233,7 @@ async function connectAll() {
   try { results.mongodb = await connectMongo(); } catch (e) { results.mongodbError = e.message; }
   try { results.postgres = await connectPostgres(); } catch (e) { results.postgresError = e.message; }
   try { results.pgStandby = await connectPostgresStandby(); } catch (e) { results.pgStandbyError = e.message; }
+  try { results.zitadelPg = await connectZitadelPg(); } catch (e) { results.zitadelPgError = e.message; }
   try { results.redis = await connectRedis(); } catch (e) { results.redisError = e.message; }
   try { results.minio = await connectMinio(); } catch (e) { results.minioError = e.message; }
   return results;
@@ -266,6 +300,6 @@ async function healthCheck() {
 
 module.exports = {
   connectAll, healthCheck,
-  getMongoDb, getPgPool, getPgStandbyPool, getRedisClient,
+  getMongoDb, getPgPool, getPgStandbyPool, getZitadelPgPool, getRedisClient,
   getMinioClient, getMinioBucket, getMinioPublicUrl,
 };
