@@ -54,6 +54,27 @@ const SupplierSchema = new mongoose.Schema({
   product_count: { type: Number, default: 0 },
   product_ids: [String],
   sortOrder: { type: Number, default: 0, index: true },
+
+  // ─── Peony Alliance 注册字段（管理员申请） ───
+  peony_alliance: {
+    alliance_type: { type: String, enum: ['hq','branch','overseas','partner'] },
+    identity:      { type: String, enum: ['admin','staff'] },
+    positions:     [{ type: String, enum: ['sales','operation','info','aftersales'] }],
+    entity_name:      String,  // 主体名称
+    office_province:  String,
+    office_city:      String,
+    office_district:  String,
+    office_address:   String,  // 详细地址
+    business_license_url: String,  // MinIO URL
+    main_species: [{ type: String }],  // 信息员：主营品种
+    capacity_mu:  Number,              // 信息员：产能（亩）
+    zitadel_org_id:      String,
+    zitadel_instance_id: { type: String, default: '381066489660178661' },
+    registration_id:     Number,  // PG new_ecommerce.peony_registrations.id
+    status: { type: String, enum: ['pending','approved','rejected'], default: 'pending' },
+    approved_at: Date,
+    submitted_at: Date,
+  },
 }, { timestamps: true, collection: 'supplier' });
 
 SupplierSchema.index({ status: 1 });

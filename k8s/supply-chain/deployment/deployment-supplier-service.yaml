@@ -27,11 +27,15 @@ spec:
         envFrom:
         - configMapRef:
             name: supply-chain-common
+        - secretRef:
+            name: supply-chain-secrets
         env:
         - name: NODE_ENV
           value: "production"
         - name: PORT
           value: "3002"
+        - name: NEW_ECOMMERCE_PG_DATABASE
+          value: "new_ecommerce"
         resources:
           requests:
             cpu: 100m
