@@ -2,7 +2,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { getPool } = require('../services/peonyPg');
-const Supplier = require('../models/Supplier');
+// Supplier model resolved from app.locals per-request (uses writeConnection)
 
 const router = express.Router();
 
@@ -103,7 +103,7 @@ router.post('/registrations', async (req, res) => {
     let supplierId = null;
     if (identity === 'admin') {
       try {
-        const supDoc = await Supplier.create({
+        const supDoc = await req.app.locals.SupplierWrite.create({
           name: org.entity_name,
           shop_name: org.entity_name,
           status: '待整理',
@@ -191,7 +191,7 @@ router.post('/registrations/:id/approve', async (req, res) => {
     await client.query('COMMIT');
     // update supplier
     if (reg.identity === 'admin') {
-      await Supplier.updateOne(
+      await req.app.locals.SupplierWrite.updateOne(
         { 'peony_alliance.registration_id': id },
         { $set: {
           'peony_alliance.status': 'approved',
@@ -218,7 +218,7 @@ router.post('/registrations/:id/reject', async (req, res) => {
   await P.query(
     `UPDATE peony_registrations SET status='rejected', reject_reason=$2, approved_by=$3, approved_at=NOW() WHERE id=$1`,
     [id, reason || '', approved_by || 'system']);
-  await Supplier.updateOne(
+  await req.app.locals.SupplierWrite.updateOne(
     { 'peony_alliance.registration_id': id },
     { $set: { 'peony_alliance.status': 'rejected' } });
   res.json({ ok: true });
