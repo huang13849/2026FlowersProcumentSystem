@@ -16,12 +16,13 @@ async function log(action, details = {}) {
 // List / Search
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 50, search, category, isListed, sellerName, sort = '-createdAt', supplier_id } = req.query;
+    const { page = 1, limit = 50, search, category, isListed, sellerName, sort = '-createdAt', supplier_id, createdBy } = req.query;
     const query = {};
     if (search) query.title = { $regex: search, $options: 'i' };
     if (category) query.category = category;
     if (isListed !== undefined) query.isListed = isListed === 'true';
     if (sellerName) query.sellerName = sellerName;
+    if (createdBy) query.createdBy = createdBy;
     if (supplier_id) query.supplier_id = supplier_id;
     if (req.query.tradeType) query.tradeType = { $in: req.query.tradeType.split(",") };
     if (req.query.floweringMonths) {
