@@ -43,16 +43,17 @@ router.post('/registrations', async (req, res) => {
       }
       const orgIns = await client.query(
         `INSERT INTO peony_organizations
-          (zitadel_instance_id, entity_name, alliance_type,
+          (zitadel_instance_id, zitadel_org_id, entity_name, alliance_type,
            office_province, office_city, office_district, office_address,
            business_license_url, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending')
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')
          RETURNING id`,
-        ['381066489660178661', org.entity_name, alliance_type,
+        ['381066489660178661', org.zitadel_org_id || null, org.entity_name, alliance_type,
          org.office_province || null, org.office_city || null, org.office_district || null,
          org.office_address || null, org.business_license_url || null]
       );
       orgId = orgIns.rows[0].id;
+      zitadelOrgId = org.zitadel_org_id || null;
     } else if (identity === 'staff') {
       if (!invite_code) {
         await client.query('ROLLBACK');
