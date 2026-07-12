@@ -19,6 +19,8 @@ const mongoose = require('mongoose');
 // ─────────────────────────────────────────────────────────────
 
 const SupplierSchema = new mongoose.Schema({
+  // 项目归属: 芍药联盟 / (未来其他联盟…)
+  project: { type: String, default: '', index: true },
   name: { type: String, required: true },
   shop_name: { type: String, index: true, sparse: true },
   status: { type: String, enum: ['已完成','待整理','合同异常'], default: '待整理' },

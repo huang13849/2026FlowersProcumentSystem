@@ -105,6 +105,7 @@ router.post('/registrations', async (req, res) => {
     if (identity === 'admin') {
       try {
         const supDoc = await req.app.locals.SupplierWrite.create({
+          project: '芍药联盟',
           name: org.entity_name,
           shop_name: org.entity_name,
           status: '待整理',
