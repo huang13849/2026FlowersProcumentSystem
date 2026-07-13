@@ -26,15 +26,29 @@ const config = {
     max: 10,
     idleTimeoutMillis: 30000,
   },
-  pgStandby: {
-    host: process.env.PG_STANDBY_HOST || '100.76.15.64',
-    port: process.env.PG_STANDBY_PORT || 5432,
-    user: process.env.PG_USER || 'postgres',
-    password: process.env.PG_PASSWORD || undefined,
-    database: process.env.PG_DATABASE || 'postgres',
-    max: 5,
-    idleTimeoutMillis: 30000,
-  },
+  // 只读副本列表: PG_STANDBY_HOSTS='host1:port1,host2:port2'
+  // 默认: xsyysj(office2) primary read replica + mac-mini fallback
+  pgStandbys: (() => {
+    const list = process.env.PG_STANDBY_HOSTS
+      ? process.env.PG_STANDBY_HOSTS.split(',').map(s => s.trim()).filter(Boolean)
+      : [
+          (process.env.PG_STANDBY_HOST || '100.127.141.83') + ':' + (process.env.PG_STANDBY_PORT || '5433'),
+        ];
+    return list.map(hp => {
+      const [host, port] = hp.split(':');
+      return {
+        host,
+        port: parseInt(port || '5432', 10),
+        user: process.env.PG_USER || 'postgres',
+        password: process.env.PG_PASSWORD || undefined,
+        database: process.env.PG_DATABASE || 'postgres',
+        max: 5,
+        idleTimeoutMillis: 30000,
+      };
+    });
+  })(),
+  // 保留向后兼容(未使用,只作为标记)
+  pgStandby: null,
   zitadelPg: {
     host: process.env.ZITADEL_PG_HOST || '100.67.126.90',
     port: parseInt(process.env.ZITADEL_PG_PORT || '5432'),
@@ -101,25 +115,38 @@ function getPgPool() {
   return pgPool;
 }
 
-// ===== PostgreSQL Standby (Mac Mini) =====
-let pgStandbyPool = null;
+// ===== PostgreSQL Standby(s) - 读副本池,支持多副本round-robin =====
+// pgStandbyPools: [{ pool, host, port, healthy }]
+let pgStandbyPools = [];
+let pgStandbyRR = 0;
 
 async function connectPostgresStandby() {
-  if (pgStandbyPool) return pgStandbyPool;
-  try {
-    pgStandbyPool = new Pool(config.pgStandby);
-    const client = await pgStandbyPool.connect();
-    console.log('✅ PostgreSQL Standby connected: ' + config.pgStandby.host + ':' + config.pgStandby.port + '/' + config.pgStandby.database);
-    client.release();
-    return pgStandbyPool;
-  } catch (err) {
-    console.warn('⚠️  PostgreSQL Standby connection failed:', err.message);
-    return null;
+  if (pgStandbyPools.length > 0) return pgStandbyPools;
+  for (const cfg of config.pgStandbys) {
+    try {
+      const pool = new Pool(cfg);
+      const client = await pool.connect();
+      client.release();
+      pgStandbyPools.push({ pool, host: cfg.host, port: cfg.port, healthy: true });
+      console.log('✅ PostgreSQL Standby connected: ' + cfg.host + ':' + cfg.port + '/' + cfg.database);
+    } catch (err) {
+      console.warn('⚠️  PG Standby ' + cfg.host + ':' + cfg.port + ' connection failed: ' + err.message);
+    }
   }
+  return pgStandbyPools;
 }
 
+// 兼容旧代码:返回当前 RR 选中的健康副本 pool(单值)
 function getPgStandbyPool() {
-  return pgStandbyPool;
+  const healthy = pgStandbyPools.filter(p => p.healthy);
+  if (healthy.length === 0) return null;
+  const idx = pgStandbyRR++ % healthy.length;
+  return healthy[idx].pool;
+}
+
+// 新接口:返回所有健康副本(供 /replication 端点展示)
+function getPgStandbyPools() {
+  return pgStandbyPools;
 }
 
 // ===== PostgreSQL Zitadel (RPi8, read-only aggregation) =====
@@ -232,7 +259,7 @@ async function connectAll() {
   const results = {};
   try { results.mongodb = await connectMongo(); } catch (e) { results.mongodbError = e.message; }
   try { results.postgres = await connectPostgres(); } catch (e) { results.postgresError = e.message; }
-  try { results.pgStandby = await connectPostgresStandby(); } catch (e) { results.pgStandbyError = e.message; }
+  try { results.pgStandbys = await connectPostgresStandby(); } catch (e) { results.pgStandbyError = e.message; }
   try { results.zitadelPg = await connectZitadelPg(); } catch (e) { results.zitadelPgError = e.message; }
   try { results.redis = await connectRedis(); } catch (e) { results.redisError = e.message; }
   try { results.minio = await connectMinio(); } catch (e) { results.minioError = e.message; }
@@ -261,15 +288,16 @@ async function healthCheck() {
   }
 
   try {
-    if (pgStandbyPool) {
-      const sClient = await pgStandbyPool.connect();
+    const hpool = getPgStandbyPool();
+    if (hpool) {
+      const sClient = await hpool.connect();
       const replResult = await sClient.query('SELECT pg_is_in_recovery(), pg_last_wal_receive_lsn() as receive_lsn, pg_last_wal_replay_lsn() as replay_lsn');
       sClient.release();
       const row = replResult.rows[0];
       health.pgStandby = {
         status: 'ok',
-        host: config.pgStandby.host,
-        database: config.pgStandby.database,
+        host: (pgStandbyPools[0] && pgStandbyPools[0].host) || 'unknown',
+        database: (config.pgStandbys[0] && config.pgStandbys[0].database) || 'unknown',
         role: row.pg_is_in_recovery ? 'standby' : 'primary',
         receiveLsn: row.receive_lsn,
         replayLsn: row.replay_lsn,
@@ -300,6 +328,6 @@ async function healthCheck() {
 
 module.exports = {
   connectAll, healthCheck,
-  getMongoDb, getPgPool, getPgStandbyPool, getZitadelPgPool, getRedisClient,
+  getMongoDb, getPgPool, getPgStandbyPool, getPgStandbyPools, getZitadelPgPool, getRedisClient,
   getMinioClient, getMinioBucket, getMinioPublicUrl,
 };

@@ -6,15 +6,22 @@
  */
 const express = require('express');
 const router = express.Router();
-const { getPgPool, getPgStandbyPool } = require('../services/connections');
+const { getPgPool, getPgStandbyPool, getPgStandbyPools } = require('../services/connections');
 
-// 选择读库：默认 primary，?readFrom=standby 用从库
+// 选择读库:
+//   ?readFrom=primary    强制走 primary (RPi8)
+//   ?readFrom=standby    强制走某个 standby (副本挂了则走 primary 兜底)
+//   默认(什么都不传)     读走 standby, 副本挂了则 primary 兜底
+// 写操作(pg-put/post/delete)另有独立 primary getter, 不走这里
 function getReadPool(readFrom) {
-  if (readFrom === 'standby') {
-    const standby = getPgStandbyPool();
-    if (standby) return { pool: standby, role: 'standby' };
+  if (readFrom === 'primary') {
+    return { pool: getPgPool(), role: 'primary' };
   }
-  return { pool: getPgPool(), role: 'primary' };
+  // default + explicit standby -> try standby first
+  const standby = getPgStandbyPool();
+  if (standby) return { pool: standby, role: 'standby' };
+  // fallback
+  return { pool: getPgPool(), role: 'primary-fallback' };
 }
 
 // ===== 复制状态监控 =====
