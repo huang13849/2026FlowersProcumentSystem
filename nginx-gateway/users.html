@@ -82,9 +82,9 @@ tr:hover{background:var(--hover)}
 <button class="btn btn-primary" id="btnAddUser">+ 新增用户</button>
 </div></div>
 <div class="tabs">
-<button class="tab-btn active" data-tab="system">系统用户</button>
+<button class="tab-btn active" data-tab="system">全部用户</button>
 <button class="tab-btn" data-tab="customer">订单客户分析</button>
-<button class="tab-btn" data-tab="zitadel">🔐 Zitadel 身份用户</button>
+<button class="tab-btn" data-tab="zitadel">🔐 Zitadel 原始数据</button>
 </div>
 
 <!-- SYSTEM USERS -->
@@ -153,7 +153,7 @@ tr:hover{background:var(--hover)}
 </div></div>
 
 <!-- Modals -->
-<div class="modal-bg" id="addModal"><div class="modal"><h3>➕ 新增系统用户</h3>
+<div class="modal-bg" id="addModal"><div class="modal"><h3>➕ 新增用户</h3>
 <label>用户名</label><input type="text" id="newUsername">
 <label>昵称</label><input type="text" id="newNickname">
 <label>手机号</label><input type="text" id="newPhone">
@@ -581,5 +581,182 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
   b.addEventListener('click', function(){ if(b.dataset.tab === 'zitadel') zLoad(); });
 });
 </script>
+
+<!-- 全部用户智能表格 override (2026-07-14) -->
+<script>
+(function(){
+  var API_ZIT = '/api/zitadel/users';
+  var SOURCE_OPTS = [
+    {v:'peony',    l:'芍药联盟'},
+    {v:'club',     l:'热植联盟'},
+    {v:'space-cn', l:'植物收藏家-国内'},
+    {v:'space-en', l:'植物收藏家-海外'},
+    {v:'edu',      l:'幼植学校'},
+    {v:'wholesale',l:'批发'},
+  ];
+  var USER_TYPES = ['hobbyist','student','peony_wholesaler','individual_buyer','planter','staff','guest','other'];
+  var TYPE_LABEL = {hobbyist:'爱好者',student:'学生',peony_wholesaler:'芍药批发',individual_buyer:'个人买家',planter:'种植户',staff:'员工',guest:'访客',other:'其他'};
+
+  function badge(text, bg, fg){ return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+bg+';color:'+(fg||'#fff')+';font-size:11px">'+text+'</span>'; }
+  function sourceBadge(code, label){
+    var colors = {peony:'#c2185b', club:'#2e7d32', 'space-cn':'#1565c0', 'space-en':'#6a1b9a', edu:'#e65100', wholesale:'#455a64'};
+    return badge(label||code, colors[code]||'#607d8b');
+  }
+  function truncate(s,n){ s=s||''; return s.length>n? s.slice(0,n)+'…':s; }
+  function fmt(d){ if(!d) return '-'; try{return new Date(d).toISOString().slice(0,16).replace('T',' ');}catch(e){return d;} }
+
+  var all = [];
+
+  function reshape(){
+    var panel = document.getElementById('panel-system');
+    if(!panel) return;
+    var content = panel.querySelector('.content');
+    content.innerHTML = ''
+      + '<div class="stats">'
+      + '<div class="stat">总用户 <strong id="uaTotal">0</strong></div>'
+      + '<div class="stat">已同步 PG <strong id="uaSynced">0</strong></div>'
+      + '<div class="stat">Human <strong id="uaHuman">0</strong></div>'
+      + '<div class="stat">Instance <strong id="uaInst">0</strong></div>'
+      + '</div>'
+      + '<div class="toolbar" style="gap:8px;flex-wrap:wrap">'
+      + '<input type="text" class="search-box" id="uaSearch" placeholder="搜索 用户名 / 手机 / 邮箱 / 昵称 / OneID / 标签…">'
+      + '<select id="uaSource" class="search-box" style="flex:0;min-width:150px"><option value="">全部来源</option>'
+      + SOURCE_OPTS.map(function(o){return '<option value="'+o.v+'">'+o.l+'</option>'}).join('')
+      + '</select>'
+      + '<select id="uaInstF" class="search-box" style="flex:0;min-width:150px"><option value="">全部 Instance</option></select>'
+      + '<button class="btn btn-ghost" id="uaReload">🔄 刷新</button>'
+      + '</div>'
+      + '<div style="overflow-x:auto"><table style="min-width:1200px"><thead><tr>'
+      + '<th>来源</th><th>OneID</th><th>用户名/邮箱</th><th>手机</th><th>昵称</th>'
+      + '<th>Instance / 组织</th><th>用户类型</th><th>标签</th><th>地址</th><th>状态</th><th>创建</th><th>操作</th>'
+      + '</tr></thead><tbody id="uaBody"></tbody></table></div>';
+
+    document.getElementById('uaSearch').addEventListener('input', render);
+    document.getElementById('uaSource').addEventListener('change', render);
+    document.getElementById('uaInstF').addEventListener('change', render);
+    document.getElementById('uaReload').addEventListener('click', load);
+  }
+
+  function updateStats(list){
+    document.getElementById('uaTotal').textContent = list.length;
+    document.getElementById('uaSynced').textContent = list.filter(function(u){return u.pg_synced}).length;
+    document.getElementById('uaHuman').textContent = list.filter(function(u){return u.type_label==='human'}).length;
+    var inst={}; list.forEach(function(u){if(u.instance_name)inst[u.instance_name]=1});
+    document.getElementById('uaInst').textContent = Object.keys(inst).length;
+  }
+
+  function fillInstFilter(list){
+    var sel = document.getElementById('uaInstF');
+    var seen = {};
+    list.forEach(function(u){ if(u.instance_name) seen[u.instance_name]=1 });
+    Object.keys(seen).sort().forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  }
+
+  function render(){
+    var q = (document.getElementById('uaSearch').value||'').toLowerCase();
+    var src = document.getElementById('uaSource').value;
+    var inst = document.getElementById('uaInstF').value;
+    var list = all.filter(function(u){
+      if(src && u.source_project !== src) return false;
+      if(inst && u.instance_name !== inst) return false;
+      if(!q) return true;
+      var hay = ((u.username||'')+'|'+(u.email||'')+'|'+(u.phone||'')+'|'+(u.display_name||'')+(u.nick_name||'')+'|'+(u.oneid||'')+'|'+(u.tags||[]).join(',')).toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+    updateStats(list);
+    var body = document.getElementById('uaBody');
+    if(!list.length){ body.innerHTML='<tr><td colspan=12 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
+    body.innerHTML = list.map(function(u){
+      var tagsTxt = (u.tags||[]).map(function(t){return badge(t,'#455a64')}).join(' ') || '<span style="color:#aaa">-</span>';
+      var name = (u.display_name || u.nick_name || (u.first_name||'')+(u.last_name||'') || '').trim() || '-';
+      var email = u.email ? (u.email + (u.is_email_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
+      var phone = u.phone ? (u.phone + (u.is_phone_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
+      return '<tr>'
+        + '<td>'+ sourceBadge(u.source_project, u.source_label) + (u.pg_synced?'':' <span title="尚未同步到 PG" style="color:#ff9800">⚠</span>') +'</td>'
+        + '<td class="muted" style="font-family:monospace;font-size:11px">'+(u.oneid||'-')+'</td>'
+        + '<td>'+(u.username||'-')+'<div class="muted" style="font-size:11px">'+truncate(email,32)+'</div></td>'
+        + '<td>'+phone+'</td>'
+        + '<td>'+name+'</td>'
+        + '<td class="muted" style="font-size:11px">'+(u.instance_name||'-')+'<br>'+(u.org_name||'-')+'</td>'
+        + '<td>'+(u.user_type? (TYPE_LABEL[u.user_type]||u.user_type):'<span style="color:#aaa">-</span>')+'</td>'
+        + '<td>'+tagsTxt+'</td>'
+        + '<td>'+(u.address_count>0? badge(u.address_count+' 条','#0288d1'):'<span style="color:#aaa">-</span>')+'</td>'
+        + '<td>'+badge(u.state_label, u.state_label==='active'?'#2e7d32':'#757575')+'</td>'
+        + '<td class="muted" style="font-size:11px">'+fmt(u.creation_date)+'</td>'
+        + '<td><button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" data-edit="'+u.id+'">✎ 编辑</button></td>'
+        + '</tr>';
+    }).join('');
+    body.querySelectorAll('[data-edit]').forEach(function(btn){
+      btn.addEventListener('click', function(){ openEdit(btn.getAttribute('data-edit')); });
+    });
+  }
+
+  function openEdit(zid){
+    var u = all.find(function(x){return x.id===zid}); if(!u) return;
+    var overlay = document.createElement('div');
+    overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999';
+    overlay.innerHTML =
+      '<div style="background:#263238;color:#fff;padding:24px;border-radius:12px;min-width:420px;max-width:520px">'
+      + '<h3 style="margin:0 0 16px">编辑用户扩展 · '+ (u.username||u.id) +'</h3>'
+      + '<div style="font-size:12px;color:#b0bec5;margin-bottom:12px">OneID: '+(u.oneid||'（保存时自动生成）')+'</div>'
+      + '<label style="display:block;margin-bottom:8px;font-size:13px">来源项目</label>'
+      + '<select id="eSource" style="width:100%;padding:8px;background:#37474f;color:#fff;border:1px solid #455a64;border-radius:6px;margin-bottom:12px">'
+      +   SOURCE_OPTS.map(function(o){return '<option value="'+o.v+'" '+(u.source_project===o.v?'selected':'')+'>'+o.l+'</option>'}).join('')
+      + '</select>'
+      + '<label style="display:block;margin-bottom:8px;font-size:13px">用户类型</label>'
+      + '<select id="eType" style="width:100%;padding:8px;background:#37474f;color:#fff;border:1px solid #455a64;border-radius:6px;margin-bottom:12px">'
+      +   '<option value="">-</option>'
+      +   USER_TYPES.map(function(t){return '<option value="'+t+'" '+(u.user_type===t?'selected':'')+'>'+(TYPE_LABEL[t]||t)+'</option>'}).join('')
+      + '</select>'
+      + '<label style="display:block;margin-bottom:8px;font-size:13px">标签（逗号分隔）</label>'
+      + '<input id="eTags" value="'+((u.tags||[]).join(',').replace(/"/g,'&quot;'))+'" style="width:100%;padding:8px;background:#37474f;color:#fff;border:1px solid #455a64;border-radius:6px;margin-bottom:20px">'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+      +   '<button id="eCancel" class="btn btn-ghost">取消</button>'
+      +   '<button id="eSave" class="btn btn-primary">保存</button>'
+      + '</div></div>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('#eCancel').onclick = function(){ overlay.remove(); };
+    overlay.querySelector('#eSave').onclick = function(){
+      var body = {
+        source_project: overlay.querySelector('#eSource').value,
+        user_type: overlay.querySelector('#eType').value || null,
+        tags: overlay.querySelector('#eTags').value.split(',').map(function(s){return s.trim()}).filter(Boolean),
+      };
+      fetch(API_ZIT+'/'+encodeURIComponent(zid),{method:'PATCH',headers:{'Content-Type':'application/json','x-api-key':'***REMOVED_API_KEY***'},body:JSON.stringify(body)})
+        .then(function(r){return r.json()})
+        .then(function(d){
+          if(d.success){ showToast('已保存'); overlay.remove(); load(); }
+          else showToast('保存失败: '+(d.error||''),'err');
+        })
+        .catch(function(e){ showToast('网络错误: '+e.message,'err') });
+    };
+  }
+
+  function load(){
+    var body = document.getElementById('uaBody');
+    if(body) body.innerHTML='<tr><td colspan=12 style="text-align:center;padding:20px;color:#999">加载中…</td></tr>';
+    fetch(API_ZIT,{headers:{'x-api-key':'***REMOVED_API_KEY***'}})
+      .then(function(r){return r.json()})
+      .then(function(d){
+        if(!d.success){ showToast('加载失败: '+(d.error||''),'err'); return; }
+        all = d.data || [];
+        fillInstFilter(all);
+        render();
+      })
+      .catch(function(e){ showToast('网络错误: '+e.message,'err') });
+  }
+
+  window.addEventListener('DOMContentLoaded', function(){
+    reshape();
+    // 立刻加载（默认 tab 就是 system）
+    setTimeout(load, 100);
+  });
+  // 覆盖：其它 tab 切回时也刷新
+  document.querySelectorAll('.tab-btn').forEach(function(b){
+    b.addEventListener('click', function(){ if(b.dataset.tab==='system') { setTimeout(function(){ if(!document.getElementById('uaBody')) reshape(); load(); }, 50); }});
+  });
+})();
+</script>
+
 </body>
 </html>

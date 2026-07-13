@@ -1,16 +1,35 @@
 /**
- * API Gateway - Zitadel 用户只读聚合路由
- * 直连 RPi8 上 Zitadel 的 PostgreSQL projections，跨 instance 聚合展示。
- * 只读 — 不写任何 Zitadel 表；用户如需变更，仍在各自 instance 的 Console 操作。
+ * API Gateway - 全部用户聚合（Zitadel 身份 + plant_collector 业务扩展）
+ * 只读 Zitadel projections + 读/写 supply_chain.plant_collector.user_profiles
  */
 const express = require('express');
 const router = express.Router();
-const { getZitadelPgPool } = require('../services/connections');
+const { getZitadelPgPool, getPgPool } = require('../services/connections');
 
-// GET /api/zitadel/users  —— 跨 instance 全量用户
+// source_project → 中文来源显示
+const SOURCE_LABEL = {
+  peony:        '芍药联盟',
+  club:         '热植联盟',
+  'space-cn':   '植物收藏家-国内',
+  'space-en':   '植物收藏家-海外',
+  space:        '植物收藏家',
+  edu:          '幼植学校',
+  wholesale:    '批发',
+};
+
+// instance/org 名 → 默认来源推断（缺 source_project 时兜底）
+function inferSource(instanceName, orgName, orgDomain) {
+  const n = (instanceName || '') + ' ' + (orgName || '') + ' ' + (orgDomain || '');
+  if (/peony|芍药/i.test(n)) return 'peony';
+  if (/school|youzhi|幼植/i.test(n)) return 'edu';
+  if (/space|收藏家/i.test(n)) return 'space';
+  return 'club';
+}
+
+// GET /api/zitadel/users  —— 跨 instance 全量用户 + plant_collector 富化
 router.get('/users', async (req, res) => {
   try {
-    const pool = getZitadelPgPool();
+    const zpool = getZitadelPgPool();
     const sql = `
       SELECT
         u.id, u.instance_id, i.name AS instance_name,
@@ -27,15 +46,43 @@ router.get('/users', async (req, res) => {
       LEFT JOIN projections.users14_humans h ON h.user_id = u.id       AND h.instance_id = u.instance_id
       ORDER BY i.name, o.name, u.creation_date DESC
     `;
-    const r = await pool.query(sql);
-    // 状态/类型翻译
+    const r = await zpool.query(sql);
     const STATE = { 1: 'active', 2: 'inactive', 3: 'deleted', 4: 'locked', 5: 'suspend', 6: 'initial' };
     const TYPE  = { 1: 'human', 2: 'machine' };
-    const data = r.rows.map(u => ({
-      ...u,
-      state_label: STATE[u.state] || String(u.state),
-      type_label: TYPE[u.type] || String(u.type),
-    }));
+
+    // 一次性拉 plant_collector.user_profiles，本地 map，避免 N+1
+    let profByZid = new Map();
+    try {
+      const pgpool = getPgPool();
+      const p = await pgpool.query(`
+        SELECT p.zid, p.oneid, p.gender AS pg_gender, p.user_type,
+               p.source_project, p.tags, p.email AS pg_email, p.phone AS pg_phone,
+               p.updated_at AS pg_updated_at,
+               (SELECT count(*) FROM plant_collector.user_addresses a WHERE a.user_profile_id = p.id) AS address_count
+        FROM plant_collector.user_profiles p
+      `);
+      for (const row of p.rows) profByZid.set(String(row.zid), row);
+    } catch (e) {
+      console.warn('[zitadel/users] plant_collector enrich skipped:', e.message);
+    }
+
+    const data = r.rows.map(u => {
+      const prof = profByZid.get(String(u.id)) || null;
+      const source_project = (prof && prof.source_project) || inferSource(u.instance_name, u.org_name, u.org_domain);
+      return {
+        ...u,
+        state_label: STATE[u.state] || String(u.state),
+        type_label: TYPE[u.type] || String(u.type),
+        // plant_collector 富化
+        oneid: prof && prof.oneid || null,
+        user_type: prof && prof.user_type || null,
+        tags: prof && prof.tags || [],
+        address_count: prof ? Number(prof.address_count || 0) : 0,
+        source_project,
+        source_label: SOURCE_LABEL[source_project] || source_project,
+        pg_synced: !!prof,
+      };
+    });
     res.json({ success: true, count: data.length, data });
   } catch (err) {
     console.error('[zitadel/users]', err.message);
@@ -43,7 +90,51 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// GET /api/zitadel/instances  —— instance + org 元数据（前端筛选下拉用）
+// PATCH /api/zitadel/users/:zid  —— 修改业务扩展字段（写入 plant_collector.user_profiles）
+// body: { source_project?, user_type?, tags?, gender? }
+router.patch('/users/:zid', async (req, res) => {
+  const zid = String(req.params.zid);
+  const { source_project, user_type, tags, gender } = req.body || {};
+  try {
+    const pgpool = getPgPool();
+    // upsert（若无 profile 则先创建骨架）
+    const now = new Date();
+    const existing = await pgpool.query('SELECT id FROM plant_collector.user_profiles WHERE zid=$1', [zid]);
+    if (existing.rowCount === 0) {
+      const src = source_project || 'club';
+      const srcCode = src.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const dayKey = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const nextSeq = await pgpool.query("SELECT nextval('plant_collector.oneid_seq') AS n");
+      const oneid = `U-${dayKey}-${srcCode}-${String(nextSeq.rows[0].n).padStart(4, '0')}`;
+      await pgpool.query(
+        `INSERT INTO plant_collector.user_profiles (zid, oneid, source_project, user_type, tags, gender, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,now(),now())`,
+        [zid, oneid, src, user_type || null, tags || [], gender || null]
+      );
+    } else {
+      await pgpool.query(
+        `UPDATE plant_collector.user_profiles
+           SET source_project = COALESCE($2, source_project),
+               user_type      = COALESCE($3, user_type),
+               tags           = COALESCE($4, tags),
+               gender         = COALESCE($5, gender),
+               updated_at     = now()
+         WHERE zid = $1`,
+        [zid, source_project || null, user_type || null, tags || null, gender || null]
+      );
+    }
+    const r = await pgpool.query(
+      'SELECT zid, oneid, source_project, user_type, tags, gender, updated_at FROM plant_collector.user_profiles WHERE zid=$1',
+      [zid]
+    );
+    res.json({ success: true, data: r.rows[0] });
+  } catch (err) {
+    console.error('[zitadel/users PATCH]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/zitadel/instances
 router.get('/instances', async (req, res) => {
   try {
     const pool = getZitadelPgPool();
@@ -55,7 +146,7 @@ router.get('/instances', async (req, res) => {
   }
 });
 
-// GET /api/zitadel/stats  —— 汇总统计（供 KPI 卡片）
+// GET /api/zitadel/stats
 router.get('/stats', async (req, res) => {
   try {
     const pool = getZitadelPgPool();
