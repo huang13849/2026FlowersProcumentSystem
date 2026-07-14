@@ -1400,6 +1400,77 @@ export default function ProductList() {
         </div>
       )}
 
+      {showTagManager && (
+        <div onClick={() => setShowTagManager(false)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'#fff', borderRadius:10, width:560, maxHeight:'80vh', overflow:'auto', padding:20, boxShadow:'0 10px 30px rgba(0,0,0,.2)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+              <h3 style={{ margin:0, fontSize:16 }}>🏷️ 标签管理</h3>
+              <button onClick={() => setShowTagManager(false)} style={{ border:'none', background:'transparent', fontSize:18, cursor:'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+              <input value={newTagName} onChange={e => setNewTagName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addRemoteTag(newTagName); }}
+                placeholder="输入新标签名称，回车即添加"
+                style={{ flex:1, padding:'6px 10px', border:'1px solid #d9d9d9', borderRadius:4, fontSize:13 }} />
+              <button onClick={() => addRemoteTag(newTagName)}
+                style={{ padding:'6px 14px', background:'#1677ff', color:'#fff', border:'none', borderRadius:4, cursor:'pointer', fontSize:13 }}>
+                ➕ 新增
+              </button>
+            </div>
+
+            <input value={tagSearch} onChange={e => setTagSearch(e.target.value)}
+              placeholder="搜索标签…"
+              style={{ width:'100%', padding:'6px 10px', border:'1px solid #d9d9d9', borderRadius:4, fontSize:13, marginBottom:10 }} />
+
+            <div style={{ fontSize:12, color:'#666', marginBottom:6 }}>预设标签（不可删除）</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:14 }}>
+              {SCENE_TAG_OPTIONS.filter(o => !tagSearch || o.v.includes(tagSearch)).map(o => (
+                <span key={o.v}
+                  onClick={() => { setSceneTagFilter(o.v); setShowTagManager(false); }}
+                  title="点击应用为筛选条件"
+                  style={{ padding:'3px 10px', borderRadius:12, background:o.bg, color:o.color, border:`1px solid ${o.border}`, fontSize:12, cursor:'pointer' }}>
+                  {o.v}
+                </span>
+              ))}
+            </div>
+
+            <div style={{ fontSize:12, color:'#666', marginBottom:6 }}>
+              自定义标签（服务端保存，跨浏览器共享）{loadingTags && ' · 加载中…'}
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {remoteTags
+                .filter(t => !SCENE_TAG_OPTIONS.some(o => o.v === t.name))
+                .filter(t => !tagSearch || t.name.includes(tagSearch))
+                .map(t => (
+                <div key={t.name}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 10px', background:'#fafafa', borderRadius:6 }}>
+                  <span onClick={() => { setSceneTagFilter(t.name); setShowTagManager(false); }}
+                    title="点击应用为筛选条件"
+                    style={{ cursor:'pointer', fontSize:13 }}>
+                    {t.name}
+                    <span style={{ marginLeft:8, fontSize:11, color:'#999' }}>· 使用 {t.usageCount || 0} 次</span>
+                  </span>
+                  <button onClick={() => deleteRemoteTag(t.name)}
+                    style={{ padding:'2px 8px', background:'#fff', color:'#ff4d4f', border:'1px solid #ffa39e', borderRadius:4, cursor:'pointer', fontSize:12 }}>
+                    🗑 删除
+                  </button>
+                </div>
+              ))}
+              {remoteTags.filter(t => !SCENE_TAG_OPTIONS.some(o => o.v === t.name)).length === 0 && (
+                <div style={{ color:'#999', fontSize:12, padding:'8px 0' }}>暂无自定义标签，输入名称并按回车即可创建。</div>
+              )}
+            </div>
+
+            <div style={{ marginTop:14, paddingTop:10, borderTop:'1px dashed #eee', fontSize:11, color:'#999' }}>
+              💡 点击任意标签可快速应用为筛选条件；删除后该标签会从所有商品中剥离。
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Info bar */}
       <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, fontSize:11, color:'#aaa' }}>
         <span>已加载全部 {displayed.length} 条商品（无分页）</span>

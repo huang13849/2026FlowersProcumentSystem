@@ -12,6 +12,7 @@ import imageRoutes from './routes/images.js';
 import exportRoutes from './routes/export.js';
 import logRoutes from './routes/logs.js';
 import userRoutes from './routes/users.js';
+import tagRoutes from './routes/tags.js';
 import publishTaskRoutes from './routes/publishTasks.js';
 
 
@@ -49,6 +50,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/publish-tasks', publishTaskRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/tags', tagRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
