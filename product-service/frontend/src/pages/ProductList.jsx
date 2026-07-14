@@ -33,6 +33,8 @@ const COLUMNS = [
   { field: 'category',     label: '分类',     width: 75,  type: 'string', editable: true },
   // 7: 商家
   { field: 'sellerName',   label: '商家',     width: 110, type: 'string', editable: true },
+  // 7b: 来源 (读 seller_product_links)
+  { field: '_sourceProject', label: '来源',    width: 84, type: 'sourceBadge', editable: false },
   // 8: 花卉
   { field: 'flowerName',   label: '花卉',     width: 90,  type: 'string', editable: true },
   // 8b: 英文名（移到花卉后面）
@@ -200,8 +202,18 @@ export default function ProductList() {
 
   // ── Load all products (no pagination) ──
   const load = useCallback(async () => {
-    const r = await api.get('/products', { params: { limit: 9999, sort: '-updatedAt' } });
-    setAllProducts(r.data.products);
+    const [r, s] = await Promise.all([
+      api.get('/products', { params: { limit: 9999, sort: '-updatedAt' } }),
+      fetch('http://100.96.54.109:31013/api/seller/products?limit=9999').then(x => x.json()).catch(() => ({ items: [] })),
+    ]);
+    // Build product_id -> { source_project, source_label, shop_name }
+    const linkMap = {};
+    (s.items || []).forEach(it => { linkMap[it.product_id] = it; });
+    const merged = (r.data.products || []).map(p => {
+      const l = linkMap[p._id];
+      return l ? { ...p, _sourceProject: l.source_project, _sourceLabel: l.source_label, _shopName: l.shop_name } : p;
+    });
+    setAllProducts(merged);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -1233,6 +1245,31 @@ export default function ProductList() {
                               </div>
                             </div>
                           )}
+                        </td>
+                      );
+                    }
+
+                                        // ── Source badge column ──
+                    if (col.type === 'sourceBadge') {
+                      const src = p._sourceProject;
+                      const label = p._sourceLabel || src;
+                      const shopName = p._shopName;
+                      if (!src) {
+                        return <td key={ci} style={{ ...tdS, width:col.width, textAlign:'center' }}>
+                          <span style={{ color:'#bbb', fontSize:11 }}>—</span>
+                        </td>;
+                      }
+                      const colors = {
+                        peony:'#c2185b', club:'#2e7d32', 'space-cn':'#1565c0',
+                        'space-en':'#6a1b9a', edu:'#e65100', wholesale:'#455a64', manual:'#607d8b'
+                      };
+                      const bg = colors[src] || '#607d8b';
+                      return (
+                        <td key={ci} style={{ ...tdS, width:col.width, textAlign:'center', padding:'4px 6px' }}>
+                          <span title={shopName ? (label + ' · ' + shopName) : label}
+                            style={{ display:'inline-block', padding:'2px 8px', borderRadius:10, background:bg, color:'#fff', fontSize:11, whiteSpace:'nowrap' }}>
+                            {label}
+                          </span>
                         </td>
                       );
                     }

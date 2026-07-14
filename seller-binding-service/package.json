@@ -1,0 +1,1 @@
+{"name":"seller-binding-service","version":"1.0.0","description":"商家-用户-商品关联管理","main":"server.js","scripts":{"start":"node server.js","migrate":"node migrate.js"},"dependencies":{"cors":"^2.8.5","express":"^4.19.2","helmet":"^7.1.0","pg":"^8.11.5"}}
