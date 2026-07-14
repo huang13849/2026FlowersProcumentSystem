@@ -77,6 +77,21 @@ tr:hover{background:var(--hover)}
 </style>
 </head>
 <body>
+<style>
+.cross-nav{display:flex;gap:2px;background:#0b172b;padding:0 12px;border-bottom:1px solid #1e2d48;overflow-x:auto}
+.cross-nav a{padding:12px 16px;font-size:13px;color:#9aa0b0;text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.cross-nav a:hover{color:#e8eaed;background:#121e34}
+.cross-nav a.active{color:#a78bfa;border-bottom-color:#a78bfa;font-weight:600}
+</style>
+<nav class="cross-nav">
+  <a href="/">🏠 花卉采购系统</a>
+  <a href="http://100.96.54.109:31001/" target="_blank">📦 商品管理表格</a>
+  <a href="http://100.96.54.109:31002/" target="_blank">🏭 供应商管理</a>
+  <a href="/users.html" class="active">👥 全部用户</a>
+  <a href="http://100.96.54.109:31308/" target="_blank">🏪 经销商系统</a>
+  <a href="http://100.96.54.109:31307/" target="_blank">🗺️ 供应商地图</a>
+  <a href="#" id="navTagPool">🏷️ 标签体系</a>
+</nav>
 <div class="topbar"><h2>👥 用户管理</h2><div>
 <a href="/" class="btn btn-ghost">← 返回</a>
 <button class="btn btn-primary" id="btnAddUser">+ 新增用户</button>
@@ -625,9 +640,10 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       + '</select>'
       + '<select id="uaInstF" class="search-box" style="flex:0;min-width:150px"><option value="">全部 Instance</option></select>'
       + '<button class="btn btn-ghost" id="uaReload">🔄 刷新</button>'
+      + '<button class="btn btn-primary" id="uaBatchTag" style="background:#722ed1" disabled>🏷️ 批量打标签 <span id="uaSelCount">0</span></button>'
       + '</div>'
       + '<div style="overflow-x:auto"><table style="min-width:1200px"><thead><tr>'
-      + '<th>来源</th><th>OneID</th><th>用户名/邮箱</th><th>手机</th><th>昵称</th>'
+      + '<th style="width:32px;text-align:center"><input type="checkbox" id="uaAll"></th><th>来源</th><th>OneID</th><th>用户名/邮箱</th><th>手机</th><th>昵称</th>'
       + '<th>Instance / 组织</th><th>用户类型</th><th>标签</th><th>地址</th><th>状态</th><th>创建</th><th>操作</th>'
       + '</tr></thead><tbody id="uaBody"></tbody></table></div>';
 
@@ -635,6 +651,12 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     document.getElementById('uaSource').addEventListener('change', render);
     document.getElementById('uaInstF').addEventListener('change', render);
     document.getElementById('uaReload').addEventListener('click', load);
+    document.getElementById('uaAll').addEventListener('change', function(e){
+      var checked = e.target.checked;
+      document.querySelectorAll('.uaSel').forEach(function(cb){ cb.checked = checked; });
+      updateSelCount();
+    });
+    document.getElementById('uaBatchTag').addEventListener('click', openBatchTagModal);
   }
 
   function updateStats(list){
@@ -665,13 +687,14 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     });
     updateStats(list);
     var body = document.getElementById('uaBody');
-    if(!list.length){ body.innerHTML='<tr><td colspan=12 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
+    if(!list.length){ body.innerHTML='<tr><td colspan=13 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
     body.innerHTML = list.map(function(u){
       var tagsTxt = (u.tags||[]).map(function(t){return badge(t,'#455a64')}).join(' ') || '<span style="color:#aaa">-</span>';
       var name = (u.display_name || u.nick_name || (u.first_name||'')+(u.last_name||'') || '').trim() || '-';
       var email = u.email ? (u.email + (u.is_email_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
       var phone = u.phone ? (u.phone + (u.is_phone_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
       return '<tr>'
+        + '<td style="text-align:center"><input type="checkbox" class="uaSel" data-zid="'+u.id+'"></td>'
         + '<td>'+ sourceBadge(u.source_project, u.source_label) + (u.pg_synced?'':' <span title="尚未同步到 PG" style="color:#ff9800">⚠</span>') +'</td>'
         + '<td class="muted" style="font-family:monospace;font-size:11px">'+(u.oneid||'-')+'</td>'
         + '<td>'+(u.username||'-')+'<div class="muted" style="font-size:11px">'+truncate(email,32)+'</div></td>'
@@ -689,6 +712,10 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     body.querySelectorAll('[data-edit]').forEach(function(btn){
       btn.addEventListener('click', function(){ openEdit(btn.getAttribute('data-edit')); });
     });
+    body.querySelectorAll('.uaSel').forEach(function(cb){
+      cb.addEventListener('change', updateSelCount);
+    });
+    updateSelCount();
   }
 
   function openEdit(zid){
@@ -734,7 +761,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
 
   function load(){
     var body = document.getElementById('uaBody');
-    if(body) body.innerHTML='<tr><td colspan=12 style="text-align:center;padding:20px;color:#999">加载中…</td></tr>';
+    if(body) body.innerHTML='<tr><td colspan=13 style="text-align:center;padding:20px;color:#999">加载中…</td></tr>';
     fetch(API_ZIT,{headers:{'x-api-key':'***REMOVED_API_KEY***'}})
       .then(function(r){return r.json()})
       .then(function(d){
@@ -755,6 +782,140 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
   document.querySelectorAll('.tab-btn').forEach(function(b){
     b.addEventListener('click', function(){ if(b.dataset.tab==='system') { setTimeout(function(){ if(!document.getElementById('uaBody')) reshape(); load(); }, 50); }});
   });
+
+
+  function getSelectedZids(){
+    var out = [];
+    document.querySelectorAll('.uaSel:checked').forEach(function(cb){ out.push(cb.dataset.zid); });
+    return out;
+  }
+  function updateSelCount(){
+    var n = getSelectedZids().length;
+    var btn = document.getElementById('uaBatchTag');
+    var cnt = document.getElementById('uaSelCount');
+    if(cnt) cnt.textContent = n;
+    if(btn) btn.disabled = (n === 0);
+  }
+
+  function openBatchTagModal(){
+    var zids = getSelectedZids();
+    if(!zids.length) return;
+    var overlay = document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = '<div style="background:#19243b;color:#e8eaed;padding:24px;border-radius:12px;width:560px;max-width:92vw;max-height:80vh;overflow:auto">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+      +   '<h3 style="margin:0;font-size:16px">🏷️ 批量打标签（'+zids.length+' 名用户）</h3>'
+      +   '<button class="btn btn-ghost btn-sm" id="btClose">✕</button>'
+      + '</div>'
+      + '<div id="btChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;min-height:60px"><span style="color:#9aa0b0;font-size:12px">加载标签中…</span></div>'
+      + '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #1e2d48">'
+      +   '<div style="font-size:11px;color:#9aa0b0">💡 追加=合并到已有；移除=从已有剔除所选</div>'
+      +   '<div style="display:flex;gap:8px">'
+      +     '<button class="btn btn-ghost" id="btRemove">➖ 移除</button>'
+      +     '<button class="btn btn-primary" id="btAdd">➕ 追加打标</button>'
+      +   '</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('#btClose').onclick = function(){ overlay.remove(); };
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    var chosen = new Set();
+    fetch('/api/tags?scope=user', { headers:{'x-api-key':'***REMOVED_API_KEY***'} })
+      .then(function(r){return r.json()})
+      .then(function(d){
+        if(!d.success){ overlay.querySelector('#btChips').innerHTML = '<span style="color:#f88">加载失败: '+(d.error||'')+'</span>'; return; }
+        var host = overlay.querySelector('#btChips');
+        host.innerHTML = '';
+        (d.data||[]).forEach(function(t){
+          var span = document.createElement('span');
+          span.textContent = t.name;
+          span.style.cssText='cursor:pointer;padding:6px 12px;border-radius:14px;font-size:13px;background:#0b172b;color:'+(t.color||'#e8eaed')+';border:1px solid '+(t.border||'#1e2d48');
+          span.onclick = function(){
+            if(chosen.has(t.name)){ chosen.delete(t.name); span.style.background='#0b172b'; span.style.fontWeight='400'; span.textContent = t.name; }
+            else { chosen.add(t.name); span.style.background=(t.bg||'#1e2d48'); span.style.fontWeight='600'; span.textContent = '✓ '+t.name; }
+          };
+          host.appendChild(span);
+        });
+      });
+    function apply(mode){
+      if(chosen.size===0) return alert('请先选择标签');
+      fetch('/api/tags/apply', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':'***REMOVED_API_KEY***'},
+        body: JSON.stringify({ entity:'user', ids: zids, tags:[...chosen], mode: mode })
+      })
+        .then(function(r){return r.json()})
+        .then(function(d){
+          if(d.success){ showToast('✓ '+mode+' '+d.updated+' 名用户'); overlay.remove(); load(); }
+          else showToast('失败: '+(d.error||''),'err');
+        })
+        .catch(function(e){ showToast('网络错误: '+e.message,'err'); });
+    }
+    overlay.querySelector('#btAdd').onclick    = function(){ apply('add'); };
+    overlay.querySelector('#btRemove').onclick = function(){ apply('remove'); };
+  }
+
+  // 标签体系管理 —— 用同一个 modal 结构，来自 nav
+  function openTagPoolManager(){
+    var overlay = document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = '<div style="background:#19243b;color:#e8eaed;padding:24px;border-radius:12px;width:720px;max-width:94vw;max-height:82vh;overflow:auto">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+      +   '<h3 style="margin:0;font-size:16px">🏷️ 统一标签体系（商品/用户/供应商共用）</h3>'
+      +   '<button class="btn btn-ghost btn-sm" id="tpClose">✕</button>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'
+      +   '<input id="tpName" placeholder="新标签名" style="flex:1;min-width:180px;padding:8px;border-radius:6px;background:#0b172b;color:#fff;border:1px solid #1e2d48">'
+      +   '<select id="tpScope" style="padding:8px;border-radius:6px;background:#0b172b;color:#fff;border:1px solid #1e2d48"><option value="product,user,supplier">全部</option><option value="product">仅商品</option><option value="user">仅用户</option><option value="supplier">仅供应商</option></select>'
+      +   '<input id="tpColor" type="color" value="#722ed1" style="padding:2px;border-radius:6px;background:#0b172b;border:1px solid #1e2d48;width:44px;height:38px">'
+      +   '<button class="btn btn-primary" id="tpAdd">+ 新增</button>'
+      + '</div>'
+      + '<div id="tpList" style="display:flex;flex-direction:column;gap:6px"><span style="color:#9aa0b0;font-size:12px">加载中…</span></div>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('#tpClose').onclick = function(){ overlay.remove(); };
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    function refresh(){
+      fetch('/api/tags', { headers:{'x-api-key':'***REMOVED_API_KEY***'} })
+        .then(function(r){return r.json()})
+        .then(function(d){
+          var host = overlay.querySelector('#tpList');
+          if(!d.success){ host.innerHTML = '<span style="color:#f88">加载失败: '+d.error+'</span>'; return; }
+          host.innerHTML = (d.data||[]).map(function(t){
+            var scopes = (t.scope||[]).map(function(x){return {product:'📦',user:'👥',supplier:'🏭'}[x]||x}).join(' ');
+            return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0b172b;border:1px solid #1e2d48;border-radius:6px">'
+              + '<span style="padding:4px 10px;border-radius:12px;font-size:12px;background:'+(t.bg||'#1e2d48')+';color:'+(t.color||'#e8eaed')+';border:1px solid '+(t.border||'#1e2d48')+'">'+t.name+'</span>'
+              + '<span style="color:#9aa0b0;font-size:12px;flex:1">'+scopes+'</span>'
+              + '<button class="btn btn-danger btn-sm" data-del="'+t.name+'">删除</button>'
+              + '</div>';
+          }).join('');
+          host.querySelectorAll('[data-del]').forEach(function(b){
+            b.onclick = function(){
+              if(!confirm('删除标签 '+b.dataset.del+' ? 所有实体上的此标签也会被清除')) return;
+              fetch('/api/tags/'+encodeURIComponent(b.dataset.del),{method:'DELETE',headers:{'x-api-key':'***REMOVED_API_KEY***'}})
+                .then(function(r){return r.json()}).then(function(d){ if(d.success){ showToast('已删除'); refresh(); } else showToast('失败','err'); });
+            };
+          });
+        });
+    }
+    overlay.querySelector('#tpAdd').onclick = function(){
+      var name = overlay.querySelector('#tpName').value.trim();
+      if(!name) return;
+      var scope = overlay.querySelector('#tpScope').value.split(',');
+      var color = overlay.querySelector('#tpColor').value;
+      fetch('/api/tags',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':'***REMOVED_API_KEY***'},
+        body: JSON.stringify({ name: name, color: color, bg: color+'22', border: color, scope: scope })
+      }).then(function(r){return r.json()}).then(function(d){
+        if(d.success){ overlay.querySelector('#tpName').value=''; showToast('已新增'); refresh(); }
+        else showToast('失败: '+(d.error||''),'err');
+      });
+    };
+    refresh();
+  }
+  document.addEventListener('click', function(e){
+    if(e.target && e.target.id === 'navTagPool'){ e.preventDefault(); openTagPoolManager(); }
+  });
+
 })();
 </script>
 

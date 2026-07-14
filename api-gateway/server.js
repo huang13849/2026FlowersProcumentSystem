@@ -142,6 +142,7 @@ app.use('/api/redis', require('./routes/redis'));
 app.use('/api/mysql', require('./routes/mysql'));
 app.use('/api/unified', require('./routes/unified'));
 app.use('/api/zitadel', require('./routes/zitadel'));
+app.use('/api/tags', require('./routes/tags'));
 app.use('/api/minio', require('./routes/minio'));
 
 // 404
