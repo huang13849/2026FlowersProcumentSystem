@@ -1163,14 +1163,13 @@ export default function ProductList() {
                             })}
                           </div>
                           {editing && (
-                            <>
-                              <div onClick={() => setSceneTagEditing(null)}
-                                style={{ position:'fixed', inset:0, zIndex:9997, background:'transparent' }} />
+                            <div onClick={() => setSceneTagEditing(null)}
+                              style={{ position:'fixed', inset:0, zIndex:9997, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                               <div onClick={e => e.stopPropagation()}
                                 style={{
-                                  position:'absolute', top:'100%', right:0, zIndex:9998,
-                                  background:'#fff', border:'1px solid #d9d9d9', borderRadius:6,
-                                  padding:8, minWidth:230, maxWidth:280, boxShadow:'0 4px 16px rgba(0,0,0,0.18)',
+                                  background:'#fff', border:'1px solid #d9d9d9', borderRadius:8,
+                                  padding:16, width:420, maxWidth:'90vw', maxHeight:'80vh', overflow:'auto',
+                                  boxShadow:'0 10px 32px rgba(0,0,0,0.25)',
                                 }}>
                                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
                                   <span style={{ fontSize:11, color:'#666' }}>选择场景标签（多选）</span>
@@ -1191,7 +1190,7 @@ export default function ProductList() {
                                       <span key={v}
                                         onClick={(e) => { e.stopPropagation(); toggleSceneTag(p, v); }}
                                         style={{
-                                          cursor:'pointer', padding:'2px 7px', borderRadius:10, fontSize:11,
+                                          cursor:'pointer', padding:'6px 12px', borderRadius:14, fontSize:13,
                                           background: on ? o.bg : '#fafafa',
                                           color: on ? o.color : '#999',
                                           border:'1px solid ' + (on ? o.border : '#eee'),
@@ -1205,11 +1204,11 @@ export default function ProductList() {
                                   });
                                 })()}
                                 </div>
-                                <div style={{ marginTop:8, borderTop:'1px solid #f0f0f0', paddingTop:6, fontSize:10, color:'#999', textAlign:'center' }}>
+                                <div style={{ marginTop:12, borderTop:'1px solid #f0f0f0', paddingTop:8, fontSize:11, color:'#999', textAlign:'center' }}>
                                   💡 新增/删除标签请点顶部「🏷️ 标签管理」
                                 </div>
                               </div>
-                            </>
+                            </div>
                           )}
                         </td>
                       );
