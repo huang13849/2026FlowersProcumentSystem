@@ -1192,37 +1192,14 @@ export default function ProductList() {
                                         }}
                                         title={isCustom ? '自定义标签' : ''}>
                                         {on ? '✓ ' : ''}{v}
-                                        {isCustom && (
-                                          <span onClick={(e) => {
-                                              e.stopPropagation();
-                                              const next = customSceneTags.filter(t => t !== v);
-                                              setCustomSceneTags(next);
-                                              try { localStorage.setItem('customSceneTags', JSON.stringify(next)); } catch {}
-                                            }}
-                                            title="从选项里删除此自定义标签"
-                                            style={{ marginLeft:3, color:'#bbb', fontWeight:700 }}>×</span>
-                                        )}
                                       </span>
                                     );
                                   });
                                 })()}
                               </div>
-                              {/* 自定义输入 */}
-                              <div style={{ display:'flex', gap:4, marginTop:8, borderTop:'1px solid #f0f0f0', paddingTop:8 }}>
-                                <input
-                                  value={sceneTagEditing === p._id ? sceneTagInput : ''}
-                                  onChange={(e) => setSceneTagInput(e.target.value)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') { e.stopPropagation(); addCustomSceneTag(p, sceneTagInput); }
-                                    if (e.key === 'Escape') setSceneTagEditing(null);
-                                  }}
-                                  placeholder="自定义标签…回车添加"
-                                  autoFocus
-                                  style={{ flex:1, fontSize:11, padding:'3px 6px', border:'1px solid #d9d9d9', borderRadius:4, outline:'none' }} />
-                                <span
-                                  onClick={(e) => { e.stopPropagation(); addCustomSceneTag(p, sceneTagInput); }}
-                                  style={{ cursor:'pointer', fontSize:11, padding:'3px 8px', background:'#1890ff', color:'#fff', borderRadius:4 }}>加</span>
+                              {/* 提示: 新增标签请到「🏷️ 标签管理」，此处仅可勾选 */}
+                              <div style={{ marginTop:8, borderTop:'1px solid #f0f0f0', paddingTop:6, fontSize:10, color:'#999', textAlign:'center' }}>
+                                💡 新增/删除标签请点顶部「🏷️ 标签管理」
                               </div>
                             </div>
                           )}
