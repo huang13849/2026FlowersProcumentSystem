@@ -102,7 +102,7 @@ router.get('/platforms', async (req, res) => {
 });
 
 // 详情
-router.get('/:id', async (req, res) => {
+router.get('/:id(\d+)', async (req, res) => {
   try {
     const rows = await pgQuery(`SELECT * FROM ${TABLE} WHERE siteshop_id = $1 LIMIT 1`, [Number(req.params.id)]);
     const item = rows[0];
