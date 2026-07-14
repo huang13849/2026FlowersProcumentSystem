@@ -1163,13 +1163,21 @@ export default function ProductList() {
                             })}
                           </div>
                           {editing && (
-                            <div style={{
-                              position:'absolute', top:'100%', left:0, zIndex:1000,
-                              background:'#fff', border:'1px solid #d9d9d9', borderRadius:6,
-                              padding:8, width:230, boxShadow:'0 4px 16px rgba(0,0,0,0.15)',
-                            }}
-                              onMouseLeave={() => setSceneTagEditing(null)}>
-                              <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                            <>
+                              <div onClick={() => setSceneTagEditing(null)}
+                                style={{ position:'fixed', inset:0, zIndex:9997, background:'transparent' }} />
+                              <div onClick={e => e.stopPropagation()}
+                                style={{
+                                  position:'absolute', top:'100%', right:0, zIndex:9998,
+                                  background:'#fff', border:'1px solid #d9d9d9', borderRadius:6,
+                                  padding:8, minWidth:230, maxWidth:280, boxShadow:'0 4px 16px rgba(0,0,0,0.18)',
+                                }}>
+                                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                                  <span style={{ fontSize:11, color:'#666' }}>选择场景标签（多选）</span>
+                                  <span onClick={(e) => { e.stopPropagation(); setSceneTagEditing(null); }}
+                                    style={{ cursor:'pointer', fontSize:14, color:'#999', padding:'0 4px', lineHeight:1 }}>✕</span>
+                                </div>
+                                <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
                                 {(() => {
                                   // 预设 + 自定义 + 商品现有的生僻标签，去重
                                   const presetVals = SCENE_TAG_OPTIONS.map(o => o.v);
@@ -1196,12 +1204,12 @@ export default function ProductList() {
                                     );
                                   });
                                 })()}
+                                </div>
+                                <div style={{ marginTop:8, borderTop:'1px solid #f0f0f0', paddingTop:6, fontSize:10, color:'#999', textAlign:'center' }}>
+                                  💡 新增/删除标签请点顶部「🏷️ 标签管理」
+                                </div>
                               </div>
-                              {/* 提示: 新增标签请到「🏷️ 标签管理」，此处仅可勾选 */}
-                              <div style={{ marginTop:8, borderTop:'1px solid #f0f0f0', paddingTop:6, fontSize:10, color:'#999', textAlign:'center' }}>
-                                💡 新增/删除标签请点顶部「🏷️ 标签管理」
-                              </div>
-                            </div>
+                            </>
                           )}
                         </td>
                       );
