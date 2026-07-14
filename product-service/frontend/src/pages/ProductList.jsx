@@ -133,6 +133,44 @@ export default function ProductList() {
   const [customSceneTags, setCustomSceneTags] = useState(() => {
     try { return JSON.parse(localStorage.getItem('customSceneTags') || '[]'); } catch { return []; }
   }); // 用户自定义添加的标签
+  // ── 服务端标签池 ──
+  const [showTagManager, setShowTagManager] = useState(false);
+  const [remoteTags, setRemoteTags] = useState([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [tagSearch, setTagSearch] = useState('');
+  const fetchTags = async () => {
+    setLoadingTags(true);
+    try {
+      const r = await api.get('/tags');
+      const list = (r.data && r.data.tags) || [];
+      setRemoteTags(list);
+      const presetVals = SCENE_TAG_OPTIONS.map(o => o.v);
+      const extras = list.map(t => t.name).filter(n => !presetVals.includes(n));
+      setCustomSceneTags(extras);
+      try { localStorage.setItem('customSceneTags', JSON.stringify(extras)); } catch {}
+    } catch (e) { console.warn('fetchTags 失败', e); }
+    finally { setLoadingTags(false); }
+  };
+  useEffect(() => { fetchTags(); }, []);
+  const addRemoteTag = async (name) => {
+    const clean = String(name || '').trim();
+    if (!clean) return;
+    try {
+      await api.post('/tags', { name: clean });
+      await fetchTags();
+      setNewTagName('');
+    } catch (e) { alert('新增失败: ' + ((e.response && e.response.data && e.response.data.error) || e.message)); }
+  };
+  const deleteRemoteTag = async (name) => {
+    if (!window.confirm('确定删除标签「' + name + '」？该标签将从所有商品中移除。')) return;
+    try {
+      await api.delete('/tags/' + encodeURIComponent(name));
+      setAllProducts(prev => prev.map(p => Object.assign({}, p, { sceneTags: (p.sceneTags || []).filter(t => t !== name) })));
+      await fetchTags();
+    } catch (e) { alert('删除失败: ' + ((e.response && e.response.data && e.response.data.error) || e.message)); }
+  };
+
   const [sceneTagInput, setSceneTagInput] = useState('');
   // 上传进度提示: { phase: 'compress'|'upload'|'done'|'error', pct: 0-100, msg, total, current }
   const [uploadStatus, setUploadStatus] = useState(null);
@@ -891,6 +929,18 @@ export default function ProductList() {
         {statChip('零售', tradeStats.retail, '#e6fffb', '#13c2c2', '#87e8de')}
         {statChip('零批混', tradeStats.mixed, '#f0f5ff', '#2f54eb', '#adc6ff')}
         <div style={{ flex:1 }} />
+        <button onClick={() => setShowTagManager(true)}
+          title="管理场景标签（新增/删除/搜索，服务端持久化）"
+          style={{
+            padding:'5px 12px',
+            background:'#722ed1', color:'#fff',
+            border:'none', borderRadius:4,
+            cursor:'pointer',
+            fontSize:12, whiteSpace:'nowrap',
+            display:'flex', alignItems:'center', gap:4,
+          }}>
+          🏷️ 标签管理
+        </button>
         <button onClick={() => exportExcel('simple')} disabled={exporting}
           title="导出常用字段，不包含图片列，速度快"
           style={{
