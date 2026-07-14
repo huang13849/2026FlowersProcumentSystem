@@ -8,18 +8,21 @@ const { getZitadelPgPool, getPgPool } = require('../services/connections');
 
 // source_project → 中文来源显示
 const SOURCE_LABEL = {
-  peony:        '芍药联盟',
-  club:         '热植联盟',
-  'space-cn':   '植物收藏家-国内',
-  'space-en':   '植物收藏家-海外',
-  space:        '植物收藏家',
-  edu:          '幼植学校',
-  wholesale:    '批发',
+  peony:            '芍药联盟',
+  club:             '热植联盟',
+  'space-cn':       '植物收藏家-国内',
+  'space-en':       '植物收藏家-海外',
+  space:            '植物收藏家',
+  edu:              '幼植学校',
+  wholesale:        '批发',
+  'plant-share':    '植物共享自助',
+  'self-operated':  '自营录入',
 };
 
 // instance/org 名 → 默认来源推断（缺 source_project 时兜底）
 function inferSource(instanceName, orgName, orgDomain) {
   const n = (instanceName || '') + ' ' + (orgName || '') + ' ' + (orgDomain || '');
+  if (/plant.?share|植物共享/i.test(n)) return 'plant-share';
   if (/peony|芍药/i.test(n)) return 'peony';
   if (/school|youzhi|幼植/i.test(n)) return 'edu';
   if (/space|收藏家/i.test(n)) return 'space';

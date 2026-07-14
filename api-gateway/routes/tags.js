@@ -59,7 +59,7 @@ router.delete('/:name', async (req, res) => {
     // 从 user_profiles.tags 中移除
     await pool.query(`UPDATE plant_collector.user_profiles SET tags = array_remove(tags, $1) WHERE $1 = ANY(tags)`, [name]);
     // 从 flower_internet_supplier.tags 中移除
-    await pool.query(`UPDATE public.flower_internet_supplier SET tags = array_remove(tags, $1) WHERE $1 = ANY(tags)`, [name]);
+    await pool.query(`UPDATE public.flower_internet_supplier SET tags = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM jsonb_array_elements_text(tags) x WHERE x <> $1) WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
     // 删除标签
     const r = await pool.query(`DELETE FROM plant_collector.tags WHERE name = $1`, [name]);
     // TODO: 同步清 Mongo product.sceneTags —— 由 product-service 提供 hook 或此处 axios 调用
@@ -78,25 +78,44 @@ router.post('/apply', async (req, res) => {
   }
   try {
     const pool = getPgPool();
-    let table, idCol;
-    if (entity === 'user')     { table = 'plant_collector.user_profiles';   idCol = 'zid';         }
-    else if (entity === 'supplier') { table = 'public.flower_internet_supplier'; idCol = 'siteshop_id'; }
-    else return res.status(400).json({ success: false, error: 'entity must be user|supplier' });
-
     let sql;
-    if (mode === 'remove') {
-      // pull each tag
-      sql = `UPDATE ${table}
-             SET tags = COALESCE(tags,'{}'::text[]) - $1::text[]
-             WHERE ${idCol} = ANY($2::${entity==='user'?'text':'int'}[])`;
-    } else if (mode === 'set') {
-      sql = `UPDATE ${table}
-             SET tags = $1::text[]
-             WHERE ${idCol} = ANY($2::${entity==='user'?'text':'int'}[])`;
-    } else { // add (union)
-      sql = `UPDATE ${table}
-             SET tags = (SELECT ARRAY(SELECT DISTINCT unnest(COALESCE(tags,'{}'::text[]) || $1::text[])))
-             WHERE ${idCol} = ANY($2::${entity==='user'?'text':'int'}[])`;
+    if (entity === 'user') {
+      // user_profiles.tags is text[]
+      if (mode === 'remove') {
+        sql = `UPDATE plant_collector.user_profiles SET tags = COALESCE(tags,'{}'::text[]) - $1::text[] WHERE zid = ANY($2::text[])`;
+      } else if (mode === 'set') {
+        sql = `UPDATE plant_collector.user_profiles SET tags = $1::text[] WHERE zid = ANY($2::text[])`;
+      } else {
+        sql = `UPDATE plant_collector.user_profiles SET tags = (SELECT ARRAY(SELECT DISTINCT unnest(COALESCE(tags,'{}'::text[]) || $1::text[]))) WHERE zid = ANY($2::text[])`;
+      }
+    } else if (entity === 'supplier') {
+      // flower_internet_supplier.tags is JSONB (array of strings)
+      if (mode === 'remove') {
+        sql = `UPDATE public.flower_internet_supplier
+                 SET tags = (
+                   SELECT COALESCE(jsonb_agg(x), '[]'::jsonb)
+                     FROM jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) x
+                    WHERE NOT (x = ANY($1::text[]))
+                 )
+               WHERE siteshop_id = ANY($2::int[])`;
+      } else if (mode === 'set') {
+        sql = `UPDATE public.flower_internet_supplier
+                 SET tags = to_jsonb($1::text[])
+               WHERE siteshop_id = ANY($2::int[])`;
+      } else {
+        sql = `UPDATE public.flower_internet_supplier
+                 SET tags = (
+                   SELECT jsonb_agg(DISTINCT x)
+                     FROM (
+                       SELECT jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) AS x
+                       UNION
+                       SELECT unnest($1::text[]) AS x
+                     ) u
+                 )
+               WHERE siteshop_id = ANY($2::int[])`;
+      }
+    } else {
+      return res.status(400).json({ success: false, error: 'entity must be user|supplier' });
     }
     const idsCast = entity === 'user' ? ids.map(String) : ids.map(x => parseInt(x, 10)).filter(n => !isNaN(n));
     const r = await pool.query(sql, [tags, idsCast]);

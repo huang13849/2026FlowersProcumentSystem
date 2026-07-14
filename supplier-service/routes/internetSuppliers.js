@@ -113,4 +113,68 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+
+// -------- 标签 / 自营商户扩展 (2026-07-14) --------
+// PATCH /:id  — 编辑单条 (tags jsonb, attributes jsonb, source_project, zid, 基础字段)
+router.patch('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const allowed = ['shop_name','shop_owner','shop_code','owner_tell','province','city','country','address','description','website_name','is_used','tags','attributes','source_project','zid'];
+    const sets = [], params = [];
+    for (const k of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+        params.push(k === 'tags' || k === 'attributes' ? JSON.stringify(req.body[k]) : req.body[k]);
+        const cast = (k === 'tags' || k === 'attributes') ? '::jsonb' : '';
+        sets.push(`${k} = $${params.length}${cast}`);
+      }
+    }
+    if (!sets.length) return res.status(400).json({ error: 'no fields' });
+    params.push(id);
+    const rows = await pgQuery(`UPDATE ${TABLE} SET ${sets.join(', ')} WHERE siteshop_id = $${params.length} RETURNING *`, params);
+    res.json(rows[0] || {});
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /  — 新增自营商户（默认 tags=['国际花展'], source_project='self-operated'）
+router.post('/', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const tags       = Array.isArray(b.tags) && b.tags.length ? b.tags : ['国际花展'];
+    const source     = b.source_project || 'self-operated';
+    const attributes = b.attributes || {};
+    const cols = ['shop_name','shop_owner','shop_code','owner_tell','province','city','country','address','description','website_name','is_used','tags','attributes','source_project','zid'];
+    const vals = [
+      b.shop_name || '', b.shop_owner || '', b.shop_code || '', b.owner_tell || '',
+      b.province || '', b.city || '', b.country || '', b.address || '', b.description || '',
+      b.website_name || '', b.is_used ?? 1,
+      JSON.stringify(tags), JSON.stringify(attributes), source, b.zid || null
+    ];
+    const placeholders = vals.map((_, i) => `$${i+1}`);
+    // 转 jsonb
+    placeholders[cols.indexOf('tags')]       += '::jsonb';
+    placeholders[cols.indexOf('attributes')] += '::jsonb';
+    const rows = await pgQuery(
+      `INSERT INTO ${TABLE} (${cols.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`,
+      vals
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /source-labels — 来源标签映射（前端可以下拉展示）
+router.get('/source-labels', (req, res) => {
+  res.json({
+    'self-operated': '自营录入',
+    'plant-share':   '植物共享自助',
+    'peony':         '芍药联盟',
+    'club':          '热植联盟',
+  });
+});
+
+
 module.exports = router;

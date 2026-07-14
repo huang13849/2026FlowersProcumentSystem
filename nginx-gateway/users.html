@@ -695,7 +695,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       var phone = u.phone ? (u.phone + (u.is_phone_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
       return '<tr>'
         + '<td style="text-align:center"><input type="checkbox" class="uaSel" data-zid="'+u.id+'"></td>'
-        + '<td>'+ sourceBadge(u.source_project, u.source_label) + (u.pg_synced?'':' <span title="尚未同步到 PG" style="color:#ff9800">⚠</span>') +'</td>'
+        + '<td>'+ sourceBadge(u.source_project, u.source_label) '' +'</td>'
         + '<td class="muted" style="font-family:monospace;font-size:11px">'+(u.oneid||'-')+'</td>'
         + '<td>'+(u.username||'-')+'<div class="muted" style="font-size:11px">'+truncate(email,32)+'</div></td>'
         + '<td>'+phone+'</td>'

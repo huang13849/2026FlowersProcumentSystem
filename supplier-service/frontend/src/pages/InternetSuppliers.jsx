@@ -18,6 +18,9 @@ export default function InternetSuppliers() {
   const [provinces, setProvinces] = useState([])
   const [detail, setDetail] = useState(null)
   const timer = useRef()
+  const [tagPool, setTagPool] = useState([])
+  const [sourceLabels, setSourceLabels] = useState({})
+  const [tagEdit, setTagEdit] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -42,7 +45,12 @@ export default function InternetSuppliers() {
     } catch (e) { console.error(e) }
   }
 
-  useEffect(() => { loadFilters() }, [])
+  useEffect(() => {
+    loadFilters()
+    fetch('http://100.96.54.109:8088/api/tags?scope=supplier', { headers: { 'x-api-key': '***REMOVED_API_KEY***' }})
+      .then(r => r.json()).then(d => { if (d.success) setTagPool(d.data || []) }).catch(() => {})
+    fetch('/api/internet-suppliers/source-labels').then(r => r.json()).then(setSourceLabels).catch(() => {})
+  }, [])
   useEffect(() => { load() }, [page])
   useEffect(() => {
     clearTimeout(timer.current)
@@ -107,13 +115,15 @@ export default function InternetSuppliers() {
             { w: 60, t: '等级' },
             { w: 150, t: '主营业务' },
             { w: 60, t: '状态' },
+            { w: 100, t: '来源' },
+            { w: 180, t: '标签' },
             { w: 100, t: '创建日期' },
           ].map((h, i) => <th key={i} style={{ ...th, width: h.w, minWidth: h.w }}>{h.t}</th>)}</tr></thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={13} style={{ textAlign: 'center', padding: 30, color: '#888' }}>加载中...</td></tr>
+              <tr><td colSpan={15} style={{ textAlign: 'center', padding: 30, color: '#888' }}>加载中...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={13} style={{ textAlign: 'center', padding: 30, color: '#888' }}>暂无数据</td></tr>
+              <tr><td colSpan={15} style={{ textAlign: 'center', padding: 30, color: '#888' }}>暂无数据</td></tr>
             ) : items.map((r, i) => {
               const sc = STATUS_COLORS[String(r.is_used)] || STATUS_COLORS['0']
               const bg = i % 2 === 0 ? '#fff' : '#fafafa'
@@ -138,6 +148,20 @@ export default function InternetSuppliers() {
                   <td style={td}>
                     <span style={{ padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.c, fontWeight: 600, fontSize: 11 }}>{STATUS_MAP[String(r.is_used)] || '未知'}</span>
                   </td>
+                  <td style={{ ...td, fontSize: 11 }}>
+                    {r.source_project === 'self-operated' || !r.source_project
+                      ? <span style={{ padding: '2px 8px', borderRadius: 10, background: '#fffbe6', color: '#faad14', border: '1px solid #ffe58f', fontSize: 10 }}>自营录入</span>
+                      : <span style={{ padding: '2px 8px', borderRadius: 10, background: '#e6fffb', color: '#13c2c2', border: '1px solid #87e8de', fontSize: 10 }}>{sourceLabels[r.source_project] || r.source_project}</span>}
+                  </td>
+                  <td style={td} onClick={e => { e.stopPropagation(); setTagEdit(r) }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center', cursor: 'pointer', minHeight: 22 }}>
+                      {(r.tags || []).map((t, ti) => {
+                        const meta = tagPool.find(x => x.name === t) || { color: '#722ed1', bg: '#f9f0ff', border: '#d3adf7' }
+                        return <span key={ti} style={{ padding: '1px 8px', borderRadius: 10, background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, fontSize: 10 }}>{t}</span>
+                      })}
+                      <span style={{ padding: '1px 6px', borderRadius: 10, border: '1px dashed #bbb', color: '#888', fontSize: 10 }}>+ 编辑</span>
+                    </div>
+                  </td>
                   <td style={{ ...td, fontSize: 11, color: '#999' }}>{r.create_date ? new Date(r.create_date).toLocaleDateString('zh-CN') : '-'}</td>
                 </tr>
               )
@@ -159,6 +183,7 @@ export default function InternetSuppliers() {
       </div>
 
       {/* 详情弹窗 */}
+      {tagEdit && <TagEditModal row={tagEdit} tagPool={tagPool} onClose={() => setTagEdit(null)} onSaved={() => { setTagEdit(null); load() }} />}
       {detail && (
         <div onClick={() => setDetail(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 600, maxHeight: '80vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
@@ -198,6 +223,60 @@ export default function InternetSuppliers() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+
+function TagEditModal({ row, tagPool, onClose, onSaved }) {
+  const initial = Array.isArray(row.tags) ? row.tags : []
+  const [selected, setSelected] = useState(new Set(initial))
+  const [saving, setSaving] = useState(false)
+
+  const toggle = (name) => {
+    const n = new Set(selected)
+    if (n.has(name)) n.delete(name); else n.add(name)
+    setSelected(n)
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await fetch('http://100.96.54.109:8088/api/tags/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': '***REMOVED_API_KEY***' },
+        body: JSON.stringify({ entity: 'supplier', ids: [row.siteshop_id], tags: [...selected], mode: 'set' })
+      })
+      onSaved()
+    } catch (e) {
+      alert('save failed: ' + e.message)
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 24, width: 480, maxHeight: '75vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0, color: '#2e5230', fontSize: 15 }}>🏷️ 编辑标签 · {row.shop_name || row.siteshop_id}</h3>
+          <button onClick={onClose} style={{ border: 'none', background: '#f5f5f5', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+          {tagPool.map(t => {
+            const on = selected.has(t.name)
+            return (
+              <span key={t.name} onClick={() => toggle(t.name)} style={{ cursor: 'pointer', padding: '4px 10px', borderRadius: 12, fontSize: 12, background: on ? t.bg : '#fff', color: on ? t.color : '#888', border: `1px solid ${on ? t.border : '#ddd'}`, fontWeight: on ? 600 : 400 }}>
+                {on ? '✓ ' : ''}{t.name}
+              </span>
+            )
+          })}
+          {tagPool.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>标签池为空，请新增</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '6px 14px', border: '1px solid #ddd', background: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>取消</button>
+          <button onClick={save} disabled={saving} style={{ padding: '6px 14px', border: 'none', background: '#3E7B5B', color: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>{saving ? '保存中…' : '保存'}</button>
+        </div>
+      </div>
     </div>
   )
 }
