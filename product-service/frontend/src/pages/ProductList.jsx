@@ -135,6 +135,28 @@ export default function ProductList() {
   }); // 用户自定义添加的标签
   // ── 服务端标签池 ──
   const [showTagManager, setShowTagManager] = useState(false);
+  const [showBatchTag, setShowBatchTag] = useState(false);
+  const [batchTagPending, setBatchTagPending] = useState(new Set()); // 待打的标签(仅本轮选择)
+  const applyBatchTags = async (mode /* 'add' | 'remove' */) => {
+    if (!selected.size || batchTagPending.size === 0) return;
+    const tags = [...batchTagPending];
+    const action = mode === 'remove' ? 'remove_tags' : 'add_tags';
+    try {
+      await api.post('/products/batch', { ids: [...selected], action, data: { tags } });
+      // 前端本地同步
+      setAllProducts(prev => prev.map(p => {
+        if (!selected.has(p._id)) return p;
+        const cur = p.sceneTags || [];
+        if (mode === 'remove') return { ...p, sceneTags: cur.filter(t => !tags.includes(t)) };
+        const next = Array.from(new Set([...cur, ...tags]));
+        return { ...p, sceneTags: next };
+      }));
+      setShowBatchTag(false);
+      setBatchTagPending(new Set());
+    } catch (e) {
+      alert('批量操作失败: ' + (e.response?.data?.error || e.message));
+    }
+  };
   const [remoteTags, setRemoteTags] = useState([]);
   const [loadingTags, setLoadingTags] = useState(false);
   const [newTagName, setNewTagName] = useState('');
@@ -992,6 +1014,7 @@ export default function ProductList() {
         {selected.size > 0 && <>
           <button onClick={() => batchStatus(true)} style={btnStyle('#52c41a','#fff')}>✅ 上架</button>
           <button onClick={() => batchStatus(false)} style={btnStyle('#faad14','#fff')}>⏸ 下架</button>
+          <button onClick={() => { setBatchTagPending(new Set()); setShowBatchTag(true); }} style={btnStyle('#722ed1','#fff')}>🏷️ 打标签</button>
           <button onClick={batchDelete} style={btnStyle('#ff4d4f','#fff')}>🗑 删除</button>
           <span style={{ fontSize:12, color:'#888' }}>已选 {selected.size} 项</span>
         </>}
@@ -1431,6 +1454,63 @@ export default function ProductList() {
         >
           <img src={hoverImage.url} alt="" style={{ maxWidth:300, maxHeight:300, borderRadius:4, objectFit:'contain' }}
             onError={e => { e.target.style.display='none'; setHoverImage(null); }} />
+        </div>
+      )}
+
+      {showBatchTag && (
+        <div onClick={() => setShowBatchTag(false)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'#fff', borderRadius:10, width:520, maxWidth:'92vw', maxHeight:'80vh', overflow:'auto', padding:20, boxShadow:'0 10px 30px rgba(0,0,0,.25)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+              <h3 style={{ margin:0, fontSize:16 }}>🏷️ 批量打标签（{selected.size} 件商品）</h3>
+              <button onClick={() => setShowBatchTag(false)} style={{ border:'none', background:'transparent', fontSize:18, cursor:'pointer' }}>✕</button>
+            </div>
+            <div style={{ fontSize:12, color:'#666', marginBottom:8 }}>点击选择要打（或移除）的标签：</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:14 }}>
+              {(() => {
+                const presetVals = SCENE_TAG_OPTIONS.map(o => o.v);
+                const extras = customSceneTags.filter(t => !presetVals.includes(t));
+                const allOpts = [...presetVals, ...extras];
+                return allOpts.map(v => {
+                  const o = SCENE_TAG_COLOR[v] || { v, color:'#555', bg:'#f0f0f0', border:'#d9d9d9' };
+                  const on = batchTagPending.has(v);
+                  return (
+                    <span key={v}
+                      onClick={() => {
+                        const next = new Set(batchTagPending);
+                        if (on) next.delete(v); else next.add(v);
+                        setBatchTagPending(next);
+                      }}
+                      style={{
+                        cursor:'pointer', padding:'6px 12px', borderRadius:14, fontSize:13,
+                        background: on ? o.bg : '#fafafa',
+                        color: on ? o.color : '#666',
+                        border:'1px solid ' + (on ? o.border : '#eee'),
+                        fontWeight: on ? 600 : 400,
+                      }}>
+                      {on ? '✓ ' : ''}{v}
+                    </span>
+                  );
+                });
+              })()}
+            </div>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', paddingTop:10, borderTop:'1px solid #f0f0f0' }}>
+              <button onClick={() => applyBatchTags('remove')}
+                disabled={batchTagPending.size === 0}
+                style={{ padding:'6px 14px', background:'#fff', color:'#ff4d4f', border:'1px solid #ffa39e', borderRadius:4, cursor: batchTagPending.size?'pointer':'not-allowed', fontSize:13, opacity: batchTagPending.size?1:0.5 }}>
+                ➖ 移除
+              </button>
+              <button onClick={() => applyBatchTags('add')}
+                disabled={batchTagPending.size === 0}
+                style={{ padding:'6px 14px', background:'#1677ff', color:'#fff', border:'none', borderRadius:4, cursor: batchTagPending.size?'pointer':'not-allowed', fontSize:13, opacity: batchTagPending.size?1:0.5 }}>
+                ➕ 追加打标（保留原有）
+              </button>
+            </div>
+            <div style={{ marginTop:10, fontSize:11, color:'#999' }}>
+              💡 「追加打标」= 在已有标签基础上加；「移除」= 从已有标签里剔除所选。
+            </div>
+          </div>
         </div>
       )}
 

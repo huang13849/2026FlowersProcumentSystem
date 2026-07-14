@@ -179,6 +179,21 @@ router.post('/batch', async (req, res) => {
       case 'update':
         result = await Product.updateMany({ _id: { $in: ids } }, data);
         break;
+      case 'add_tags': {
+        const tags = Array.isArray(data?.tags) ? data.tags : [];
+        result = await Product.updateMany({ _id: { $in: ids } }, { $addToSet: { sceneTags: { $each: tags } } });
+        break;
+      }
+      case 'remove_tags': {
+        const tags = Array.isArray(data?.tags) ? data.tags : [];
+        result = await Product.updateMany({ _id: { $in: ids } }, { $pull: { sceneTags: { $in: tags } } });
+        break;
+      }
+      case 'set_tags': {
+        const tags = Array.isArray(data?.tags) ? data.tags : [];
+        result = await Product.updateMany({ _id: { $in: ids } }, { $set: { sceneTags: tags } });
+        break;
+      }
       case 'delete':
         const toDelete = await Product.find({ _id: { $in: ids } }).lean();
         result = await Product.deleteMany({ _id: { $in: ids } });
