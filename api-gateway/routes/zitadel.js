@@ -55,10 +55,10 @@ router.get('/users', async (req, res) => {
     try {
       const pgpool = getPgPool();
       const p = await pgpool.query(`
-        SELECT p.zid, p.oneid, p.gender AS pg_gender, p.user_type,
+        SELECT p.zid, p.one_id AS oneid, p.gender AS pg_gender, p.user_type,
                p.source_project, p.tags, p.email AS pg_email, p.phone AS pg_phone,
                p.updated_at AS pg_updated_at,
-               (SELECT count(*) FROM plant_collector.user_addresses a WHERE a.user_profile_id = p.id) AS address_count
+               (SELECT count(*) FROM plant_collector.user_addresses a WHERE a.zid = p.zid) AS address_count
         FROM plant_collector.user_profiles p
       `);
       for (const row of p.rows) profByZid.set(String(row.zid), row);
@@ -104,10 +104,10 @@ router.patch('/users/:zid', async (req, res) => {
       const src = source_project || 'club';
       const srcCode = src.toUpperCase().replace(/[^A-Z0-9]/g, '');
       const dayKey = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const nextSeq = await pgpool.query("SELECT nextval('plant_collector.oneid_seq') AS n");
+      const nextSeq = await pgpool.query("SELECT nextval('plant_collector.user_profiles_id_seq') AS n");
       const oneid = `U-${dayKey}-${srcCode}-${String(nextSeq.rows[0].n).padStart(4, '0')}`;
       await pgpool.query(
-        `INSERT INTO plant_collector.user_profiles (zid, oneid, source_project, user_type, tags, gender, created_at, updated_at)
+        `INSERT INTO plant_collector.user_profiles (zid, one_id, source_project, user_type, tags, gender, created_at, updated_at)
          VALUES ($1,$2,$3,$4,$5,$6,now(),now())`,
         [zid, oneid, src, user_type || null, tags || [], gender || null]
       );
@@ -124,7 +124,7 @@ router.patch('/users/:zid', async (req, res) => {
       );
     }
     const r = await pgpool.query(
-      'SELECT zid, oneid, source_project, user_type, tags, gender, updated_at FROM plant_collector.user_profiles WHERE zid=$1',
+      'SELECT zid, one_id AS oneid, source_project, user_type, tags, gender, updated_at FROM plant_collector.user_profiles WHERE zid=$1',
       [zid]
     );
     res.json({ success: true, data: r.rows[0] });
