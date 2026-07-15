@@ -12,7 +12,7 @@ export default function Navbar() {
   return (
     <nav style={{background:'#1a1a2e',padding:'0 20px',display:'flex',alignItems:'center',height:48,color:'#fff',justifyContent:'space-between'}}>
       <div style={{display:'flex',gap:12,alignItems:'center'}}>
-        <span style={{fontWeight:'bold',fontSize:15}}>供应商管理系统</span>
+        <span style={{fontWeight:'bold',fontSize:15}}>店铺注册管理</span>
         <button style={tabStyle(tab==='supplier')} onClick={()=>n('/')}>📋 供应商管理</button>
         <button style={tabStyle(tab==='internet')} onClick={()=>n('/internet-suppliers')}>🌐 花卉互联网供应商</button>
         <a href="http://100.96.54.109:31001" style={linkStyle}>商品管理</a>

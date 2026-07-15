@@ -115,15 +115,14 @@ export default function InternetSuppliers() {
             { w: 60, t: '等级' },
             { w: 150, t: '主营业务' },
             { w: 60, t: '状态' },
-            { w: 100, t: '来源' },
             { w: 180, t: '标签' },
             { w: 100, t: '创建日期' },
           ].map((h, i) => <th key={i} style={{ ...th, width: h.w, minWidth: h.w }}>{h.t}</th>)}</tr></thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={15} style={{ textAlign: 'center', padding: 30, color: '#888' }}>加载中...</td></tr>
+              <tr><td colSpan={14} style={{ textAlign: 'center', padding: 30, color: '#888' }}>加载中...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={15} style={{ textAlign: 'center', padding: 30, color: '#888' }}>暂无数据</td></tr>
+              <tr><td colSpan={14} style={{ textAlign: 'center', padding: 30, color: '#888' }}>暂无数据</td></tr>
             ) : items.map((r, i) => {
               const sc = STATUS_COLORS[String(r.is_used)] || STATUS_COLORS['0']
               const bg = i % 2 === 0 ? '#fff' : '#fafafa'
@@ -147,11 +146,6 @@ export default function InternetSuppliers() {
                   <td style={{ ...td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.description}>{r.description || '-'}</td>
                   <td style={td}>
                     <span style={{ padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.c, fontWeight: 600, fontSize: 11 }}>{STATUS_MAP[String(r.is_used)] || '未知'}</span>
-                  </td>
-                  <td style={{ ...td, fontSize: 11 }}>
-                    {r.source_project === 'self-operated' || !r.source_project
-                      ? <span style={{ padding: '2px 8px', borderRadius: 10, background: '#fffbe6', color: '#faad14', border: '1px solid #ffe58f', fontSize: 10 }}>自营录入</span>
-                      : <span style={{ padding: '2px 8px', borderRadius: 10, background: '#e6fffb', color: '#13c2c2', border: '1px solid #87e8de', fontSize: 10 }}>{sourceLabels[r.source_project] || r.source_project}</span>}
                   </td>
                   <td style={td} onClick={e => { e.stopPropagation(); setTagEdit(r) }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center', cursor: 'pointer', minHeight: 22 }}>

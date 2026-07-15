@@ -33,8 +33,8 @@ const COLUMNS = [
   { field: 'category',     label: '分类',     width: 75,  type: 'string', editable: true },
   // 7: 商家
   { field: 'sellerName',   label: '商家',     width: 110, type: 'string', editable: true },
-  // 7b: 来源 (读 seller_product_links)
-  { field: '_sourceProject', label: '来源',    width: 84, type: 'sourceBadge', editable: false },
+  // 7b: 标签（多选，紧随商家 — 由「场景标签」演变）
+  { field: 'sceneTags', label: '标签', width: 180, type: 'sceneTags', editable: false },
   // 8: 花卉
   { field: 'flowerName',   label: '花卉',     width: 90,  type: 'string', editable: true },
   // 8b: 英文名（移到花卉后面）
@@ -87,8 +87,6 @@ const COLUMNS = [
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
   // 31: 包装说明
   { field: 'potColorNotes', label: '包装说明', width: 90, type: 'string', editable: true },
-  // 32: 场景标签（多选，最后一列）
-  { field: 'sceneTags', label: '场景标签', width: 150, type: 'sceneTags', editable: false },
 ]
 
 // 场景标签词表（与首页成功案例场景对齐）
@@ -162,6 +160,22 @@ export default function ProductList() {
   const [remoteTags, setRemoteTags] = useState([]);
   const [loadingTags, setLoadingTags] = useState(false);
   const [newTagName, setNewTagName] = useState('');
+  // 8色调色板 — 与 31002 供应商标签管理保持一致
+  const TAG_PALETTE = [
+    { color:'#722ed1', bg:'#f9f0ff', border:'#d3adf7', label:'紫' },
+    { color:'#c41d7f', bg:'#fff0f6', border:'#ffadd2', label:'粉' },
+    { color:'#d46b08', bg:'#fff7e6', border:'#ffd591', label:'橙' },
+    { color:'#faad14', bg:'#fffbe6', border:'#ffe58f', label:'金' },
+    { color:'#389e0d', bg:'#f6ffed', border:'#b7eb8f', label:'绿' },
+    { color:'#13c2c2', bg:'#e6fffb', border:'#87e8de', label:'青' },
+    { color:'#1677ff', bg:'#e6f4ff', border:'#91caff', label:'蓝' },
+    { color:'#531dab', bg:'#f0f5ff', border:'#adc6ff', label:'靛' },
+    { color:'#eb2f96', bg:'#fff0f6', border:'#ffd6e7', label:'玫' },
+    { color:'#a0522d', bg:'#fff7e6', border:'#f4a460', label:'棕' },
+    { color:'#08979c', bg:'#e6fffb', border:'#5cdbd3', label:'松' },
+    { color:'#7cb305', bg:'#fcffe6', border:'#d3f261', label:'柳' },
+  ];
+  const [tagColorIdx, setTagColorIdx] = useState(0);
   const [tagSearch, setTagSearch] = useState('');
   const fetchTags = async () => {
     setLoadingTags(true);
@@ -181,9 +195,11 @@ export default function ProductList() {
     const clean = String(name || '').trim();
     if (!clean) return;
     try {
-      await api.post('/tags', { name: clean });
+      const pal = TAG_PALETTE[tagColorIdx] || TAG_PALETTE[0];
+      await api.post('/tags', { name: clean, color: pal.color, bg: pal.bg, border: pal.border });
       await fetchTags();
       setNewTagName('');
+      setTagColorIdx(0);
     } catch (e) { alert('新增失败: ' + ((e.response && e.response.data && e.response.data.error) || e.message)); }
   };
   const deleteRemoteTag = async (name) => {
@@ -904,7 +920,7 @@ export default function ProductList() {
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
-        <select value={sceneTagFilter} onChange={e => setSceneTagFilter(e.target.value)} style={selStyle} title="场景标签筛选">
+        <select value={sceneTagFilter} onChange={e => setSceneTagFilter(e.target.value)} style={selStyle} title="标签筛选">
           <option value="">全部标签</option>
           {allSceneTags.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -964,7 +980,7 @@ export default function ProductList() {
         {statChip('零批混', tradeStats.mixed, '#f0f5ff', '#2f54eb', '#adc6ff')}
         <div style={{ flex:1 }} />
         <button onClick={() => setShowTagManager(true)}
-          title="管理场景标签（新增/删除/搜索，服务端持久化）"
+          title="管理标签（新增/删除/搜索，服务端持久化）"
           style={{
             padding:'5px 12px',
             background:'#722ed1', color:'#fff',
@@ -1207,7 +1223,7 @@ export default function ProductList() {
                                   boxShadow:'0 10px 32px rgba(0,0,0,0.25)',
                                 }}>
                                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                                  <span style={{ fontSize:11, color:'#666' }}>选择场景标签（多选）</span>
+                                  <span style={{ fontSize:11, color:'#666' }}>选择标签（多选）</span>
                                   <span onClick={(e) => { e.stopPropagation(); setSceneTagEditing(null); }}
                                     style={{ cursor:'pointer', fontSize:14, color:'#999', padding:'0 4px', lineHeight:1 }}>✕</span>
                                 </div>
@@ -1561,6 +1577,29 @@ export default function ProductList() {
               <button onClick={() => setShowTagManager(false)} style={{ border:'none', background:'transparent', fontSize:18, cursor:'pointer' }}>✕</button>
             </div>
 
+            <div style={{ marginBottom:8, fontSize:12, color:'#666' }}>选择颜色：</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10 }}>
+              {TAG_PALETTE.map((p, i) => (
+                <span key={i} onClick={() => setTagColorIdx(i)} title={p.label}
+                  style={{ cursor:'pointer', padding:'4px 10px', borderRadius:12,
+                    background: tagColorIdx===i ? p.bg : '#fff',
+                    color: p.color, border:'2px solid ' + (tagColorIdx===i ? p.color : '#eee'),
+                    fontSize:11, fontWeight: tagColorIdx===i ? 700 : 400 }}>
+                  {tagColorIdx===i ? '✓ ' : ''}{p.label}
+                </span>
+              ))}
+            </div>
+            {newTagName && (
+              <div style={{ marginBottom:10, fontSize:12, color:'#999' }}>
+                预览:
+                <span style={{ marginLeft:8, padding:'3px 10px', borderRadius:12,
+                  background: TAG_PALETTE[tagColorIdx].bg,
+                  color: TAG_PALETTE[tagColorIdx].color,
+                  border: `1px solid ${TAG_PALETTE[tagColorIdx].border}`, fontSize:12 }}>
+                  {newTagName}
+                </span>
+              </div>
+            )}
             <div style={{ display:'flex', gap:8, marginBottom:12 }}>
               <input value={newTagName} onChange={e => setNewTagName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addRemoteTag(newTagName); }}
