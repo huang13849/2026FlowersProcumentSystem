@@ -136,6 +136,12 @@ export default function SupplierList() {
 
   /* ========== 选择状态 ========== */
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const [tagPool, setTagPool] = useState([])
+  const [tagEditRow, setTagEditRow] = useState(null)
+  useEffect(() => {
+    fetch('http://100.96.54.109:8088/api/tags?scope=supplier', { headers: { 'x-api-key': '***REMOVED_API_KEY***' } })
+      .then(r => r.json()).then(d => { if (d.success) setTagPool(d.data || []) }).catch(() => {})
+  }, [])
   const allFilteredIds = items.map(r => r._id)
   const isAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIds.has(id))
 
@@ -744,11 +750,12 @@ export default function SupplierList() {
             { w: 60, t: '商品数' },
             { w: 240, t: '备注' },
             { w: 110, t: '更新时间' },
+            { w: 180, t: '标签' },
             { w: 90, t: '操作' },
           ].map((h, i) => <th key={i} style={{ ...thBase, width: h.w, minWidth: h.w, ...(h.fixedLeft !== undefined ? stickyHead(h.fixedLeft, h.edge) : {}) }}>{h.t}</th>)}</tr></thead>
           <tbody>
             {(() => {
-              if (loading) return <tr><td colSpan={14} style={{ textAlign: 'center', padding: 30, color: '#888' }}>加载中...</td></tr>
+              if (loading) return <tr><td colSpan={15} style={{ textAlign: 'center', padding: 30, color: '#888' }}>加载中...</td></tr>
               const rows = []
               if (showNewRow) {
                 rows.push(
@@ -787,7 +794,7 @@ export default function SupplierList() {
                 )
               }
               if (filteredItems.length === 0 && !showNewRow) {
-                rows.push(<tr key="__empty"><td colSpan={14} style={{ textAlign: 'center', padding: 30, color: '#888' }}>{(supplierFilter || search || status || regionFilter || categoryFilter || salesPeriodFilter) ? '没有匹配的供应商' : '暂无数据'}</td></tr>)
+                rows.push(<tr key="__empty"><td colSpan={15} style={{ textAlign: 'center', padding: 30, color: '#888' }}>{(supplierFilter || search || status || regionFilter || categoryFilter || salesPeriodFilter) ? '没有匹配的供应商' : '暂无数据'}</td></tr>)
                 return rows
               }
               filteredItems.map((r, i) => {
@@ -846,6 +853,15 @@ export default function SupplierList() {
                       <textarea value={r.notes || ''} onChange={e => updateItem(r._id, 'notes', e.target.value)} style={{ ...INPUT_BASE, minWidth: 220, resize: 'vertical' }} placeholder='备注' rows={2} onClick={e => e.stopPropagation()} />
                     </td>
                     <td style={{ ...tdBase, fontSize: 11, color: '#999' }}>{fmtDate(r.updatedAt)}</td>
+                    <td style={tdBase} onClick={e => { e.stopPropagation(); setTagEditRow(r) }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, cursor: 'pointer', minHeight: 22, alignItems: 'center' }}>
+                        {(r.tags || []).map((t, ti) => {
+                          const meta = tagPool.find(x => x.name === t) || { color: '#722ed1', bg: '#f9f0ff', border: '#d3adf7' }
+                          return <span key={ti} style={{ padding: '1px 8px', borderRadius: 10, background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, fontSize: 10 }}>{t}</span>
+                        })}
+                        <span style={{ padding: '1px 6px', borderRadius: 10, border: '1px dashed #bbb', color: '#888', fontSize: 10 }}>+ 编辑</span>
+                      </div>
+                    </td>
                     <td style={tdBase}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <button onClick={e => { e.stopPropagation(); goShop(r) }} onMouseDown={e => e.stopPropagation()} style={{ padding: '3px 0', border: '1px solid #7e57c2', background: '#f3e5f5', color: '#7e57c2', borderRadius: 4, cursor: 'pointer', fontSize: 11, textAlign: 'center', width: '100%' }}>🏪 店铺</button>
@@ -865,6 +881,46 @@ export default function SupplierList() {
 
       <div style={{ marginTop: 8, fontSize: 11, color: '#888', textAlign: 'center' }}>
         直接在输入框中修改，自动保存 | ☰ 拖拽排序 | 勾选后批量删除/导出 | 合同异常行标红背景
+      </div>
+      {tagEditRow && <SupplierTagEditModal row={tagEditRow} tagPool={tagPool} onClose={() => setTagEditRow(null)} onSaved={() => { setTagEditRow(null); load() }} />}
+    </div>
+  )
+}
+
+function SupplierTagEditModal({ row, tagPool, onClose, onSaved }) {
+  const [selected, setSelected] = useState(new Set(Array.isArray(row.tags) ? row.tags : []))
+  const [saving, setSaving] = useState(false)
+  const toggle = (n) => { const s = new Set(selected); s.has(n) ? s.delete(n) : s.add(n); setSelected(s) }
+  const save = async () => {
+    setSaving(true)
+    try {
+      const r = await fetch('http://100.96.54.109:8088/api/tags/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': '***REMOVED_API_KEY***' },
+        body: JSON.stringify({ entity: 'supplier', ids: [row._id], tags: [...selected], mode: 'set' })
+      })
+      const j = await r.json()
+      if (j.success) onSaved(); else alert('保存失败: ' + JSON.stringify(j))
+    } catch (e) { alert('保存失败: ' + e.message) }
+    setSaving(false)
+  }
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 24, width: 480, maxHeight: '75vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0, color: '#2e5230', fontSize: 15 }}>🏷️ 编辑标签 · {row.name}</h3>
+          <button onClick={onClose} style={{ border: 'none', background: '#f5f5f5', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+          {tagPool.map(t => { const on = selected.has(t.name); return (
+            <span key={t.name} onClick={() => toggle(t.name)} style={{ cursor: 'pointer', padding: '4px 10px', borderRadius: 12, fontSize: 12, background: on ? t.bg : '#fff', color: on ? t.color : '#888', border: `1px solid ${on ? t.border : '#ddd'}`, fontWeight: on ? 600 : 400 }}>{on ? '✓ ' : ''}{t.name}</span>
+          )})}
+          {tagPool.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>标签池为空，请到 8088 顶部「标签管理」新增</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '6px 14px', border: '1px solid #ddd', background: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>取消</button>
+          <button onClick={save} disabled={saving} style={{ padding: '6px 14px', border: 'none', background: '#3E7B5B', color: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>{saving ? '保存中…' : '保存'}</button>
+        </div>
       </div>
     </div>
   )

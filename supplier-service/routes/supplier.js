@@ -2,6 +2,22 @@ const router = require('express').Router();
 const { Supplier } = require('../models/Supplier');
 const { fromReq } = require('../services/supplierService');
 
+
+// ── PG tags enrichment ────────────────────────────────────
+const PG_GW = process.env.PG_GATEWAY_URL || 'http://api-gateway:8080';
+const PG_KEY = process.env.PG_API_KEY || '***REMOVED_API_KEY***';
+async function fetchPgSupplierMeta(mongoIds) {
+  if (!mongoIds || !mongoIds.length) return {};
+  try {
+    const sql = "SELECT mongo_id, tags, source_project, attributes FROM plant_collector.suppliers WHERE mongo_id = ANY($1::text[])";
+    const resp = await axios.post(`${PG_GW}/api/pg/supply_chain/query`,
+      { sql, params: [mongoIds] }, { headers: { 'x-api-key': PG_KEY }, timeout: 5000 });
+    const map = {};
+    (resp.data.data || []).forEach(r => { map[r.mongo_id] = r; });
+    return map;
+  } catch (e) { console.warn('pg tag fetch failed:', e.message); return {}; }
+}
+
 function supplierModel(req, role) {
   return req.app.locals[role] || Supplier;
 }
@@ -143,6 +159,16 @@ router.get('/', async (req, res) => {
   try {
     const svc = fromReq(req);
     const result = await svc.list(req.query);
+    // enrich each supplier with tags/source_project from PG
+    const arr = result.suppliers || result.items || result.data || [];
+    const ids = arr.map(x => String(x._id));
+    const meta = await fetchPgSupplierMeta(ids);
+    arr.forEach(x => {
+      const m = meta[String(x._id)];
+      x.tags = m?.tags || [];
+      x.source_project = m?.source_project || 'self-operated';
+      x.pg_attributes = m?.attributes || {};
+    });
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
