@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🏷️ 标签总控台 · 管理员</title>
+<script id="gcNav" src="http://100.96.54.109:31040/nav.js" data-app="tags"></script>
+<style>
+:root{--bg:#f5f7fb;--fg:#1a2035;--muted:#6b7280;--card:#fff;--border:#e5e7eb;--primary:#722ed1;--danger:#f5222d}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif}
+.container{max-width:1360px;margin:0 auto;padding:24px}
+.hero{display:flex;justify-content:space-between;align-items:end;margin-bottom:20px;gap:20px;flex-wrap:wrap}
+.hero h1{margin:0;font-size:24px;background:linear-gradient(135deg,#722ed1,#eb2f96);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.stats{display:flex;gap:14px}
+.stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 18px;min-width:110px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.stat .n{font-size:22px;font-weight:700;line-height:1.1}
+.stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+.stat.p .n{color:#eb2f96}.stat.u .n{color:#13c2c2}.stat.s .n{color:#722ed1}.stat.t .n{color:#1a2035}
+.toolbar{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.toolbar input,.toolbar select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff}
+.toolbar input.search{flex:1;min-width:200px}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:transform .1s}
+.btn:hover{transform:translateY(-1px)}
+.btn-p{background:linear-gradient(135deg,#722ed1,#eb2f96);color:#fff;box-shadow:0 4px 12px rgba(114,46,209,.3)}
+.btn-g{background:#f5f5f5;color:#333}
+.btn-d{background:#f5222d;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.tag-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.03)}
+.tag-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.08);border-color:var(--primary)}
+.tag-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600;border:1px solid;margin-bottom:12px}
+.tag-badge .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.tag-total{position:absolute;top:14px;right:14px;background:#0b172b;color:#fff;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700}
+.scope-row{display:flex;gap:8px;margin:8px 0}
+.scope-chip{flex:1;text-align:center;padding:6px;border-radius:8px;font-size:11px;background:#f9fafb;border:1px solid #eee}
+.scope-chip.p{color:#eb2f96;background:#fff0f6}
+.scope-chip.u{color:#13c2c2;background:#e6fffb}
+.scope-chip.s{color:#722ed1;background:#f9f0ff}
+.scope-chip .n{font-size:16px;font-weight:700;display:block}
+.card-actions{display:flex;gap:6px;margin-top:10px}
+.card-actions button{flex:1;padding:6px 8px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer}
+.card-actions button:hover{background:#fafafa}
+.card-actions .del{color:#f5222d;border-color:#ffccc7}
+.card-actions .del:hover{background:#fff1f0}
+.empty{text-align:center;padding:60px;color:var(--muted)}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center}
+.modal.on{display:flex}
+.modal-box{background:#fff;border-radius:16px;padding:22px;width:420px;max-width:90vw}
+.modal-box h3{margin:0 0 12px}
+.modal-box label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+.modal-box input,.modal-box select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px}
+.color-row{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:6px 0}
+.color-row .c{width:100%;height:32px;border-radius:6px;cursor:pointer;border:2px solid transparent}
+.color-row .c.on{border-color:#000}
+.scope-cbx{display:flex;gap:12px;margin-top:6px}
+.scope-cbx label{display:flex;align-items:center;gap:4px;font-size:13px;color:#333;margin:0}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="hero">
+    <div>
+      <h1>🏷️ 标签总控台</h1>
+      <p>管理员视角 · 商品/用户/供应商 · 统一标签池 · 实时使用统计</p>
+    </div>
+    <div class="stats">
+      <div class="stat t"><div class="n" id="statTotal">-</div><div class="l">标签总数</div></div>
+      <div class="stat p"><div class="n" id="statP">-</div><div class="l">🌸 商品打标</div></div>
+      <div class="stat u"><div class="n" id="statU">-</div><div class="l">👥 用户打标</div></div>
+      <div class="stat s"><div class="n" id="statS">-</div><div class="l">🏭 供应商打标</div></div>
+    </div>
+  </div>
+  <div class="toolbar">
+    <input class="search" id="q" placeholder="🔍 搜索标签名..."/>
+    <select id="scopeFilter">
+      <option value="">全部作用域</option>
+      <option value="product">🌸 商品</option>
+      <option value="user">👥 用户</option>
+      <option value="supplier">🏭 供应商</option>
+    </select>
+    <select id="sortBy">
+      <option value="usage">按使用量 ↓</option>
+      <option value="name">按名称 ↑</option>
+      <option value="new">按创建时间 ↓</option>
+    </select>
+    <button class="btn btn-p" id="btnNew">＋ 新建标签</button>
+    <button class="btn btn-g" id="btnReload">↻ 刷新</button>
+  </div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" style="display:none">暂无标签,点击"新建"添加</div>
+</div>
+
+<!-- Modal -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <h3 id="modalTitle">新建标签</h3>
+    <label>名称</label>
+    <input id="mName" placeholder="例如: VIP / 稀有 / 精品供应商"/>
+    <label>颜色主题</label>
+    <div class="color-row" id="colorRow"></div>
+    <label>适用范围（可多选）</label>
+    <div class="scope-cbx">
+      <label><input type="checkbox" value="product" class="cb-scope" checked/>🌸 商品</label>
+      <label><input type="checkbox" value="user" class="cb-scope" checked/>👥 用户</label>
+      <label><input type="checkbox" value="supplier" class="cb-scope" checked/>🏭 供应商</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-g" id="mCancel">取消</button>
+      <button class="btn btn-p" id="mSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API='/api/tags';
+const PALETTE=[
+  {name:'紫',color:'#722ed1',bg:'#f9f0ff',border:'#d3adf7'},
+  {name:'粉',color:'#eb2f96',bg:'#fff0f6',border:'#ffadd2'},
+  {name:'橙',color:'#fa8c16',bg:'#fff7e6',border:'#ffd591'},
+  {name:'金',color:'#faad14',bg:'#fffbe6',border:'#ffe58f'},
+  {name:'绿',color:'#52c41a',bg:'#f6ffed',border:'#b7eb8f'},
+  {name:'青',color:'#13c2c2',bg:'#e6fffb',border:'#87e8de'},
+  {name:'蓝',color:'#1890ff',bg:'#e6f7ff',border:'#91d5ff'},
+  {name:'靛',color:'#2f54eb',bg:'#f0f5ff',border:'#adc6ff'},
+  {name:'棕',color:'#8b4513',bg:'#fdf6e3',border:'#deb887'},
+  {name:'松',color:'#3f6212',bg:'#f0fdf4',border:'#86efac'},
+  {name:'柳',color:'#059669',bg:'#ecfdf5',border:'#6ee7b7'},
+  {name:'玫',color:'#dc2626',bg:'#fef2f2',border:'#fca5a5'}
+];
+let tags=[], editingName=null, chosenColor=PALETTE[0];
+
+function renderStats(list){
+  document.getElementById('statTotal').textContent=list.length;
+  let p=0,u=0,s=0;
+  list.forEach(t=>{p+=t.usage_breakdown?.product||0;u+=t.usage_breakdown?.user||0;s+=t.usage_breakdown?.supplier||0});
+  document.getElementById('statP').textContent=p;
+  document.getElementById('statU').textContent=u;
+  document.getElementById('statS').textContent=s;
+}
+function render(){
+  const q=document.getElementById('q').value.toLowerCase();
+  const sf=document.getElementById('scopeFilter').value;
+  const sortBy=document.getElementById('sortBy').value;
+  let list=tags.filter(t=>t.name.toLowerCase().includes(q)&&(!sf||(t.scope||[]).includes(sf)));
+  if(sortBy==='usage') list.sort((a,b)=>(b.usage_count||0)-(a.usage_count||0));
+  else if(sortBy==='name') list.sort((a,b)=>a.name.localeCompare(b.name));
+  else list.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  renderStats(list);
+  const g=document.getElementById('grid');g.innerHTML='';
+  document.getElementById('empty').style.display=list.length?'none':'block';
+  list.forEach(t=>{
+    const sc=t.scope||[], u=t.usage_breakdown||{product:0,user:0,supplier:0};
+    const card=document.createElement('div');card.className='tag-card';
+    card.innerHTML=`
+      <div class="tag-total">${t.usage_count||0}</div>
+      <div class="tag-badge" style="color:${t.color};background:${t.bg};border-color:${t.border}"><span class="dot"></span>${t.name}</div>
+      <div class="scope-row">
+        <div class="scope-chip p" style="${sc.includes('product')?'':'opacity:.35'}"><span class="n">${u.product||0}</span>🌸商品</div>
+        <div class="scope-chip u" style="${sc.includes('user')?'':'opacity:.35'}"><span class="n">${u.user||0}</span>👥用户</div>
+        <div class="scope-chip s" style="${sc.includes('supplier')?'':'opacity:.35'}"><span class="n">${u.supplier||0}</span>🏭供应商</div>
+      </div>
+      <div class="card-actions">
+        <button data-act="edit" data-name="${t.name}">✎ 编辑</button>
+        <button class="del" data-act="del" data-name="${t.name}">🗑 删除</button>
+      </div>`;
+    g.appendChild(card);
+  });
+}
+async function load(){
+  try{
+    const r=await fetch(API); const d=await r.json();
+    tags=d.data||[]; render();
+  }catch(e){alert('加载失败: '+e.message)}
+}
+document.getElementById('grid').addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-act]');if(!b)return;
+  const name=b.dataset.name;
+  if(b.dataset.act==='del'){
+    if(!confirm('确认删除标签 「'+name+'」？此操作会从所有商品/用户/供应商中剥离该标签'))return;
+    const r=await fetch(API+'/'+encodeURIComponent(name),{method:'DELETE'});
+    if(r.ok){await load()}else{alert('删除失败')}
+  }else if(b.dataset.act==='edit'){
+    const t=tags.find(x=>x.name===name);openModal(t);
+  }
+});
+function openModal(t){
+  editingName=t?t.name:null;
+  document.getElementById('modalTitle').textContent=t?'编辑标签「'+t.name+'」':'新建标签';
+  document.getElementById('mName').value=t?t.name:'';
+  document.getElementById('mName').disabled=!!t;
+  chosenColor=t?(PALETTE.find(p=>p.color===t.color)||PALETTE[0]):PALETTE[0];
+  const cr=document.getElementById('colorRow');cr.innerHTML='';
+  PALETTE.forEach(p=>{
+    const el=document.createElement('div');el.className='c'+(p.color===chosenColor.color?' on':'');
+    el.style.background=p.bg;el.style.border='2px solid '+p.border;
+    el.title=p.name;el.onclick=()=>{chosenColor=p;openModal(t?{...t,color:p.color}:{})};
+    cr.appendChild(el);
+  });
+  document.querySelectorAll('.cb-scope').forEach(cb=>{
+    cb.checked=t?(t.scope||[]).includes(cb.value):true;
+  });
+  document.getElementById('modal').classList.add('on');
+}
+document.getElementById('btnNew').onclick=()=>openModal(null);
+document.getElementById('mCancel').onclick=()=>document.getElementById('modal').classList.remove('on');
+document.getElementById('mSave').onclick=async()=>{
+  const name=document.getElementById('mName').value.trim();
+  if(!name)return alert('请输入名称');
+  const scope=[...document.querySelectorAll('.cb-scope:checked')].map(c=>c.value);
+  if(!scope.length)return alert('至少选择一个作用域');
+  const body={name,color:chosenColor.color,bg:chosenColor.bg,border:chosenColor.border,scope};
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.ok||r.status===201){document.getElementById('modal').classList.remove('on');await load()}else{alert('保存失败')}
+};
+document.getElementById('q').oninput=render;
+document.getElementById('scopeFilter').onchange=render;
+document.getElementById('sortBy').onchange=render;
+document.getElementById('btnReload').onclick=load;
+load();
+</script>
+</body>
+</html>

@@ -10,6 +10,7 @@ const APPS = [
   { id:'suppliers',  name:'供应商管理',   icon:'🏭', href:'http://100.96.54.109:31002/', color:'#722ed1', gradient:'linear-gradient(135deg,#9254de,#722ed1)' },
   { id:'shops',      name:'店铺管理',      icon:'🏪', href:'http://100.96.54.109:31004/', color:'#1890ff', gradient:'linear-gradient(135deg,#40a9ff,#1890ff)' },
   { id:'users',      name:'用户管理',      icon:'👥', href:'http://100.96.54.109:8088/users', color:'#13c2c2', gradient:'linear-gradient(135deg,#36cfc9,#13c2c2)' },
+  { id:'tags',       name:'标签总控',      icon:'🏷️', href:'http://100.96.54.109:8088/tags-admin', color:'#eb2f96', gradient:'linear-gradient(135deg,#eb2f96,#722ed1)' },
   { id:'architect',  name:'架构设计',      icon:'🏗️', href:'http://100.96.54.109:30811/', color:'#fa8c16', gradient:'linear-gradient(135deg,#ffa940,#fa8c16)' },
   { id:'maps',       name:'地图管理',      icon:'🗺️', href:'http://100.96.54.109:31307/', color:'#52c41a', gradient:'linear-gradient(135deg,#73d13d,#52c41a)' },
   { id:'metadata',   name:'数据目录',      icon:'📊', href:'http://100.96.54.109:8088/shrubs', color:'#faad14', gradient:'linear-gradient(135deg,#ffc53d,#faad14)' },
