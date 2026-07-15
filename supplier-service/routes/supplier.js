@@ -164,12 +164,17 @@ router.get('/', async (req, res) => {
     const arr = result.suppliers || result.items || result.data || [];
     const ids = arr.map(x => String(x._id));
     const meta = await fetchPgSupplierMeta(ids);
-    arr.forEach(x => {
-      const m = meta[String(x._id)];
-      x.tags = m?.tags || [];
-      x.source_project = m?.source_project || 'self-operated';
-      x.pg_attributes = m?.attributes || {};
+    const plain = arr.map(x => {
+      const o = (x && x.toObject) ? x.toObject() : x;
+      const m = meta[String(o._id)];
+      o.tags = (m && m.tags) || [];
+      o.source_project = (m && m.source_project) || 'self-operated';
+      o.pg_attributes = (m && m.attributes) || {};
+      return o;
     });
+    if (result.suppliers) result.suppliers = plain;
+    else if (result.items) result.items = plain;
+    else if (result.data) result.data = plain;
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
