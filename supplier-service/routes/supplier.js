@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { Supplier } = require('../models/Supplier');
 const { fromReq } = require('../services/supplierService');
+const axios = require('axios');
 
 
 // ── PG tags enrichment ────────────────────────────────────
@@ -209,7 +210,6 @@ router.delete('/:id', async (req, res) => {
 // ── V2.3: 地址转经纬度（高德首选 + Nominatim备选） ──
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first'); // 强制 IPv4 优先
-const axios = require('axios');
 
 
 // Nominatim 限流：同一时间只允许一个请求，且间隔 >= 1.2s
