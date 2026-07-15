@@ -53,4 +53,20 @@ async function mirrorDelete(mongoId) {
   } catch (e) { console.warn('[pg-mirror delete] fail', mongoId, e.message); }
 }
 
-module.exports = { getPool, mirrorUpsert, mirrorDelete };
+async function filterMongoIdsByTags(tags) {
+  const arr = Array.isArray(tags) ? tags.filter(Boolean) : [];
+  if (!arr.length) return null;
+  try {
+    const pool = getPool();
+    const { rows } = await pool.query(
+      "SELECT mongo_id FROM public.suppliers WHERE tags @> $1::jsonb AND mongo_id IS NOT NULL",
+      [JSON.stringify(arr)]
+    );
+    return rows.map(r => r.mongo_id);
+  } catch (e) {
+    console.warn('[supplyChainPg] filterMongoIdsByTags failed:', e.message);
+    return [];
+  }
+}
+
+module.exports = { getPool, mirrorUpsert, mirrorDelete, filterMongoIdsByTags };

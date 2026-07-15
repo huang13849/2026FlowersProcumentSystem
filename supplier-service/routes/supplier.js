@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { Supplier } = require('../models/Supplier');
 const { fromReq } = require('../services/supplierService');
+const { filterMongoIdsByTags } = require('../services/supplyChainPg');
 const axios = require('axios');
 
 
@@ -159,7 +160,15 @@ router.get('/product-stats', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const svc = fromReq(req);
-    const result = await svc.list(req.query);
+    // 支持按 tags 筛选（逗号分隔），命中 tags @> [...] 的 mongo_id 集合再交给 mongo 查
+    let filterIds;
+    if (req.query.tags) {
+      const wants = String(req.query.tags).split(',').map(t => t.trim()).filter(Boolean);
+      if (wants.length) filterIds = await filterMongoIdsByTags(wants);
+    }
+    const listArgs = { ...req.query };
+    if (filterIds !== undefined) listArgs.filterIds = filterIds;
+    const result = await svc.list(listArgs);
     // enrich each supplier with tags/source_project from PG
     const arr = result.suppliers || result.items || result.data || [];
     const ids = arr.map(x => String(x._id));

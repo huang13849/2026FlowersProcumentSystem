@@ -137,6 +137,7 @@ export default function SupplierList() {
   /* ========== 选择状态 ========== */
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [tagPool, setTagPool] = useState([])
+  const [tagFilter, setTagFilter] = useState([])
   const [tagEditRow, setTagEditRow] = useState(null)
   useEffect(() => {
     fetch('http://100.96.54.109:8088/api/tags?scope=supplier', { headers: { 'x-api-key': '***REMOVED_API_KEY***' } })
@@ -294,6 +295,7 @@ export default function SupplierList() {
       const p = {}
       if (search) p.search = search
       if (status) p.status = status
+      if (tagFilter && tagFilter.length) p.tags = tagFilter.join(',')
       const r = await api.get('/api/suppliers', { params: p })
       const data = r.data.suppliers || []
       setItems(data)
@@ -313,7 +315,7 @@ export default function SupplierList() {
   }
 
   useEffect(() => { load(); loadProductCounts() }, [])
-  useEffect(() => { clearTimeout(timer.current); timer.current = setTimeout(load, 300); return () => clearTimeout(timer.current) }, [search, status])
+  useEffect(() => { clearTimeout(timer.current); timer.current = setTimeout(load, 300); return () => clearTimeout(timer.current) }, [search, status, tagFilter])
 
   const handleSupplierFilterChange = (value) => {
     setSupplierFilter(value)
@@ -705,6 +707,20 @@ export default function SupplierList() {
         <select value={status} onChange={e => setStatus(e.target.value)} style={{ ...INPUT_BASE, width: 110, fontSize: 12, padding: '5px 8px', cursor: 'pointer' }}>
           {STATUS_OPTIONS.map(s => <option key={s} value={s === '全部' ? '' : s}>{s === '全部' ? '全部状态' : s}</option>)}
         </select>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }} title="按标签筛选（可多选，交集）">
+          <span style={{ fontSize: 12, color: '#666' }}>🏷️</span>
+          {tagPool.map(t => {
+            const on = tagFilter.includes(t.name)
+            return (
+              <span key={t.name}
+                onClick={() => setTagFilter(prev => on ? prev.filter(x => x !== t.name) : [...prev, t.name])}
+                style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: 10, fontSize: 11, background: on ? (t.bg || '#f9f0ff') : '#fafafa', color: on ? (t.color || '#722ed1') : '#666', border: '1px solid ' + (on ? (t.border || '#d3adf7') : '#e0e0e0'), fontWeight: on ? 600 : 400 }}>
+                {on ? '✓ ' : ''}{t.name}
+              </span>
+            )
+          })}
+          {tagFilter.length > 0 && <button onClick={() => setTagFilter([])} style={{ marginLeft: 4, padding: '2px 6px', border: '1px solid #e0e0e0', background: '#fff', borderRadius: 4, cursor: 'pointer', fontSize: 10, color: '#999' }}>清空</button>}
+        </div>
         <span style={{ fontSize: 12, color: '#666' }}>共 {filteredItems.length} 家</span>
         {isSavingOrder && <span style={{ fontSize: 12, color: '#ef6c00' }}>排序中...</span>}
         <div style={{ flex: 1 }} />

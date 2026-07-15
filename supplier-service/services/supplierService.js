@@ -20,7 +20,7 @@ class SupplierService {
   }
 
   // ── 列表 ──
-  async list({ search, status } = {}) {
+  async list({ search, status, filterIds } = {}) {
     const query = {};
     if (search) {
       query.$or = [
@@ -32,6 +32,10 @@ class SupplierService {
       ];
     }
     if (status) query.status = status;
+    if (Array.isArray(filterIds)) {
+      if (filterIds.length === 0) return { suppliers: [], total: 0 };
+      query._id = { $in: filterIds };
+    }
     const data = await this.R.find(query).sort({ updatedAt: -1 });
     return { suppliers: data, total: data.length };
   }
