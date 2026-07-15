@@ -239,5 +239,26 @@ router.get('/meta/sellers', async (req, res) => {
   }
 });
 
+// Seller product counts (sellerName -> count). Optional ?names=a,b,c
+router.get('/meta/seller-stats', async (req, res) => {
+  try {
+    const match = { sellerName: { $nin: [null, ''] } };
+    if (req.query.names) {
+      const names = String(req.query.names).split(',').map(n => n.trim()).filter(Boolean);
+      if (names.length) match.sellerName = { $in: names };
+    }
+    const pipeline = [
+      { $match: match },
+      { $group: { _id: '$sellerName', count: { $sum: 1 } } },
+    ];
+    const rows = await Product.aggregate(pipeline);
+    const map = {};
+    rows.forEach(r => { map[r._id] = r.count; });
+    res.json(map);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
 

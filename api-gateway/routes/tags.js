@@ -9,18 +9,18 @@
  */
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const { getPgPool } = require('../services/connections');
+const productApi = require('../services/productApiClient');
 
 async function computeUsage(name, scope) {
   const pool = getPgPool();
   const result = { product: 0, user: 0, supplier: 0 };
   const scopes = Array.isArray(scope) ? scope : (scope ? [scope] : ['product', 'user', 'supplier']);
   try {
-    if (scopes.includes('product') && mongoose.connection.db) {
-      result.product = await mongoose.connection.db.collection('products').countDocuments({ sceneTags: name });
+    if (scopes.includes('product')) {
+      result.product = await productApi.countBySceneTag(name);
     }
-  } catch (e) { /* mongo maybe not connected */ }
+  } catch (e) { console.warn('[tags] countBySceneTag failed:', e.message); }
   try {
     if (scopes.includes('user')) {
       const r = await pool.query(`SELECT COUNT(*)::int AS c FROM plant_collector.user_profiles WHERE $1 = ANY(tags)`, [name]);
@@ -100,12 +100,10 @@ router.delete('/:name', async (req, res) => {
     await pool.query(`UPDATE plant_collector.user_profiles SET tags = array_remove(tags, $1) WHERE $1 = ANY(tags)`, [name]);
     await pool.query(`UPDATE public.flower_internet_supplier SET tags = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM jsonb_array_elements_text(tags) x WHERE x <> $1) WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
     await pool.query(`UPDATE public.suppliers SET tags = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM jsonb_array_elements_text(tags) x WHERE x <> $1) WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
-    // 从 Mongo product.sceneTags 剥离
+    // 从商品 sceneTags 剥离（通过 product-api-service）
     try {
-      if (mongoose.connection.db) {
-        await mongoose.connection.db.collection('products').updateMany({ sceneTags: name }, { $pull: { sceneTags: name } });
-      }
-    } catch (e) { console.warn('mongo strip failed', e.message); }
+      await productApi.detachTagFromAll(name);
+    } catch (e) { console.warn('[tags] detachTagFromAll failed:', e.message); }
     // 删除标签
     const r = await pool.query(`DELETE FROM plant_collector.tags WHERE name = $1`, [name]);
     res.json({ success: true, deleted: r.rowCount });
@@ -122,24 +120,14 @@ router.post('/apply', async (req, res) => {
   }
   try {
     const pool = getPgPool();
-    // Product goes to Mongo
+    // Product 走 product-api-service
     if (entity === 'product') {
-      if (!mongoose.connection.db) return res.status(503).json({ success: false, error: 'mongo unavailable' });
-      const oid = require('mongodb').ObjectId;
-      const objectIds = ids.map(id => { try { return new oid(String(id)); } catch { return null; } }).filter(Boolean);
-      const coll = mongoose.connection.db.collection('products');
-      let updated = 0;
-      if (mode === 'remove') {
-        const r = await coll.updateMany({ _id: { $in: objectIds } }, { $pull: { sceneTags: { $in: tags } } });
-        updated = r.modifiedCount;
-      } else if (mode === 'set') {
-        const r = await coll.updateMany({ _id: { $in: objectIds } }, { $set: { sceneTags: tags } });
-        updated = r.modifiedCount;
-      } else {
-        const r = await coll.updateMany({ _id: { $in: objectIds } }, { $addToSet: { sceneTags: { $each: tags } } });
-        updated = r.modifiedCount;
+      try {
+        const r = await productApi.applySceneTags({ ids: ids.map(String), tags, mode });
+        return res.json({ success: true, updated: r.updated });
+      } catch (e) {
+        return res.status(e.status || 500).json({ success: false, error: e.message });
       }
-      return res.json({ success: true, updated });
     }
     let sql;
     if (entity === 'user') {

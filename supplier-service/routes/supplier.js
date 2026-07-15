@@ -4,6 +4,9 @@ const { fromReq } = require('../services/supplierService');
 const { filterMongoIdsByTags } = require('../services/supplyChainPg');
 const axios = require('axios');
 
+// ── product-api-service HTTP client ────────────────────────
+const PRODUCT_API_URL = (process.env.PRODUCT_SVC_URL || 'http://product-api-service.supply-chain.svc.cluster.local:3000').replace(/\/+$/, '');
+
 
 // ── PG tags enrichment ────────────────────────────────────
 const PG_GW = process.env.PG_GATEWAY_URL || 'http://api-gateway:3007';
@@ -129,32 +132,27 @@ router.post('/import', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Product shop names ──
+// ── Product shop names (通过 product-api-service) ──
 router.get('/shop-names', async (req, res) => {
   try {
-    const db = req.app.locals.SupplierRead.db;
-    const names = await db.collection('products').distinct('sellerName', { sellerName: { $ne: null, $ne: '' } });
+    const resp = await axios.get(`${PRODUCT_API_URL}/api/products/meta/sellers`, { timeout: 10000 });
+    const names = Array.isArray(resp.data) ? resp.data : [];
     res.json(names.filter(Boolean));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: `[product-api] ${err.message}` });
+  }
 });
 
-// ── Product count stats by shop_name ──
+// ── Product count stats by shop_name (通过 product-api-service) ──
 router.get('/product-stats', async (req, res) => {
   try {
-    const db = req.app.locals.SupplierRead.db;
-    const pipeline = [
-      { $match: { sellerName: { $ne: null, $ne: '' } } },
-      { $group: { _id: '$sellerName', count: { $sum: 1 } } }
-    ];
-    if (req.query.names) {
-      const names = req.query.names.split(',').map(n => n.trim()).filter(Boolean);
-      pipeline[0].$match.sellerName = { $in: names };
-    }
-    const result = await db.collection('products').aggregate(pipeline).toArray();
-    const map = {};
-    result.forEach(r => { map[r._id] = r.count; });
-    res.json(map);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const params = {};
+    if (req.query.names) params.names = req.query.names;
+    const resp = await axios.get(`${PRODUCT_API_URL}/api/products/meta/seller-stats`, { params, timeout: 10000 });
+    res.json(resp.data || {});
+  } catch (err) {
+    res.status(500).json({ error: `[product-api] ${err.message}` });
+  }
 });
 
 router.get('/', async (req, res) => {

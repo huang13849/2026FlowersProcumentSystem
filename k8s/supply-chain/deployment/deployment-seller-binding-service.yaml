@@ -34,7 +34,7 @@ spec:
         - name: PORT
           value: "3013"
         - name: PRODUCT_SVC_URL
-          value: "http://product-service.supply-chain.svc.cluster.local:3000"
+          value: "http://product-api-service.supply-chain.svc.cluster.local:3000"
         - name: NEW_ECOMMERCE_PG_DATABASE
           value: "new_ecommerce"
         resources:

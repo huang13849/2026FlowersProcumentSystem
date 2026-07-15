@@ -5,12 +5,12 @@
 const express = require('express');
 const router = express.Router();
 const { getMongoDb, getPgPool, getRedisClient } = require('../services/connections');
+const productApi = require('../services/productApiClient');
 
-// ===== 商品详情（MongoDB 商品 + PostgreSQL 价格 + Redis 缓存） =====
+// ===== 商品详情（product-api-service 商品 + PostgreSQL 价格 + Redis 缓存） =====
 router.get('/product/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const mongoose = require('mongoose');
     const result = {};
 
     // 1. 先查 Redis 缓存
@@ -24,11 +24,9 @@ router.get('/product/:id', async (req, res) => {
       }
     } catch (e) { /* Redis 不可用不影响主流程 */ }
 
-    // 2. MongoDB 商品信息
+    // 2. 商品信息→ product-api-service
     try {
-      const db = getMongoDb();
-      const filter = mongoose.Types.ObjectId.isValid(id) ? { _id: new mongoose.Types.ObjectId(id) } : { _id: id };
-      result.product = await db.collection('products').findOne(filter);
+      result.product = await productApi.getProduct(id);
     } catch (e) { result.productError = e.message; }
 
     // 3. PostgreSQL 价格信息
