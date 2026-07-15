@@ -1,18 +1,130 @@
-/* Unified Console Navigation — 玻璃流线风 */
-.gc-shell{position:fixed;top:0;left:0;right:0;z-index:9999;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}
-.gc-bar{background:linear-gradient(135deg,rgba(11,23,43,.92) 0%,rgba(19,32,61,.92) 50%,rgba(29,20,64,.92) 100%);backdrop-filter:saturate(1.4) blur(18px);-webkit-backdrop-filter:saturate(1.4) blur(18px);border-bottom:1px solid rgba(255,255,255,.08);color:#e8eaed;display:flex;align-items:center;padding:0 20px;height:56px;gap:20px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-.gc-brand{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;letter-spacing:.3px;background:linear-gradient(135deg,#c084fc,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap;cursor:pointer;user-select:none}
-.gc-brand::before{content:'⌘';font-size:18px;color:#c084fc;-webkit-text-fill-color:#c084fc;text-shadow:0 0 12px rgba(192,132,252,.55)}
-.gc-tabs{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none}
+/* ═══════════════════════════════════════════════
+   Console Nav v2 — 收起态霓虹条 / 展开态玻璃流线
+   ═══════════════════════════════════════════════ */
+:root{
+  --gc-accent: linear-gradient(90deg,#c084fc,#f472b6,#60a5fa);
+  --gc-glow: rgba(192,132,252,.6);
+}
+.gc-shell{position:fixed;top:0;left:0;right:0;z-index:99999;font-family:-apple-system,'SF Pro Text','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;pointer-events:none}
+.gc-shell *{pointer-events:auto}
+
+/* === 触发热区 === */
+.gc-trigger{position:absolute;top:0;left:0;right:0;height:24px;cursor:pointer}
+.gc-trigger::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--gc-accent);background-size:200% 100%;
+  animation:gcFlow 6s linear infinite;
+  box-shadow:0 0 12px var(--gc-glow),0 0 30px var(--gc-glow);
+}
+.gc-trigger::after{
+  content:'⌘';position:absolute;top:6px;left:50%;transform:translateX(-50%);
+  color:rgba(255,255,255,.85);font-size:11px;letter-spacing:6px;
+  text-shadow:0 0 8px var(--gc-glow);
+  opacity:.7;
+  animation:gcPulse 2.4s ease-in-out infinite;
+}
+@keyframes gcFlow{0%{background-position:0% 0}100%{background-position:200% 0}}
+@keyframes gcPulse{0%,100%{opacity:.4;transform:translateX(-50%) translateY(0)}50%{opacity:1;transform:translateX(-50%) translateY(1px)}}
+
+/* === 抽屉 === */
+.gc-bar{
+  position:absolute;top:0;left:0;right:0;
+  transform:translateY(-100%);opacity:0;
+  transition:transform .55s cubic-bezier(.16,1,.3,1),opacity .35s ease;
+  background:linear-gradient(135deg,rgba(11,23,43,.88) 0%,rgba(19,32,61,.86) 45%,rgba(29,20,64,.9) 100%);
+  backdrop-filter:saturate(1.5) blur(22px);-webkit-backdrop-filter:saturate(1.5) blur(22px);
+  border-bottom:1px solid rgba(255,255,255,.1);
+  box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 60px rgba(114,46,209,.15);
+  color:#e8eaed;display:flex;align-items:center;padding:0 24px;height:64px;gap:22px;
+  overflow:hidden;
+}
+/* aurora 动效背景 */
+.gc-bar::before{
+  content:'';position:absolute;inset:-40%;
+  background:
+    radial-gradient(circle at 20% 40%,rgba(192,132,252,.35),transparent 40%),
+    radial-gradient(circle at 70% 60%,rgba(244,114,182,.3),transparent 40%),
+    radial-gradient(circle at 90% 20%,rgba(96,165,250,.28),transparent 40%);
+  filter:blur(30px);opacity:.55;
+  animation:gcAurora 14s ease-in-out infinite alternate;
+  pointer-events:none;
+}
+@keyframes gcAurora{
+  0%{transform:translate(0,0) rotate(0deg)}
+  50%{transform:translate(3%,2%) rotate(4deg)}
+  100%{transform:translate(-2%,-3%) rotate(-3deg)}
+}
+.gc-bar > *{position:relative;z-index:1}
+
+/* 展开态 */
+.gc-shell.on .gc-bar{transform:translateY(0);opacity:1}
+.gc-shell.on .gc-trigger::after{opacity:0}
+.gc-shell.on .gc-trigger::before{opacity:0}
+
+/* Brand */
+.gc-brand{
+  display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;letter-spacing:.4px;
+  background:linear-gradient(135deg,#c084fc 0%,#f472b6 50%,#60a5fa 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  white-space:nowrap;cursor:pointer;user-select:none;
+  transform:translateX(-16px);opacity:0;transition:all .55s cubic-bezier(.16,1,.3,1) .05s;
+}
+.gc-brand::before{content:'⌘';font-size:20px;color:#c084fc;-webkit-text-fill-color:#c084fc;text-shadow:0 0 16px rgba(192,132,252,.7)}
+.gc-shell.on .gc-brand{transform:translateX(0);opacity:1}
+
+/* Tabs */
+.gc-tabs{display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:none}
 .gc-tabs::-webkit-scrollbar{display:none}
-.gc-tab{position:relative;display:flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;color:#c9ced8;text-decoration:none;border-radius:10px;white-space:nowrap;transition:all .18s cubic-bezier(.4,0,.2,1);cursor:pointer;border:1px solid transparent}
-.gc-tab:hover{color:#fff;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08)}
-.gc-tab.active{color:#fff;background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.14);box-shadow:0 4px 16px rgba(0,0,0,.2)}
-.gc-tab.active::after{content:'';position:absolute;left:14px;right:14px;bottom:-1px;height:2px;border-radius:2px;background:var(--gc-accent,linear-gradient(90deg,#c084fc,#f472b6));box-shadow:0 0 12px var(--gc-glow,rgba(192,132,252,.6))}
-.gc-tab .gc-dot{width:6px;height:6px;border-radius:50%;background:#52c41a;box-shadow:0 0 6px rgba(82,196,26,.6);margin-left:2px}
-.gc-tab .gc-dot.down{background:#f5222d;box-shadow:0 0 6px rgba(245,34,45,.6)}
-.gc-actions{display:flex;align-items:center;gap:10px;font-size:12px;color:#9aa0b0}
-.gc-launch{background:linear-gradient(135deg,#722ed1,#eb2f96);color:#fff;border:none;padding:7px 16px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;box-shadow:0 4px 16px rgba(114,46,209,.35);transition:transform .15s}
-.gc-launch:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(114,46,209,.5)}
-body.gc-has-shell{padding-top:56px !important}
-@media (max-width:900px){ .gc-bar{padding:0 12px;gap:12px} .gc-brand span{display:none} }
+.gc-tab{
+  position:relative;display:flex;align-items:center;gap:7px;
+  padding:9px 16px;font-size:13px;color:#c9ced8;text-decoration:none;
+  border-radius:12px;white-space:nowrap;cursor:pointer;
+  border:1px solid transparent;
+  transform:translateY(-30px);opacity:0;
+  transition:color .18s,background .18s,border-color .18s,box-shadow .25s,transform .5s cubic-bezier(.16,1,.3,1) var(--gc-d,0s),opacity .35s ease var(--gc-d,0s);
+}
+.gc-shell.on .gc-tab{transform:translateY(0);opacity:1}
+.gc-tab:hover{color:#fff;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.1);transform:translateY(-2px)}
+.gc-tab.active{
+  color:#fff;
+  background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16);
+  box-shadow:0 6px 22px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.08);
+}
+.gc-tab.active::after{
+  content:'';position:absolute;left:14px;right:14px;bottom:-3px;height:2px;border-radius:2px;
+  background:var(--gc-accent);
+  box-shadow:0 0 14px var(--gc-glow),0 0 30px var(--gc-glow);
+  animation:gcUnderline .4s cubic-bezier(.16,1,.3,1);
+}
+@keyframes gcUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.gc-tab .gc-ic{font-size:16px;filter:drop-shadow(0 0 4px var(--gc-glow))}
+.gc-tab .gc-dot{width:6px;height:6px;border-radius:50%;background:#52c41a;box-shadow:0 0 6px rgba(82,196,26,.7);animation:gcBlink 2.5s ease-in-out infinite}
+.gc-tab .gc-dot.down{background:#f5222d;box-shadow:0 0 6px rgba(245,34,45,.7)}
+@keyframes gcBlink{0%,100%{opacity:.7}50%{opacity:1}}
+
+/* Actions */
+.gc-actions{display:flex;align-items:center;gap:10px;transform:translateX(16px);opacity:0;transition:all .55s cubic-bezier(.16,1,.3,1) .15s}
+.gc-shell.on .gc-actions{transform:translateX(0);opacity:1}
+.gc-launch{
+  background:linear-gradient(135deg,#722ed1,#eb2f96);color:#fff;border:none;
+  padding:8px 18px;border-radius:22px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.4px;
+  box-shadow:0 6px 22px rgba(114,46,209,.4),inset 0 1px 0 rgba(255,255,255,.15);
+  transition:transform .2s,box-shadow .2s;
+}
+.gc-launch:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(235,47,150,.5)}
+.gc-pin{
+  background:transparent;border:1px solid rgba(255,255,255,.18);color:#c9ced8;
+  padding:7px 12px;border-radius:20px;cursor:pointer;font-size:11px;
+  transition:all .2s;
+}
+.gc-pin:hover{color:#fff;border-color:#c084fc;box-shadow:0 0 12px rgba(192,132,252,.4)}
+.gc-shell.pinned .gc-pin{color:#fff;background:rgba(192,132,252,.15);border-color:#c084fc}
+
+/* Body offset when pinned */
+body.gc-pinned{padding-top:64px !important}
+
+@media(max-width:800px){
+  .gc-bar{padding:0 12px;gap:10px;height:56px}
+  .gc-brand span{display:none}
+  .gc-tab{padding:7px 11px;font-size:12px}
+}

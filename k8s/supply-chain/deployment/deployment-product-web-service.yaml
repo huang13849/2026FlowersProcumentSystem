@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-web-service
+  namespace: supply-chain
+  labels: { app: product-web-service, tier: web }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: product-web-service }
+  template:
+    metadata:
+      labels: { app: product-web-service, tier: web }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+      - name: product-web-service
+        image: 100.76.15.64:5001/supply-chain/product-web-service:latest
+        imagePullPolicy: Always
+        ports:
+        - { containerPort: 80, name: http }
+        resources:
+          requests: { cpu: 20m, memory: 32Mi }
+          limits:   { cpu: 200m, memory: 128Mi }
+        livenessProbe:
+          httpGet: { path: /, port: 80 }
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        readinessProbe:
+          httpGet: { path: /, port: 80 }
+          initialDelaySeconds: 2
+          periodSeconds: 10

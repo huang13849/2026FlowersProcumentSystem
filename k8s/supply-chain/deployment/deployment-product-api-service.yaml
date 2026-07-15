@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-api-service
+  namespace: supply-chain
+  labels: { app: product-api-service, tier: api }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: product-api-service }
+  template:
+    metadata:
+      labels: { app: product-api-service, tier: api }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+      - name: product-api-service
+        image: 100.76.15.64:5001/supply-chain/product-api-service:latest
+        imagePullPolicy: Always
+        ports:
+        - { containerPort: 3000, name: http }
+        envFrom:
+        - configMapRef: { name: supply-chain-common }
+        env:
+        - { name: NODE_ENV,  value: "production" }
+        - { name: PORT,      value: "3000" }
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef: { name: product-mongo-env, key: MONGODB_URI }
+        - name: MONGODB_URI_FALLBACK
+          valueFrom:
+            secretKeyRef: { name: product-mongo-env, key: MONGODB_URI_FALLBACK }
+        resources:
+          requests: { cpu: 100m, memory: 128Mi }
+          limits:   { cpu: 1500m, memory: 768Mi }
+        livenessProbe:
+          httpGet: { path: /api/health, port: 3000 }
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet: { path: /api/health, port: 3000 }
+          initialDelaySeconds: 3
+          periodSeconds: 10
