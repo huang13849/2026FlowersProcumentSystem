@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>花卉采购管理平台 · 统一门户</title>
+<link rel="stylesheet" href="/nav.css">
+<style>
+:root{--bg:#0a1020;--fg:#e8eaed;--muted:#9aa0b0;--card:#111a2e;--border:rgba(255,255,255,.08)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}
+.gc-launcher{position:absolute;top:56px;left:0;right:0;bottom:0;overflow:auto;padding:32px 24px}
+.gc-hero{max-width:1240px;margin:0 auto 28px}
+.gc-hero h1{font-size:28px;margin:0 0 8px;background:linear-gradient(135deg,#c084fc,#f472b6,#60a5fa);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.5px}
+.gc-hero p{color:var(--muted);margin:0;font-size:13px}
+.gc-grid{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.gc-card{position:relative;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 20px;text-decoration:none;color:var(--fg);transition:all .25s cubic-bezier(.4,0,.2,1);overflow:hidden;cursor:pointer}
+.gc-card::before{content:'';position:absolute;inset:0;background:var(--card-gradient);opacity:0;transition:opacity .3s}
+.gc-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.16);box-shadow:0 20px 40px rgba(0,0,0,.4)}
+.gc-card:hover::before{opacity:.15}
+.gc-card > *{position:relative;z-index:1}
+.gc-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--card-gradient);box-shadow:0 8px 24px var(--card-glow);margin-bottom:14px}
+.gc-name{font-size:15px;font-weight:600;margin-bottom:4px}
+.gc-desc{font-size:12px;color:var(--muted);margin:0}
+.gc-dot-lg{position:absolute;top:18px;right:18px;width:8px;height:8px;border-radius:50%;background:#52c41a;box-shadow:0 0 8px rgba(82,196,26,.7)}
+.gc-dot-lg.down{background:#f5222d;box-shadow:0 0 8px rgba(245,34,45,.7)}
+.gc-embed{position:absolute;top:56px;left:0;right:0;bottom:0;display:none;flex-direction:column;background:#000}
+.gc-embed.on{display:flex}
+.gc-embed-bar{height:34px;background:#0b172b;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;color:var(--muted);font-size:12px}
+.gc-embed-bar a{color:#c084fc;text-decoration:none}
+.gc-embed iframe{flex:1;border:none;width:100%;background:#fff}
+</style>
+</head>
+<body>
+<script>window.__APPS = __APPS_JSON__;</script>
+<script src="/nav.js" data-app="portal"></script>
+<div class="gc-launcher" id="gcLauncher">
+  <div class="gc-hero">
+    <h1>🌸 花卉采购管理平台</h1>
+    <p>统一门户 · 快速切换所有管理系统 · 微服务架构 · 实时健康状态</p>
+  </div>
+  <div class="gc-grid" id="gcGrid"></div>
+</div>
+<div class="gc-embed" id="gcEmbed">
+  <div class="gc-embed-bar">
+    <span id="gcEmbedName"></span>
+    <span style="flex:1"></span>
+    <a href="#" id="gcEmbedOpen" target="_blank">↗ 新标签页打开</a>
+    <a href="#" id="gcEmbedBack">← 返回门户</a>
+  </div>
+  <iframe id="gcEmbedIframe" src=""></iframe>
+</div>
+<script>
+(function(){
+  var APPS = window.__APPS;
+  var descs = {
+    products:'商品目录 / SKU / 上架 / 图片压缩',
+    suppliers:'店铺入驻登记 / 资质审核 / 标签',
+    shops:'经销商 / 门店 / 交易配置',
+    users:'全部用户 · Zitadel 汇总 · 标签体系',
+    architect:'系统架构图 / 数据流 / 依赖',
+    maps:'供应商地图 / 场地 / 物流路线',
+    metadata:'数据目录 / 元数据 / 血缘',
+    monitor:'Grafana 看板 / Prometheus 指标'
+  };
+  var grid = document.getElementById('gcGrid');
+  APPS.forEach(function(a){
+    var card = document.createElement('a');
+    card.className='gc-card';
+    card.style.setProperty('--card-gradient', a.gradient);
+    card.style.setProperty('--card-glow', a.color+'55');
+    card.href = a.href;
+    card.target = '_blank';
+    card.innerHTML =
+        '<span class="gc-dot-lg" data-h="'+a.id+'"></span>'
+      + '<div class="gc-icon">'+a.icon+'</div>'
+      + '<div class="gc-name">'+a.name+'</div>'
+      + '<p class="gc-desc">'+(descs[a.id]||'')+'</p>';
+    grid.appendChild(card);
+  });
+  fetch('/api/nav/health').then(function(r){return r.json()}).then(function(d){
+    (d.data||[]).forEach(function(h){
+      var dot = document.querySelector('.gc-dot-lg[data-h="'+h.id+'"]');
+      if(dot && h.status!=='up') dot.classList.add('down');
+    });
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>

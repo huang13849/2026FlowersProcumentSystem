@@ -107,20 +107,7 @@ tr:hover{background:var(--hover)}
 </style>
 </head>
 <body>
-<style>
-.cross-nav{display:flex;gap:2px;background:#0b172b;padding:0 12px;border-bottom:1px solid #1e2d48;overflow-x:auto}
-.cross-nav a{padding:12px 16px;font-size:13px;color:#9aa0b0;text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
-.cross-nav a:hover{color:#e8eaed;background:#121e34}
-.cross-nav a.active{color:#a78bfa;border-bottom-color:#a78bfa;font-weight:600}
-</style>
-<nav class="cross-nav">
-  <a href="/">🏠 花卉采购系统</a>
-  <a href="http://100.96.54.109:31001/" target="_blank">📦 商品管理表格</a>
-  <a href="http://100.96.54.109:31002/" target="_blank">🏭 供应商管理</a>
-  <a href="/users.html" class="active">👥 全部用户</a>
-  <a href="http://100.96.54.109:31308/" target="_blank">🏪 经销商系统</a>
-  <a href="http://100.96.54.109:31307/" target="_blank">🗺️ 供应商地图</a>
-</nav>
+<script id="gcNav" src="http://100.96.54.109:31040/nav.js" data-app="users"></script>
 <div class="topbar"><h2>👥 用户管理</h2><div>
 <a href="/" class="btn btn-ghost">← 返回</a>
 <button class="btn btn-primary" id="btnAddUser">+ 新增用户</button>

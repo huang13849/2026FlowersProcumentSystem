@@ -1,0 +1,18 @@
+/* Unified Console Navigation — 玻璃流线风 */
+.gc-shell{position:fixed;top:0;left:0;right:0;z-index:9999;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}
+.gc-bar{background:linear-gradient(135deg,rgba(11,23,43,.92) 0%,rgba(19,32,61,.92) 50%,rgba(29,20,64,.92) 100%);backdrop-filter:saturate(1.4) blur(18px);-webkit-backdrop-filter:saturate(1.4) blur(18px);border-bottom:1px solid rgba(255,255,255,.08);color:#e8eaed;display:flex;align-items:center;padding:0 20px;height:56px;gap:20px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.gc-brand{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;letter-spacing:.3px;background:linear-gradient(135deg,#c084fc,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap;cursor:pointer;user-select:none}
+.gc-brand::before{content:'⌘';font-size:18px;color:#c084fc;-webkit-text-fill-color:#c084fc;text-shadow:0 0 12px rgba(192,132,252,.55)}
+.gc-tabs{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none}
+.gc-tabs::-webkit-scrollbar{display:none}
+.gc-tab{position:relative;display:flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;color:#c9ced8;text-decoration:none;border-radius:10px;white-space:nowrap;transition:all .18s cubic-bezier(.4,0,.2,1);cursor:pointer;border:1px solid transparent}
+.gc-tab:hover{color:#fff;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08)}
+.gc-tab.active{color:#fff;background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.14);box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.gc-tab.active::after{content:'';position:absolute;left:14px;right:14px;bottom:-1px;height:2px;border-radius:2px;background:var(--gc-accent,linear-gradient(90deg,#c084fc,#f472b6));box-shadow:0 0 12px var(--gc-glow,rgba(192,132,252,.6))}
+.gc-tab .gc-dot{width:6px;height:6px;border-radius:50%;background:#52c41a;box-shadow:0 0 6px rgba(82,196,26,.6);margin-left:2px}
+.gc-tab .gc-dot.down{background:#f5222d;box-shadow:0 0 6px rgba(245,34,45,.6)}
+.gc-actions{display:flex;align-items:center;gap:10px;font-size:12px;color:#9aa0b0}
+.gc-launch{background:linear-gradient(135deg,#722ed1,#eb2f96);color:#fff;border:none;padding:7px 16px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;box-shadow:0 4px 16px rgba(114,46,209,.35);transition:transform .15s}
+.gc-launch:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(114,46,209,.5)}
+body.gc-has-shell{padding-top:56px !important}
+@media (max-width:900px){ .gc-bar{padding:0 12px;gap:12px} .gc-brand span{display:none} }
