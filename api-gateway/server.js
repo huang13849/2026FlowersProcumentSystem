@@ -136,6 +136,8 @@ app.use('/api/minio', authMiddleware);
 
 // ===== 路由 =====
 app.use('/api/health', require('./routes/health'));
+// products 商品子集 → 代理到 product-api-service（必须在 /api/mongo 之前 mount）
+app.use('/api/mongo/products', require('./routes/mongoProductsProxy'));
 app.use('/api/mongo', require('./routes/mongo'));
 app.use('/api/pg', require('./routes/postgres'));
 app.use('/api/redis', require('./routes/redis'));

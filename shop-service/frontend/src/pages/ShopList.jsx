@@ -25,8 +25,8 @@ export default function ShopList() {
       const res = await api.get('/api/shops')
       setShops(res.data.shops || [])
     } catch (e) {
-      console.error('加载经销商失败', e)
-      alert('加载经销商列表失败: ' + (e.response?.data?.error || e.message))
+      console.error('加载店铺失败', e)
+      alert('加载店铺列表失败: ' + (e.response?.data?.error || e.message))
     } finally { setLoading(false) }
   }
 
@@ -112,7 +112,7 @@ export default function ShopList() {
 
   // ── Delete row ──
   const deleteRow = async (id, shopName) => {
-    if (!confirm('确认删除经销商「' + (shopName || '未命名') + '」？')) return
+    if (!confirm('确认删除店铺「' + (shopName || '未命名') + '」？')) return
     try {
       await api.delete('/api/shops/' + id)
       setShops(prev => prev.filter(s => s._id !== id))
@@ -139,15 +139,15 @@ export default function ShopList() {
         marginBottom: 16, gap: 12, flexWrap: 'wrap'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>🏪 经销商系统</h2>
+          <h2 style={{ margin: 0, fontSize: 18 }}>🏪 店铺管理</h2>
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="🔍 搜索经销商/联系人/手机/地址..."
+            placeholder="🔍 搜索店铺/联系人/手机/地址..."
             style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d0d0d0', fontSize: 13, width: 260, outline: 'none' }} />
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <span style={{ fontSize: 12, color: '#666', alignSelf: 'center' }}>共 {filtered.length} 条</span>
           <button onClick={loadShops} style={btnStyle.secondary}>🔄 刷新</button>
-          <button onClick={addRow} style={btnStyle.primary}>＋ 新增经销商</button>
+          <button onClick={addRow} style={btnStyle.primary}>＋ 新增店铺</button>
         </div>
       </div>
 
@@ -160,7 +160,7 @@ export default function ShopList() {
             <thead>
               <tr style={{ background: '#f5f3ff' }}>
                 <Th style={{ width: 30 }}>#</Th>
-                <Th>经销商名称</Th>
+                <Th>店铺名称</Th>
                 <Th>拉卡拉店铺号</Th>
                 <Th>终端号</Th>
                 <Th>微信商户号</Th>
@@ -180,14 +180,14 @@ export default function ShopList() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={16} style={{ textAlign: 'center', padding: 40, color: '#999' }}>
-                  暂无数据，点击「＋ 新增经销商」添加
+                  暂无数据，点击「＋ 新增店铺」添加
                 </td></tr>
               ) : (
                 filtered.map((shop, idx) => (
                   <tr key={shop._id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ ...tdStyle, textAlign: 'center' }}>{idx + 1}</td>
                     <td style={tdStyle}>
-                      <EditableCell value={shop.shopName} onChange={v => updateField(shop._id, 'shopName', v)} placeholder="输入经销商名称" />
+                      <EditableCell value={shop.shopName} onChange={v => updateField(shop._id, 'shopName', v)} placeholder="输入店铺名称" />
                     </td>
                     <td style={tdStyle}>
                       <EditableCell value={shop.lakalaShopNo} onChange={v => updateField(shop._id, 'lakalaShopNo', v)} placeholder="拉卡拉店铺号" />
