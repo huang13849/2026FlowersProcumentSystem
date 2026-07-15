@@ -1033,6 +1033,10 @@ function TagManagerModal({ tagPool, onClose, onChanged }) {
     { color: '#13c2c2', bg: '#e6fffb', border: '#87e8de', label: '青' },
     { color: '#1890ff', bg: '#e6f7ff', border: '#91d5ff', label: '蓝' },
     { color: '#2f54eb', bg: '#f0f5ff', border: '#adc6ff', label: '靖' },
+    { color: '#a0522d', bg: '#fff7e6', border: '#f4a460', label: '棕' },
+    { color: '#08979c', bg: '#e6fffb', border: '#5cdbd3', label: '松' },
+    { color: '#7cb305', bg: '#fcffe6', border: '#d3f261', label: '柳' },
+    { color: '#c41d7f', bg: '#fff0f6', border: '#ffd6e7', label: '玫' },
   ]
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

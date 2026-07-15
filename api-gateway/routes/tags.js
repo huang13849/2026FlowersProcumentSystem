@@ -1,13 +1,42 @@
 
 /**
- * 统一标签池 - plant_collector.tags
- * 商品/用户/供应商共用
+ * 统一标签池 - plant_collector.tags  (共享 service)
+ * 支持 scope: product | user | supplier
+ * usage_count 实时计算：
+ *   - product  → Mongo db.products.countDocuments({sceneTags: name})
+ *   - user     → PG plant_collector.user_profiles ($1 = ANY(tags))
+ *   - supplier → PG public.suppliers (tags @> jsonb_array)
  */
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { getPgPool } = require('../services/connections');
 
-// GET /api/tags?scope=product|user|supplier   —— 列表（可按 scope 过滤）
+async function computeUsage(name, scope) {
+  const pool = getPgPool();
+  const result = { product: 0, user: 0, supplier: 0 };
+  const scopes = Array.isArray(scope) ? scope : (scope ? [scope] : ['product', 'user', 'supplier']);
+  try {
+    if (scopes.includes('product') && mongoose.connection.db) {
+      result.product = await mongoose.connection.db.collection('products').countDocuments({ sceneTags: name });
+    }
+  } catch (e) { /* mongo maybe not connected */ }
+  try {
+    if (scopes.includes('user')) {
+      const r = await pool.query(`SELECT COUNT(*)::int AS c FROM plant_collector.user_profiles WHERE $1 = ANY(tags)`, [name]);
+      result.user = r.rows[0].c;
+    }
+  } catch {}
+  try {
+    if (scopes.includes('supplier')) {
+      const r = await pool.query(`SELECT COUNT(*)::int AS c FROM public.suppliers WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
+      result.supplier = r.rows[0].c;
+    }
+  } catch {}
+  return result;
+}
+
+// GET /api/tags?scope=product|user|supplier
 router.get('/', async (req, res) => {
   try {
     const scope = req.query.scope;
@@ -15,18 +44,24 @@ router.get('/', async (req, res) => {
     let r;
     if (scope) {
       r = await pool.query(
-        `SELECT name, color, bg, border, scope, usage_count, created_at
+        `SELECT name, color, bg, border, scope, created_at
            FROM plant_collector.tags
           WHERE $1 = ANY(scope)
           ORDER BY name`, [scope]
       );
     } else {
       r = await pool.query(
-        `SELECT name, color, bg, border, scope, usage_count, created_at
+        `SELECT name, color, bg, border, scope, created_at
            FROM plant_collector.tags ORDER BY name`
       );
     }
-    res.json({ success: true, count: r.rowCount, data: r.rows });
+    // 实时算 usage_count
+    const rows = await Promise.all(r.rows.map(async (t) => {
+      const u = await computeUsage(t.name, scope || t.scope);
+      const uc = scope ? (u[scope] || 0) : (u.product + u.user + u.supplier);
+      return { ...t, usage_count: uc, usage_breakdown: u };
+    }));
+    res.json({ success: true, count: rows.length, data: rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -38,12 +73,17 @@ router.post('/', async (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ success: false, error: 'name required' });
   try {
     const pool = getPgPool();
+    const scopeVal = Array.isArray(scope) ? scope : (scope ? [scope] : ['product', 'user', 'supplier']);
     const r = await pool.query(
       `INSERT INTO plant_collector.tags (name, color, bg, border, scope)
-       VALUES ($1, COALESCE($2,'#555'), COALESCE($3,'#f5f5f5'), COALESCE($4,'#d9d9d9'), COALESCE($5, ARRAY['product','user','supplier']::TEXT[]))
-       ON CONFLICT (name) DO UPDATE SET color=EXCLUDED.color, bg=EXCLUDED.bg, border=EXCLUDED.border, scope=EXCLUDED.scope
+       VALUES ($1, COALESCE($2,'#555'), COALESCE($3,'#f5f5f5'), COALESCE($4,'#d9d9d9'), $5::TEXT[])
+       ON CONFLICT (name) DO UPDATE SET
+         color = COALESCE(EXCLUDED.color, plant_collector.tags.color),
+         bg    = COALESCE(EXCLUDED.bg,    plant_collector.tags.bg),
+         border= COALESCE(EXCLUDED.border,plant_collector.tags.border),
+         scope = (SELECT ARRAY(SELECT DISTINCT unnest(plant_collector.tags.scope || EXCLUDED.scope)))
        RETURNING *`,
-      [name.trim(), color, bg, border, scope]
+      [name.trim(), color, bg, border, scopeVal]
     );
     res.status(201).json({ success: true, data: r.rows[0] });
   } catch (err) {
@@ -51,27 +91,30 @@ router.post('/', async (req, res) => {
   }
 });
 
-// DELETE /api/tags/:name  —— 删除标签 + 从所有实体 tags 数组中清除
+// DELETE /api/tags/:name
 router.delete('/:name', async (req, res) => {
   const name = req.params.name;
   try {
     const pool = getPgPool();
-    // 从 user_profiles.tags 中移除
+    // 从 PG 三处剥离
     await pool.query(`UPDATE plant_collector.user_profiles SET tags = array_remove(tags, $1) WHERE $1 = ANY(tags)`, [name]);
-    // 从 flower_internet_supplier.tags 中移除
     await pool.query(`UPDATE public.flower_internet_supplier SET tags = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM jsonb_array_elements_text(tags) x WHERE x <> $1) WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
     await pool.query(`UPDATE public.suppliers SET tags = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM jsonb_array_elements_text(tags) x WHERE x <> $1) WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
+    // 从 Mongo product.sceneTags 剥离
+    try {
+      if (mongoose.connection.db) {
+        await mongoose.connection.db.collection('products').updateMany({ sceneTags: name }, { $pull: { sceneTags: name } });
+      }
+    } catch (e) { console.warn('mongo strip failed', e.message); }
     // 删除标签
     const r = await pool.query(`DELETE FROM plant_collector.tags WHERE name = $1`, [name]);
-    // TODO: 同步清 Mongo product.sceneTags —— 由 product-service 提供 hook 或此处 axios 调用
     res.json({ success: true, deleted: r.rowCount });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// POST /api/tags/apply  —— 批量打标签（多实体通用）
-// body: { entity: 'user'|'supplier', ids: [...], tags: [...], mode: 'add'|'remove'|'set' }
+// POST /api/tags/apply  entity: user | supplier | internet_supplier | product
 router.post('/apply', async (req, res) => {
   const { entity, ids, tags, mode } = req.body || {};
   if (!entity || !Array.isArray(ids) || !ids.length || !Array.isArray(tags)) {
@@ -79,9 +122,27 @@ router.post('/apply', async (req, res) => {
   }
   try {
     const pool = getPgPool();
+    // Product goes to Mongo
+    if (entity === 'product') {
+      if (!mongoose.connection.db) return res.status(503).json({ success: false, error: 'mongo unavailable' });
+      const oid = require('mongodb').ObjectId;
+      const objectIds = ids.map(id => { try { return new oid(String(id)); } catch { return null; } }).filter(Boolean);
+      const coll = mongoose.connection.db.collection('products');
+      let updated = 0;
+      if (mode === 'remove') {
+        const r = await coll.updateMany({ _id: { $in: objectIds } }, { $pull: { sceneTags: { $in: tags } } });
+        updated = r.modifiedCount;
+      } else if (mode === 'set') {
+        const r = await coll.updateMany({ _id: { $in: objectIds } }, { $set: { sceneTags: tags } });
+        updated = r.modifiedCount;
+      } else {
+        const r = await coll.updateMany({ _id: { $in: objectIds } }, { $addToSet: { sceneTags: { $each: tags } } });
+        updated = r.modifiedCount;
+      }
+      return res.json({ success: true, updated });
+    }
     let sql;
     if (entity === 'user') {
-      // user_profiles.tags is text[]
       if (mode === 'remove') {
         sql = `UPDATE plant_collector.user_profiles SET tags = COALESCE(tags,'{}'::text[]) - $1::text[] WHERE zid = ANY($2::text[])`;
       } else if (mode === 'set') {
@@ -90,7 +151,6 @@ router.post('/apply', async (req, res) => {
         sql = `UPDATE plant_collector.user_profiles SET tags = (SELECT ARRAY(SELECT DISTINCT unnest(COALESCE(tags,'{}'::text[]) || $1::text[]))) WHERE zid = ANY($2::text[])`;
       }
     } else if (entity === 'supplier') {
-      // public.suppliers.tags is JSONB, keyed by mongo_id
       if (mode === 'remove') {
         sql = `UPDATE public.suppliers
                  SET tags = (SELECT COALESCE(jsonb_agg(x),'[]'::jsonb) FROM jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) x WHERE NOT (x = ANY($1::text[]))),
@@ -109,7 +169,6 @@ router.post('/apply', async (req, res) => {
                WHERE mongo_id = ANY($2::text[])`;
       }
     } else if (entity === 'internet_supplier') {
-      // legacy flower_internet_supplier (kept for compat)
       if (mode === 'remove') {
         sql = `UPDATE public.flower_internet_supplier SET tags = (SELECT COALESCE(jsonb_agg(x),'[]'::jsonb) FROM jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) x WHERE NOT (x = ANY($1::text[]))) WHERE siteshop_id = ANY($2::int[])`;
       } else if (mode === 'set') {
@@ -118,7 +177,7 @@ router.post('/apply', async (req, res) => {
         sql = `UPDATE public.flower_internet_supplier SET tags = (SELECT jsonb_agg(DISTINCT x) FROM (SELECT jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) AS x UNION SELECT unnest($1::text[]) AS x) u) WHERE siteshop_id = ANY($2::int[])`;
       }
     } else {
-      return res.status(400).json({ success: false, error: 'entity must be user|supplier' });
+      return res.status(400).json({ success: false, error: 'entity must be user|supplier|product|internet_supplier' });
     }
     const idsCast = (entity === 'user' || entity === 'supplier') ? ids.map(String) : ids.map(x => parseInt(x, 10)).filter(n => !isNaN(n));
     const r = await pool.query(sql, [tags, idsCast]);

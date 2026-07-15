@@ -180,11 +180,13 @@ export default function ProductList() {
   const fetchTags = async () => {
     setLoadingTags(true);
     try {
-      const r = await api.get('/tags');
-      const list = (r.data && r.data.tags) || [];
-      setRemoteTags(list);
+      const r = await fetch('http://100.96.54.109:8088/api/tags?scope=product', { headers: { 'x-api-key': '***REMOVED_API_KEY***' } });
+      const d = await r.json();
+      const list = (d && d.data) || [];
+      const norm = list.map(t => ({ name: t.name, color: t.color, bg: t.bg, border: t.border, usageCount: t.usage_count || 0, scope: t.scope, __remote: true }));
+      setRemoteTags(norm);
       const presetVals = SCENE_TAG_OPTIONS.map(o => o.v);
-      const extras = list.map(t => t.name).filter(n => !presetVals.includes(n));
+      const extras = norm.map(t => t.name).filter(n => !presetVals.includes(n));
       setCustomSceneTags(extras);
       try { localStorage.setItem('customSceneTags', JSON.stringify(extras)); } catch {}
     } catch (e) { console.warn('fetchTags 失败', e); }
@@ -196,19 +198,28 @@ export default function ProductList() {
     if (!clean) return;
     try {
       const pal = TAG_PALETTE[tagColorIdx] || TAG_PALETTE[0];
-      await api.post('/tags', { name: clean, color: pal.color, bg: pal.bg, border: pal.border });
+      const r = await fetch('http://100.96.54.109:8088/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': '***REMOVED_API_KEY***' },
+        body: JSON.stringify({ name: clean, color: pal.color, bg: pal.bg, border: pal.border, scope: ['product'] })
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || '新增失败');
       await fetchTags();
       setNewTagName('');
-      setTagColorIdx(0);
-    } catch (e) { alert('新增失败: ' + ((e.response && e.response.data && e.response.data.error) || e.message)); }
+    } catch (e) { alert('新增失败: ' + e.message); }
   };
   const deleteRemoteTag = async (name) => {
     if (!window.confirm('确定删除标签「' + name + '」？该标签将从所有商品中移除。')) return;
     try {
-      await api.delete('/tags/' + encodeURIComponent(name));
+      const r = await fetch('http://100.96.54.109:8088/api/tags/' + encodeURIComponent(name), {
+        method: 'DELETE', headers: { 'x-api-key': '***REMOVED_API_KEY***' }
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || '删除失败');
       setAllProducts(prev => prev.map(p => Object.assign({}, p, { sceneTags: (p.sceneTags || []).filter(t => t !== name) })));
       await fetchTags();
-    } catch (e) { alert('删除失败: ' + ((e.response && e.response.data && e.response.data.error) || e.message)); }
+    } catch (e) { alert('删除失败: ' + e.message); }
   };
 
   const [sceneTagInput, setSceneTagInput] = useState('');
@@ -1569,93 +1580,73 @@ export default function ProductList() {
 
       {showTagManager && (
         <div onClick={() => setShowTagManager(false)}
-          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center" }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background:'#fff', borderRadius:10, width:560, maxHeight:'80vh', overflow:'auto', padding:20, boxShadow:'0 10px 30px rgba(0,0,0,.2)' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-              <h3 style={{ margin:0, fontSize:16 }}>🏷️ 标签管理</h3>
-              <button onClick={() => setShowTagManager(false)} style={{ border:'none', background:'transparent', fontSize:18, cursor:'pointer' }}>✕</button>
+            style={{ background:"#fff", borderRadius:14, width:600, maxHeight:"82vh", overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,0.25)", display:"flex", flexDirection:"column" }}>
+            <div style={{ background:"linear-gradient(135deg, #722ed1 0%, #eb2f96 100%)", color:"#fff", padding:"16px 22px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:600 }}>🏷️ 标签管理 · 商品标签池</h3>
+              <button onClick={() => setShowTagManager(false)}
+                style={{ border:"none", background:"rgba(255,255,255,0.2)", color:"#fff", borderRadius:"50%", width:28, height:28, cursor:"pointer", fontSize:18, lineHeight:"28px", padding:0 }}>×</button>
             </div>
-
-            <div style={{ marginBottom:8, fontSize:12, color:'#666' }}>选择颜色：</div>
-            <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10 }}>
-              {TAG_PALETTE.map((p, i) => (
-                <span key={i} onClick={() => setTagColorIdx(i)} title={p.label}
-                  style={{ cursor:'pointer', padding:'4px 10px', borderRadius:12,
-                    background: tagColorIdx===i ? p.bg : '#fff',
-                    color: p.color, border:'2px solid ' + (tagColorIdx===i ? p.color : '#eee'),
-                    fontSize:11, fontWeight: tagColorIdx===i ? 700 : 400 }}>
-                  {tagColorIdx===i ? '✓ ' : ''}{p.label}
-                </span>
-              ))}
-            </div>
-            {newTagName && (
-              <div style={{ marginBottom:10, fontSize:12, color:'#999' }}>
-                预览:
-                <span style={{ marginLeft:8, padding:'3px 10px', borderRadius:12,
-                  background: TAG_PALETTE[tagColorIdx].bg,
-                  color: TAG_PALETTE[tagColorIdx].color,
-                  border: `1px solid ${TAG_PALETTE[tagColorIdx].border}`, fontSize:12 }}>
-                  {newTagName}
-                </span>
-              </div>
-            )}
-            <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-              <input value={newTagName} onChange={e => setNewTagName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addRemoteTag(newTagName); }}
-                placeholder="输入新标签名称，回车即添加"
-                style={{ flex:1, padding:'6px 10px', border:'1px solid #d9d9d9', borderRadius:4, fontSize:13 }} />
-              <button onClick={() => addRemoteTag(newTagName)}
-                style={{ padding:'6px 14px', background:'#1677ff', color:'#fff', border:'none', borderRadius:4, cursor:'pointer', fontSize:13 }}>
-                ➕ 新增
-              </button>
-            </div>
-
-            <input value={tagSearch} onChange={e => setTagSearch(e.target.value)}
-              placeholder="搜索标签…"
-              style={{ width:'100%', padding:'6px 10px', border:'1px solid #d9d9d9', borderRadius:4, fontSize:13, marginBottom:10 }} />
-
-            <div style={{ fontSize:12, color:'#666', marginBottom:6 }}>预设标签（不可删除）</div>
-            <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:14 }}>
-              {SCENE_TAG_OPTIONS.filter(o => !tagSearch || o.v.includes(tagSearch)).map(o => (
-                <span key={o.v}
-                  onClick={() => { setSceneTagFilter(o.v); setShowTagManager(false); }}
-                  title="点击应用为筛选条件"
-                  style={{ padding:'3px 10px', borderRadius:12, background:o.bg, color:o.color, border:`1px solid ${o.border}`, fontSize:12, cursor:'pointer' }}>
-                  {o.v}
-                </span>
-              ))}
-            </div>
-
-            <div style={{ fontSize:12, color:'#666', marginBottom:6 }}>
-              自定义标签（服务端保存，跨浏览器共享）{loadingTags && ' · 加载中…'}
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              {remoteTags
-                .filter(t => !SCENE_TAG_OPTIONS.some(o => o.v === t.name))
-                .filter(t => !tagSearch || t.name.includes(tagSearch))
-                .map(t => (
-                <div key={t.name}
-                  style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 10px', background:'#fafafa', borderRadius:6 }}>
-                  <span onClick={() => { setSceneTagFilter(t.name); setShowTagManager(false); }}
-                    title="点击应用为筛选条件"
-                    style={{ cursor:'pointer', fontSize:13 }}>
-                    {t.name}
-                    <span style={{ marginLeft:8, fontSize:11, color:'#999' }}>· 使用 {t.usageCount || 0} 次</span>
-                  </span>
-                  <button onClick={() => deleteRemoteTag(t.name)}
-                    style={{ padding:'2px 8px', background:'#fff', color:'#ff4d4f', border:'1px solid #ffa39e', borderRadius:4, cursor:'pointer', fontSize:12 }}>
-                    🗑 删除
+            <div style={{ padding:20, overflow:"auto", flex:1 }}>
+              <div style={{ background:"#fafafa", padding:14, borderRadius:8, marginBottom:16, border:"1px solid #f0f0f0" }}>
+                <div style={{ fontSize:12, color:"#666", marginBottom:8, fontWeight:600 }}>➕ 新增标签</div>
+                <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                  <input value={newTagName} onChange={e => setNewTagName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") addRemoteTag(newTagName); }}
+                    placeholder="标签名（如：庭院、婚礼、批发款...）"
+                    style={{ flex:1, padding:"6px 10px", border:"1px solid #d9d9d9", borderRadius:6, fontSize:12, outline:"none" }} />
+                  <button onClick={() => addRemoteTag(newTagName)}
+                    disabled={!newTagName.trim()}
+                    style={{ padding:"6px 16px", background: newTagName.trim() ? "#722ed1" : "#ccc", color:"#fff", border:"none", borderRadius:6, cursor: newTagName.trim() ? "pointer" : "not-allowed", fontSize:12, fontWeight:600 }}>
+                    添加
                   </button>
                 </div>
-              ))}
-              {remoteTags.filter(t => !SCENE_TAG_OPTIONS.some(o => o.v === t.name)).length === 0 && (
-                <div style={{ color:'#999', fontSize:12, padding:'8px 0' }}>暂无自定义标签，输入名称并按回车即可创建。</div>
-              )}
-            </div>
-
-            <div style={{ marginTop:14, paddingTop:10, borderTop:'1px dashed #eee', fontSize:11, color:'#999' }}>
-              💡 点击任意标签可快速应用为筛选条件；删除后该标签会从所有商品中剥离。
+                <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+                  <span style={{ fontSize:11, color:"#999" }}>配色：</span>
+                  {TAG_PALETTE.map((p, i) => (
+                    <span key={i} onClick={() => setTagColorIdx(i)} title={p.label}
+                      style={{ cursor:"pointer", padding:"2px 10px", borderRadius:10, background:p.bg, color:p.color, border:"2px solid " + (tagColorIdx===i ? p.color : p.border), fontSize:11, fontWeight:600 }}>
+                      {p.label}
+                    </span>
+                  ))}
+                  <span style={{ marginLeft:6, padding:"2px 10px", borderRadius:10, background:TAG_PALETTE[tagColorIdx].bg, color:TAG_PALETTE[tagColorIdx].color, border:"1px solid " + TAG_PALETTE[tagColorIdx].border, fontSize:11, fontWeight:600 }}>{newTagName || "预览"}</span>
+                </div>
+              </div>
+              <input value={tagSearch} onChange={e => setTagSearch(e.target.value)}
+                placeholder="🔍 搜索标签..."
+                style={{ width:"100%", padding:"6px 10px", border:"1px solid #d9d9d9", borderRadius:6, fontSize:12, marginBottom:10, outline:"none", boxSizing:"border-box" }} />
+              <div style={{ fontSize:12, color:"#666", marginBottom:8, fontWeight:600 }}>
+                📋 现有标签 ({remoteTags.filter(t => !tagSearch || t.name.includes(tagSearch)).length}){loadingTags && " · 加载中…"}
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                {remoteTags.filter(t => !tagSearch || t.name.includes(tagSearch)).length === 0 && (
+                  <div style={{ color:"#999", fontSize:12, padding:20, width:"100%", textAlign:"center" }}>暂无标签，请在上方添加</div>
+                )}
+                {remoteTags.filter(t => !tagSearch || t.name.includes(tagSearch)).map(t => {
+                  const preset = SCENE_TAG_OPTIONS.find(o => o.v === t.name);
+                  const color = t.color || (preset && preset.color) || "#722ed1";
+                  const bg = t.bg || (preset && preset.bg) || "#f9f0ff";
+                  const border = t.border || (preset && preset.border) || "#d3adf7";
+                  const isPreset = !!preset;
+                  return (
+                    <div key={t.name}
+                      onClick={() => { setSceneTagFilter(t.name); setShowTagManager(false); }}
+                      title="点击应用为筛选条件"
+                      style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"4px 6px 4px 10px", borderRadius:14, background:bg, border:"1px solid " + border, cursor:"pointer" }}>
+                      <span style={{ color, fontSize:12, fontWeight:500 }}>{t.name}</span>
+                      {(t.usageCount || 0) > 0 && <span style={{ color:"#999", fontSize:10 }}>×{t.usageCount}</span>}
+                      {!isPreset && (
+                        <button onClick={e => { e.stopPropagation(); deleteRemoteTag(t.name); }} title="删除"
+                          style={{ border:"none", background:"rgba(0,0,0,0.06)", color:"#666", borderRadius:"50%", width:18, height:18, cursor:"pointer", fontSize:12, lineHeight:"18px", padding:0 }}>×</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop:14, paddingTop:10, borderTop:"1px dashed #eee", fontSize:11, color:"#999" }}>
+                💡 点击标签可应用为筛选条件；带 × 的自定义标签可删除；预设标签不可删。数据源：PG · plant_collector.tags · scope=product
+              </div>
             </div>
           </div>
         </div>
