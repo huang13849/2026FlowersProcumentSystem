@@ -74,6 +74,36 @@ tr:hover{background:var(--hover)}
 .badge-active{background:rgba(52,211,153,.15);color:var(--green)}
 .badge-ended{background:rgba(94,106,130,.15);color:var(--muted)}
 .badge-paused{background:rgba(251,146,60,.15);color:var(--orange)}
+
+/* === 12色标签体系 (与31001/31002同款) === */
+.tag-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:12px;margin:2px;border:1px solid;line-height:1.4}
+.tag-chip .count{background:rgba(0,0,0,.08);border-radius:8px;padding:0 6px;font-size:10px;margin-left:4px}
+.tag-chip .rm{cursor:pointer;opacity:.6;margin-left:4px}
+.tag-chip .rm:hover{opacity:1;color:#f5222d}
+.tm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center}
+.tm-panel{background:#fff;border-radius:14px;padding:0;width:640px;max-height:82vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column}
+.tm-head{background:linear-gradient(135deg,#722ed1 0%,#eb2f96 100%);color:#fff;padding:16px 22px;display:flex;justify-content:space-between;align-items:center}
+.tm-head h3{margin:0;font-size:16px;font-weight:600;color:#fff}
+.tm-close{border:none;background:rgba(255,255,255,.2);color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:18px;line-height:28px;padding:0}
+.tm-body{padding:18px 22px;overflow:auto}
+.tm-add{background:#fafafa;border-radius:10px;padding:14px;margin-bottom:14px}
+.tm-add label{display:block;font-size:12px;color:#666;margin-bottom:6px}
+.tm-add input.tm-name{width:100%;padding:8px 10px;border:1px solid #d9d9d9;border-radius:6px;box-sizing:border-box;font-size:13px}
+.tm-swatches{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tm-sw{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600}
+.tm-sw.on{border-color:#000;transform:scale(1.15)}
+.tm-preview{display:inline-block;margin-top:10px;padding:4px 12px;border-radius:12px;font-size:12px;border:1px solid}
+.tm-actions{display:flex;gap:8px;margin-top:10px}
+.tm-btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:12px}
+.tm-btn-primary{background:linear-gradient(135deg,#722ed1,#eb2f96);color:#fff}
+.tm-btn-ghost{background:#f0f0f0;color:#333}
+.tm-search{width:100%;padding:8px 10px;border:1px solid #d9d9d9;border-radius:6px;box-sizing:border-box;font-size:13px;margin-bottom:10px}
+.tm-list{display:flex;flex-wrap:wrap;gap:6px;max-height:280px;overflow:auto;padding:4px 0}
+.tm-footer{padding:10px 22px;background:#fafafa;border-top:1px solid #eee;font-size:11px;color:#999;text-align:center}
+.row-check{cursor:pointer}
+.batch-bar{background:#fffbe6;border:1px solid #ffe58f;padding:8px 12px;border-radius:6px;margin-bottom:12px;display:none;align-items:center;gap:12px}
+.batch-bar.on{display:flex}
+
 </style>
 </head>
 <body>
@@ -112,9 +142,16 @@ tr:hover{background:var(--hover)}
 <div class="toolbar">
 <input type="text" class="search-box" id="searchInput" placeholder="搜索用户名、昵称、手机号、标签...">
 <select id="roleFilter" class="search-box" style="flex:0;min-width:120px"><option value="">全部角色</option><option value="super_admin">超级管理员</option><option value="admin">管理员</option><option value="operator">操作员</option><option value="user">普通用户</option></select>
+<select id="tagFilter" class="search-box" style="flex:0;min-width:140px"><option value="">按标签筛选</option></select>
+<button class="btn btn-ghost" id="btnTagPool">🏷️ 标签管理</button>
 <button class="btn btn-primary" id="btnMerge">合并订单用户</button>
 </div>
-<table><thead><tr><th>用户名/手机</th><th>昵称</th><th>头像</th><th>位置</th><th>花园</th><th>最后登录</th><th>标签</th><th>操作</th></tr></thead><tbody id="userTableBody"></tbody></table>
+<div class="batch-bar" id="batchBar">
+<span>已选 <strong id="batchCount">0</strong> 个用户</span>
+<button class="btn btn-primary btn-sm" id="btnBatchTag">批量打标签</button>
+<button class="btn btn-ghost btn-sm" id="btnClearSel">清除选择</button>
+</div>
+<table><thead><tr><th style="width:32px"><input type="checkbox" id="chkAll"></th><th>用户名/手机</th><th>昵称</th><th>头像</th><th>位置</th><th>花园</th><th>最后登录</th><th>标签</th><th>操作</th></tr></thead><tbody id="userTableBody"></tbody></table>
 </div></div>
 
 <!-- CUSTOMER ANALYSIS (CRM) -->
@@ -175,9 +212,57 @@ tr:hover{background:var(--hover)}
 <label>角色</label><select id="newRole"><option value="user">普通用户</option><option value="operator">操作员</option><option value="admin">管理员</option><option value="super_admin">超级管理员</option></select>
 <div class="form-actions"><button class="btn btn-ghost" id="btnCloseAdd">取消</button><button class="btn btn-primary" id="btnSubmitAdd">提交</button></div>
 </div></div>
-<div class="modal-bg" id="tagModal"><div class="modal"><h3>🏷️ 添加用户标签</h3>
-<div class="tag-grid" id="tagGrid"></div>
-<div class="form-actions"><button class="btn btn-ghost" id="btnCloseTag">取消</button><button class="btn btn-primary" id="btnSaveTag">保存</button></div>
+<!-- Per-user Tag Picker -->
+<div class="tm-overlay" id="tagModal" style="display:none">
+<div class="tm-panel">
+<div class="tm-head"><h3 id="tmTitle">🏷️ 用户标签</h3><button class="tm-close" id="btnCloseTag">×</button></div>
+<div class="tm-body">
+<input type="text" class="tm-search" id="tmSearch" placeholder="🔍 搜索标签...">
+<div class="tm-list" id="tagGrid"></div>
+</div>
+<div class="tm-footer">数据源 · PG plant_collector.tags · scope=user</div>
+<div style="padding:12px 22px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end">
+<button class="tm-btn tm-btn-ghost" id="btnCancelTag">取消</button>
+<button class="tm-btn tm-btn-primary" id="btnSaveTag">保存</button>
+</div>
+</div></div>
+
+<!-- Tag Pool Manager -->
+<div class="tm-overlay" id="poolModal" style="display:none">
+<div class="tm-panel">
+<div class="tm-head"><h3>🏷️ 标签体系管理 · 用户</h3><button class="tm-close" id="btnClosePool">×</button></div>
+<div class="tm-body">
+<div class="tm-add">
+<label>➕ 新增标签</label>
+<input type="text" class="tm-name" id="poolNewName" placeholder="标签名称">
+<div class="tm-swatches" id="poolSwatches"></div>
+<div><span class="tm-preview" id="poolPreview" style="display:none">预览</span></div>
+<div class="tm-actions"><button class="tm-btn tm-btn-primary" id="btnPoolCreate">创建</button></div>
+</div>
+<input type="text" class="tm-search" id="poolSearch" placeholder="🔍 搜索现有标签...">
+<div class="tm-list" id="poolList"></div>
+</div>
+<div class="tm-footer">共享标签池 · PG plant_collector.tags · 31001 / 31002 / 8088 联动</div>
+</div></div>
+
+<!-- Batch Tag Modal -->
+<div class="tm-overlay" id="batchModal" style="display:none">
+<div class="tm-panel" style="width:560px">
+<div class="tm-head"><h3>🏷️ 批量打标签 · <span id="batchCount2">0</span> 用户</h3><button class="tm-close" id="btnCloseBatch">×</button></div>
+<div class="tm-body">
+<div style="margin-bottom:12px">
+<label style="font-size:12px;color:#666;margin-right:12px">操作模式：</label>
+<label style="margin-right:12px"><input type="radio" name="batchMode" value="append" checked> 追加</label>
+<label style="margin-right:12px"><input type="radio" name="batchMode" value="remove"> 移除</label>
+<label><input type="radio" name="batchMode" value="replace"> 覆盖</label>
+</div>
+<input type="text" class="tm-search" id="batchSearch" placeholder="🔍 搜索标签...">
+<div class="tm-list" id="batchGrid"></div>
+</div>
+<div style="padding:12px 22px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end">
+<button class="tm-btn tm-btn-ghost" id="btnCancelBatch">取消</button>
+<button class="tm-btn tm-btn-primary" id="btnApplyBatch">应用</button>
+</div>
 </div></div>
 <div class="modal-bg" id="campaignModal"><div class="modal"><h3>📢 广告活动</h3>
 <input type="hidden" id="campId">
@@ -240,7 +325,7 @@ tr:hover{background:var(--hover)}
 </div></div>
 
 <script>
-var PRESET_TAGS=["高价值客户","高潜力客户","团购团长","散户","工程客户","家庭园艺","高净值","一线城市","二线城市"];
+var TAG_POOL=[];
 var H={"Content-Type":"application/json","x-api-key":"***REMOVED_API_KEY***"};
 var API="/api/mongo";
 var currentUsers=[{"_id": "6a0ff1fd8c207339a57919d9", "username": "admin", "password": "$2a$10$9Gmpj6aiUt.ougSAJWlicuIPSxRtUVtaWxi1.ZriM4AIWgT19nup2", "role": "admin", "displayName": "系统管理员", "createdAt": "2026-05-22T06:04:45.919Z"}, {"_id": "6a0ff1fd8c207339a57919da", "username": "operator", "password": "$2a$10$yRfnOLsWMvvTIsZPmpOrfewZ6AMBKvLyu6c66X.67l2qJtmFJQ4vW", "role": "operator", "displayName": "操作员", "createdAt": "2026-05-22T06:04:45.919Z"}, {"_id": "6a2a4a7158f7ed45629705d0", "phone": "18511987921", "nickname": "超级管理员", "avatar": "👑", "location": {"type": "Point", "coordinates": [0, 0]}, "locationAddress": "", "preferences": {"categories": [], "favoriteSuppliers": []}, "gardenStats": {"totalPlanted": 0, "totalCompleted": 0, "totalGifted": 0}, "address": [{"name": "黄毅", "phone": "18511987921", "province": "北京", "city": "北京", "district": "丰台", "detail": "丰台新宫社区正商明苑小区3号楼1单元1401北京市丰台区丰台西路41号院1号楼1单元102", "isDefault": true}], "lastLoginAt": "2026-06-25T00:39:17.890Z", "createdAt": "2026-06-11T05:41:05.544Z", "__v": 0, "updatedAt": "2026-06-25T00:39:17.842Z", "role": "super_admin"}, {"_id": "6a2f538c46c50442c1c75aea", "username": "13900139001", "phone": "13900139001", "nickname": "花友9001", "avatar": "", "role": "user", "location": {"type": "Point", "coordinates": [0, 0]}, "locationAddress": "", "address": [], "deviceInfo": {}, "preferences": {"categories": [], "priceRange": {}, "favoriteSuppliers": []}, "gardenStats": {"totalPlanted": 0, "totalCompleted": 0, "totalGifted": 0}, "lastLoginAt": "2026-06-15T01:21:32.633Z", "createdAt": "2026-06-15T01:21:16.509Z", "updatedAt": "2026-06-15T01:21:32.775Z"}, {"_id": "6a3d3a403d8b4f3a208c4822", "username": "18612677258", "nickname": "张烨芊18612677258的采购店", "phone": "18612677258", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.097Z", "updatedAt": "2026-06-25T14:25:04.097Z"}, {"_id": "6a3d3a403d8b4f3a208c4823", "username": "13901136507", "nickname": "paul", "phone": "13901136507", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.108Z", "updatedAt": "2026-06-25T14:25:04.108Z"}, {"_id": "6a3d3a403d8b4f3a208c4824", "username": "15711487589", "nickname": "15711487589的采购店铺", "phone": "15711487589", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.118Z", "updatedAt": "2026-06-25T14:25:04.118Z"}, {"_id": "6a3d3a403d8b4f3a208c4825", "username": "18510329853", "nickname": "18510329853的采购店铺", "phone": "18510329853", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.128Z", "updatedAt": "2026-06-25T14:25:04.128Z"}, {"_id": "6a3d3a403d8b4f3a208c4826", "username": "13181886712", "nickname": "刘乐", "phone": "13181886712", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.138Z", "updatedAt": "2026-06-25T14:25:04.138Z"}, {"_id": "6a3d3a403d8b4f3a208c4827", "username": "13621313672", "nickname": "李春晖", "phone": "13621313672", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.148Z", "updatedAt": "2026-06-25T14:25:04.148Z"}, {"_id": "6a3d3a403d8b4f3a208c4828", "username": "13031127030", "nickname": "13031127030的采购店铺", "phone": "13031127030", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.159Z", "updatedAt": "2026-06-25T14:25:04.159Z"}, {"_id": "6a3d3a403d8b4f3a208c4829", "username": "13911608193", "nickname": "咖啡女人", "phone": "13911608193", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.169Z", "updatedAt": "2026-06-25T14:25:04.169Z"}, {"_id": "6a3d3a403d8b4f3a208c482a", "username": "13641096801", "nickname": "张晶晶", "phone": "13641096801", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.179Z", "updatedAt": "2026-06-25T14:25:04.179Z"}, {"_id": "6a3d3a403d8b4f3a208c482b", "username": "18601918976", "nickname": "如戏 蓝山的采购店", "phone": "18601918976", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.189Z", "updatedAt": "2026-06-25T14:25:04.189Z"}, {"_id": "6a3d3a403d8b4f3a208c482c", "username": "18510809317", "nickname": "董芳", "phone": "18510809317", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.199Z", "updatedAt": "2026-06-25T14:25:04.199Z"}, {"_id": "6a3d3a403d8b4f3a208c482d", "username": "13241841956", "nickname": "小红子", "phone": "13241841956", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.209Z", "updatedAt": "2026-06-25T14:25:04.209Z"}, {"_id": "6a3d3a403d8b4f3a208c482e", "username": "15011307532", "nickname": "恩溪商品折扣店", "phone": "15011307532", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.219Z", "updatedAt": "2026-06-25T14:25:04.219Z"}, {"_id": "6a3d3a403d8b4f3a208c482f", "username": "18515803553", "nickname": "顺其自然", "phone": "18515803553", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.228Z", "updatedAt": "2026-06-25T14:25:04.228Z"}, {"_id": "6a3d3a403d8b4f3a208c4830", "username": "13701156160", "nickname": "鱼美人", "phone": "13701156160", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.238Z", "updatedAt": "2026-06-25T14:25:04.238Z"}, {"_id": "6a3d3a403d8b4f3a208c4831", "username": "13439456690", "nickname": "阿拉蕾", "phone": "13439456690", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.247Z", "updatedAt": "2026-06-25T14:25:04.247Z"}, {"_id": "6a3d3a403d8b4f3a208c4832", "username": "15601326778", "nickname": "老郭", "phone": "15601326778", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.257Z", "updatedAt": "2026-06-25T14:25:04.257Z"}, {"_id": "6a3d3a403d8b4f3a208c4833", "username": "13810163055", "nickname": "汀杉", "phone": "13810163055", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.264Z", "updatedAt": "2026-06-25T14:25:04.264Z"}, {"_id": "6a3d3a403d8b4f3a208c4834", "username": "18666221284", "nickname": "ZMZ", "phone": "18666221284", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.274Z", "updatedAt": "2026-06-25T14:25:04.274Z"}, {"_id": "6a3d3a403d8b4f3a208c4835", "username": "15810973068", "nickname": "淡定", "phone": "15810973068", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.284Z", "updatedAt": "2026-06-25T14:25:04.284Z"}, {"_id": "6a3d3a403d8b4f3a208c4836", "username": "13911089120", "nickname": "张冬梅", "phone": "13911089120", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.300Z", "updatedAt": "2026-06-25T14:25:04.300Z"}, {"_id": "6a3d3a403d8b4f3a208c4837", "username": "15810936189", "nickname": "多农多生鲜供应链", "phone": "15810936189", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.315Z", "updatedAt": "2026-06-25T14:25:04.315Z"}, {"_id": "6a3d3a403d8b4f3a208c4838", "username": "17274808076", "nickname": "天道酬勤", "phone": "17274808076", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.327Z", "updatedAt": "2026-06-25T14:25:04.327Z"}, {"_id": "6a3d3a403d8b4f3a208c4839", "username": "13911447157", "nickname": "刘立超", "phone": "13911447157", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.337Z", "updatedAt": "2026-06-25T14:25:04.337Z"}, {"_id": "6a3d3a403d8b4f3a208c483a", "username": "15646581616", "nickname": "王晓", "phone": "15646581616", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.347Z", "updatedAt": "2026-06-25T14:25:04.347Z"}, {"_id": "6a3d3a403d8b4f3a208c483b", "username": "18600869522", "nickname": "东方", "phone": "18600869522", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.357Z", "updatedAt": "2026-06-25T14:25:04.357Z"}, {"_id": "6a3d3a403d8b4f3a208c483c", "username": "13699283519", "nickname": "生鲁艳", "phone": "13699283519", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.367Z", "updatedAt": "2026-06-25T14:25:04.367Z"}, {"_id": "6a3d3a403d8b4f3a208c483d", "username": "18901231881", "nickname": "张嘉萱", "phone": "18901231881", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.376Z", "updatedAt": "2026-06-25T14:25:04.376Z"}, {"_id": "6a3d3a403d8b4f3a208c483e", "username": "18710201608", "nickname": "指尖阳光", "phone": "18710201608", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.386Z", "updatedAt": "2026-06-25T14:25:04.386Z"}, {"_id": "6a3d3a403d8b4f3a208c483f", "username": "18618491126", "nickname": "李娜", "phone": "18618491126", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.395Z", "updatedAt": "2026-06-25T14:25:04.395Z"}, {"_id": "6a3d3a403d8b4f3a208c4840", "username": "15201157508", "nickname": "杨占红", "phone": "15201157508", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.406Z", "updatedAt": "2026-06-25T14:25:04.406Z"}, {"_id": "6a3d3a403d8b4f3a208c4841", "username": "15010932656", "nickname": "张硕", "phone": "15010932656", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.419Z", "updatedAt": "2026-06-25T14:25:04.419Z"}, {"_id": "6a3d3a403d8b4f3a208c4842", "username": "13146988238", "nickname": "平水相逢", "phone": "13146988238", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.431Z", "updatedAt": "2026-06-25T14:25:04.431Z"}, {"_id": "6a3d3a403d8b4f3a208c4843", "username": "13522939751", "nickname": "姝虹", "phone": "13522939751", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.443Z", "updatedAt": "2026-06-25T14:25:04.443Z"}, {"_id": "6a3d3a403d8b4f3a208c4844", "username": "18611930785", "nickname": "栀子", "phone": "18611930785", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.451Z", "updatedAt": "2026-06-25T14:25:04.451Z"}, {"_id": "6a3d3a403d8b4f3a208c4845", "username": "18201020021", "nickname": "Sakura", "phone": "18201020021", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.460Z", "updatedAt": "2026-06-25T14:25:04.460Z"}, {"_id": "6a3d3a403d8b4f3a208c4846", "username": "17760222652", "nickname": "福元", "phone": "17760222652", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.470Z", "updatedAt": "2026-06-25T14:25:04.470Z"}, {"_id": "6a3d3a403d8b4f3a208c4847", "username": "15811572436", "nickname": "董斌", "phone": "15811572436", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.480Z", "updatedAt": "2026-06-25T14:25:04.480Z"}, {"_id": "6a3d3a403d8b4f3a208c4848", "username": "15901367722", "nickname": "王洪玲", "phone": "15901367722", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.489Z", "updatedAt": "2026-06-25T14:25:04.489Z"}, {"_id": "6a3d3a403d8b4f3a208c4849", "username": "18610808070", "nickname": "牛晶晶", "phone": "18610808070", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.499Z", "updatedAt": "2026-06-25T14:25:04.499Z"}, {"_id": "6a3d3a403d8b4f3a208c484a", "username": "15901222130", "nickname": "婷婷", "phone": "15901222130", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.509Z", "updatedAt": "2026-06-25T14:25:04.509Z"}, {"_id": "6a3d3a403d8b4f3a208c484b", "username": "13693627895", "nickname": "李嘉琪", "phone": "13693627895", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.519Z", "updatedAt": "2026-06-25T14:25:04.519Z"}, {"_id": "6a3d3a403d8b4f3a208c484c", "username": "13910129020", "nickname": "王洁", "phone": "13910129020", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.529Z", "updatedAt": "2026-06-25T14:25:04.529Z"}, {"_id": "6a3d3a403d8b4f3a208c484d", "username": "13466809483", "nickname": "13466809483的采购店铺", "phone": "13466809483", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.540Z", "updatedAt": "2026-06-25T14:25:04.540Z"}, {"_id": "6a3d3a403d8b4f3a208c484e", "username": "13311091136", "nickname": "菁菁", "phone": "13311091136", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.549Z", "updatedAt": "2026-06-25T14:25:04.549Z"}, {"_id": "6a3d3a403d8b4f3a208c484f", "username": "13718386096", "nickname": "妮可", "phone": "13718386096", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.559Z", "updatedAt": "2026-06-25T14:25:04.559Z"}, {"_id": "6a3d3a403d8b4f3a208c4850", "username": "15901419568", "nickname": "蔚蓝天空", "phone": "15901419568", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.569Z", "updatedAt": "2026-06-25T14:25:04.569Z"}, {"_id": "6a3d3a403d8b4f3a208c4851", "username": "18353632912", "nickname": "小尘埃", "phone": "18353632912", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.578Z", "updatedAt": "2026-06-25T14:25:04.578Z"}, {"_id": "6a3d3a403d8b4f3a208c4852", "username": "15510674234", "nickname": "365生活管家", "phone": "15510674234", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.587Z", "updatedAt": "2026-06-25T14:25:04.587Z"}, {"_id": "6a3d3a403d8b4f3a208c4853", "username": "15201364142", "nickname": "童", "phone": "15201364142", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.596Z", "updatedAt": "2026-06-25T14:25:04.596Z"}, {"_id": "6a3d3a403d8b4f3a208c4854", "username": "13718372208", "nickname": "A0 笑口常开", "phone": "13718372208", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.607Z", "updatedAt": "2026-06-25T14:25:04.607Z"}, {"_id": "6a3d3a403d8b4f3a208c4855", "username": "13001964668", "nickname": "玥的店", "phone": "13001964668", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.617Z", "updatedAt": "2026-06-25T14:25:04.617Z"}, {"_id": "6a3d3a403d8b4f3a208c4856", "username": "15510403160", "nickname": "家园", "phone": "15510403160", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.627Z", "updatedAt": "2026-06-25T14:25:04.627Z"}, {"_id": "6a3d3a403d8b4f3a208c4857", "username": "13683622887", "nickname": "韩蓉", "phone": "13683622887", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.637Z", "updatedAt": "2026-06-25T14:25:04.637Z"}, {"_id": "6a3d3a403d8b4f3a208c4858", "username": "13701133548", "nickname": "永不言弃的驴", "phone": "13701133548", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.646Z", "updatedAt": "2026-06-25T14:25:04.646Z"}, {"_id": "6a3d3a403d8b4f3a208c4859", "username": "13911683390", "nickname": "雪心", "phone": "13911683390", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.656Z", "updatedAt": "2026-06-25T14:25:04.656Z"}, {"_id": "6a3d3a403d8b4f3a208c485a", "username": "18611180150", "nickname": "小任的采购店", "phone": "18611180150", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.666Z", "updatedAt": "2026-06-25T14:25:04.666Z"}, {"_id": "6a3d3a403d8b4f3a208c485b", "username": "18310143149", "nickname": "赵紫希", "phone": "18310143149", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.675Z", "updatedAt": "2026-06-25T14:25:04.675Z"}, {"_id": "6a3d3a403d8b4f3a208c485c", "username": "13436660555", "nickname": "13436660555的采购店铺", "phone": "13436660555", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.685Z", "updatedAt": "2026-06-25T14:25:04.685Z"}, {"_id": "6a3d3a403d8b4f3a208c485d", "username": "15601329997", "nickname": "牵着小猪去散步", "phone": "15601329997", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.694Z", "updatedAt": "2026-06-25T14:25:04.694Z"}, {"_id": "6a3d3a403d8b4f3a208c485e", "username": "13426030347", "nickname": "张啦啦", "phone": "13426030347", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.702Z", "updatedAt": "2026-06-25T14:25:04.702Z"}, {"_id": "6a3d3a403d8b4f3a208c485f", "username": "13910184742", "nickname": "李新玲", "phone": "13910184742", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.712Z", "updatedAt": "2026-06-25T14:25:04.712Z"}, {"_id": "6a3d3a403d8b4f3a208c4860", "username": "13261668853", "nickname": "A00小崔社区团长13261668853", "phone": "13261668853", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.723Z", "updatedAt": "2026-06-25T14:25:04.723Z"}, {"_id": "6a3d3a403d8b4f3a208c4861", "username": "18611562426", "nickname": "源源妈", "phone": "18611562426", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.733Z", "updatedAt": "2026-06-25T14:25:04.733Z"}, {"_id": "6a3d3a403d8b4f3a208c4862", "username": "13269830326", "nickname": "西贝", "phone": "13269830326", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.744Z", "updatedAt": "2026-06-25T14:25:04.744Z"}, {"_id": "6a3d3a403d8b4f3a208c4863", "username": "13910253560", "nickname": "豆豆社区团购", "phone": "13910253560", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.754Z", "updatedAt": "2026-06-25T14:25:04.754Z"}, {"_id": "6a3d3a403d8b4f3a208c4864", "username": "13520078482", "nickname": "Zoe", "phone": "13520078482", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.764Z", "updatedAt": "2026-06-25T14:25:04.764Z"}, {"_id": "6a3d3a403d8b4f3a208c4865", "username": "18310726302", "nickname": "大地", "phone": "18310726302", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.772Z", "updatedAt": "2026-06-25T14:25:04.772Z"}, {"_id": "6a3d3a403d8b4f3a208c4866", "username": "17600573688", "nickname": "朝阳果蔬直采店", "phone": "17600573688", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.781Z", "updatedAt": "2026-06-25T14:25:04.781Z"}, {"_id": "6a3d3a403d8b4f3a208c4867", "username": "18910127203", "nickname": "亿果优选", "phone": "18910127203", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.793Z", "updatedAt": "2026-06-25T14:25:04.793Z"}, {"_id": "6a3d3a403d8b4f3a208c4868", "username": "13124741312", "nickname": "杨华&", "phone": "13124741312", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.802Z", "updatedAt": "2026-06-25T14:25:04.802Z"}, {"_id": "6a3d3a403d8b4f3a208c4869", "username": "13501071373", "nickname": "小豹子", "phone": "13501071373", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.812Z", "updatedAt": "2026-06-25T14:25:04.812Z"}, {"_id": "6a3d3a403d8b4f3a208c486a", "username": "13910126830", "nickname": "穆小彪", "phone": "13910126830", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.821Z", "updatedAt": "2026-06-25T14:25:04.821Z"}, {"_id": "6a3d3a403d8b4f3a208c486b", "username": "13911940648", "nickname": "13911940648的采购店铺", "phone": "13911940648", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.830Z", "updatedAt": "2026-06-25T14:25:04.830Z"}, {"_id": "6a3d3a403d8b4f3a208c486c", "username": "13621391035", "nickname": "红红", "phone": "13621391035", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.839Z", "updatedAt": "2026-06-25T14:25:04.839Z"}, {"_id": "6a3d3a403d8b4f3a208c486d", "username": "13910429570", "nickname": "温泉", "phone": "13910429570", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.849Z", "updatedAt": "2026-06-25T14:25:04.849Z"}, {"_id": "6a3d3a403d8b4f3a208c486e", "username": "15110150411", "nickname": "郑新华", "phone": "15110150411", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.858Z", "updatedAt": "2026-06-25T14:25:04.858Z"}, {"_id": "6a3d3a403d8b4f3a208c486f", "username": "18319658469", "nickname": "18319658469的采购店铺", "phone": "18319658469", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.867Z", "updatedAt": "2026-06-25T14:25:04.867Z"}, {"_id": "6a3d3a403d8b4f3a208c4870", "username": "13920981393", "nickname": "莫念", "phone": "13920981393", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.877Z", "updatedAt": "2026-06-25T14:25:04.877Z"}, {"_id": "6a3d3a403d8b4f3a208c4871", "username": "15302077501", "nickname": "团长", "phone": "15302077501", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.886Z", "updatedAt": "2026-06-25T14:25:04.886Z"}, {"_id": "6a3d3a403d8b4f3a208c4872", "username": "13910695486", "nickname": "胜者为王", "phone": "13910695486", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.896Z", "updatedAt": "2026-06-25T14:25:04.896Z"}, {"_id": "6a3d3a403d8b4f3a208c4873", "username": "13520388538", "nickname": "王多多", "phone": "13520388538", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.906Z", "updatedAt": "2026-06-25T14:25:04.906Z"}, {"_id": "6a3d3a403d8b4f3a208c4874", "username": "15101579810", "nickname": "小何", "phone": "15101579810", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.916Z", "updatedAt": "2026-06-25T14:25:04.916Z"}, {"_id": "6a3d3a403d8b4f3a208c4875", "username": "13910740091", "nickname": "雨翼童心", "phone": "13910740091", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.925Z", "updatedAt": "2026-06-25T14:25:04.925Z"}, {"_id": "6a3d3a403d8b4f3a208c4876", "username": "13683307130", "nickname": "王兰", "phone": "13683307130", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.934Z", "updatedAt": "2026-06-25T14:25:04.934Z"}, {"_id": "6a3d3a403d8b4f3a208c4877", "username": "13581607169", "nickname": "晓萍", "phone": "13581607169", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.944Z", "updatedAt": "2026-06-25T14:25:04.944Z"}, {"_id": "6a3d3a403d8b4f3a208c4878", "username": "13718678121", "nickname": "孟公子", "phone": "13718678121", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.954Z", "updatedAt": "2026-06-25T14:25:04.954Z"}, {"_id": "6a3d3a403d8b4f3a208c4879", "username": "15010077817", "nickname": "15010077817的采购店铺", "phone": "15010077817", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.963Z", "updatedAt": "2026-06-25T14:25:04.963Z"}, {"_id": "6a3d3a403d8b4f3a208c487a", "username": "15010778272", "nickname": "15010778272的采购店铺", "phone": "15010778272", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.974Z", "updatedAt": "2026-06-25T14:25:04.974Z"}, {"_id": "6a3d3a403d8b4f3a208c487b", "username": "13910032847", "nickname": "梅子", "phone": "13910032847", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:04.983Z", "updatedAt": "2026-06-25T14:25:04.983Z"}, {"_id": "6a3d3a413d8b4f3a208c487c", "username": "17800219691", "nickname": "极致", "phone": "17800219691", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.001Z", "updatedAt": "2026-06-25T14:25:05.001Z"}, {"_id": "6a3d3a413d8b4f3a208c487d", "username": "15643148065", "nickname": "15643148065的采购店铺", "phone": "15643148065", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.014Z", "updatedAt": "2026-06-25T14:25:05.014Z"}, {"_id": "6a3d3a413d8b4f3a208c487e", "username": "18610812273", "nickname": "18610812273的采购店铺", "phone": "18610812273", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.024Z", "updatedAt": "2026-06-25T14:25:05.024Z"}, {"_id": "6a3d3a413d8b4f3a208c487f", "username": "13718238792", "nickname": "未央", "phone": "13718238792", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.039Z", "updatedAt": "2026-06-25T14:25:05.039Z"}, {"_id": "6a3d3a413d8b4f3a208c4880", "username": "17600905806", "nickname": "乐大大生鲜团购店", "phone": "17600905806", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.049Z", "updatedAt": "2026-06-25T14:25:05.049Z"}, {"_id": "6a3d3a413d8b4f3a208c4881", "username": "13521627864", "nickname": "13521627864的采购店铺", "phone": "13521627864", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.067Z", "updatedAt": "2026-06-25T14:25:05.067Z"}, {"_id": "6a3d3a413d8b4f3a208c4882", "username": "15101099875", "nickname": "昊家伙", "phone": "15101099875", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.076Z", "updatedAt": "2026-06-25T14:25:05.076Z"}, {"_id": "6a3d3a413d8b4f3a208c4883", "username": "13910566223", "nickname": "余生", "phone": "13910566223", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.089Z", "updatedAt": "2026-06-25T14:25:05.089Z"}, {"_id": "6a3d3a413d8b4f3a208c4884", "username": "15001093825", "nickname": "15001093825的采购店铺", "phone": "15001093825", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.099Z", "updatedAt": "2026-06-25T14:25:05.099Z"}, {"_id": "6a3d3a413d8b4f3a208c4885", "username": "13810409108", "nickname": "17团团购店", "phone": "13810409108", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.109Z", "updatedAt": "2026-06-25T14:25:05.109Z"}, {"_id": "6a3d3a413d8b4f3a208c4886", "username": "15611594409", "nickname": "静待～花开", "phone": "15611594409", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.119Z", "updatedAt": "2026-06-25T14:25:05.119Z"}, {"_id": "6a3d3a413d8b4f3a208c4887", "username": "13611139222", "nickname": "夕颜", "phone": "13611139222", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.129Z", "updatedAt": "2026-06-25T14:25:05.129Z"}, {"_id": "6a3d3a413d8b4f3a208c4888", "username": "13520962069", "nickname": "小个", "phone": "13520962069", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.139Z", "updatedAt": "2026-06-25T14:25:05.139Z"}, {"_id": "6a3d3a413d8b4f3a208c4889", "username": "13321106591", "nickname": "常伟的采购店铺", "phone": "13321106591", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.149Z", "updatedAt": "2026-06-25T14:25:05.149Z"}, {"_id": "6a3d3a413d8b4f3a208c488a", "username": "15010040950", "nickname": "蔡利平", "phone": "15010040950", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.160Z", "updatedAt": "2026-06-25T14:25:05.160Z"}, {"_id": "6a3d3a413d8b4f3a208c488b", "username": "15030005467", "nickname": "杨振飞", "phone": "15030005467", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.171Z", "updatedAt": "2026-06-25T14:25:05.171Z"}, {"_id": "6a3d3a413d8b4f3a208c488c", "username": "15754338007", "nickname": "「月」", "phone": "15754338007", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.181Z", "updatedAt": "2026-06-25T14:25:05.181Z"}, {"_id": "6a3d3a413d8b4f3a208c488d", "username": "15712866502", "nickname": "15712866502的采购店铺", "phone": "15712866502", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.192Z", "updatedAt": "2026-06-25T14:25:05.192Z"}, {"_id": "6a3d3a413d8b4f3a208c488e", "username": "13810273473", "nickname": "🍒香香🍒", "phone": "13810273473", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.202Z", "updatedAt": "2026-06-25T14:25:05.202Z"}, {"_id": "6a3d3a413d8b4f3a208c488f", "username": "18910901106", "nickname": "静的采购店", "phone": "18910901106", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.216Z", "updatedAt": "2026-06-25T14:25:05.216Z"}, {"_id": "6a3d3a413d8b4f3a208c4890", "username": "13701356363", "nickname": "陈艳", "phone": "13701356363", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.227Z", "updatedAt": "2026-06-25T14:25:05.227Z"}, {"_id": "6a3d3a413d8b4f3a208c4891", "username": "13910322126", "nickname": "13910322126的采购店铺", "phone": "13910322126", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.237Z", "updatedAt": "2026-06-25T14:25:05.237Z"}, {"_id": "6a3d3a413d8b4f3a208c4892", "username": "13811193592", "nickname": "王辉女士", "phone": "13811193592", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.246Z", "updatedAt": "2026-06-25T14:25:05.246Z"}, {"_id": "6a3d3a413d8b4f3a208c4893", "username": "17610002376", "nickname": "坚持加努力的采购店", "phone": "17610002376", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.257Z", "updatedAt": "2026-06-25T14:25:05.257Z"}, {"_id": "6a3d3a413d8b4f3a208c4894", "username": "13651013027", "nickname": "....昱13651013027的采购店", "phone": "13651013027", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.266Z", "updatedAt": "2026-06-25T14:25:05.266Z"}, {"_id": "6a3d3a413d8b4f3a208c4895", "username": "18513605002", "nickname": "18513605002的采购店铺", "phone": "18513605002", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.276Z", "updatedAt": "2026-06-25T14:25:05.276Z"}, {"_id": "6a3d3a413d8b4f3a208c4896", "username": "13311272538", "nickname": "自然", "phone": "13311272538", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.286Z", "updatedAt": "2026-06-25T14:25:05.286Z"}, {"_id": "6a3d3a413d8b4f3a208c4897", "username": "15101086085", "nickname": "陈迎", "phone": "15101086085", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.295Z", "updatedAt": "2026-06-25T14:25:05.295Z"}, {"_id": "6a3d3a413d8b4f3a208c4898", "username": "13581715509", "nickname": "长阳团购", "phone": "13581715509", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.304Z", "updatedAt": "2026-06-25T14:25:05.304Z"}, {"_id": "6a3d3a413d8b4f3a208c4899", "username": "13901280695", "nickname": "辛辛", "phone": "13901280695", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.314Z", "updatedAt": "2026-06-25T14:25:05.314Z"}, {"_id": "6a3d3a413d8b4f3a208c489a", "username": "13811361679", "nickname": "吴方的采购店", "phone": "13811361679", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.324Z", "updatedAt": "2026-06-25T14:25:05.324Z"}, {"_id": "6a3d3a413d8b4f3a208c489b", "username": "18135758660", "nickname": "张华的采购店铺", "phone": "18135758660", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.334Z", "updatedAt": "2026-06-25T14:25:05.334Z"}, {"_id": "6a3d3a413d8b4f3a208c489c", "username": "13520559034", "nickname": "灰丫头", "phone": "13520559034", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.344Z", "updatedAt": "2026-06-25T14:25:05.344Z"}, {"_id": "6a3d3a413d8b4f3a208c489d", "username": "18501027000", "nickname": "兰桂坊超市", "phone": "18501027000", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.353Z", "updatedAt": "2026-06-25T14:25:05.353Z"}, {"_id": "6a3d3a413d8b4f3a208c489e", "username": "13911765866", "nickname": "13911765866的采购店铺", "phone": "13911765866", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.362Z", "updatedAt": "2026-06-25T14:25:05.362Z"}, {"_id": "6a3d3a413d8b4f3a208c489f", "username": "13466592236", "nickname": "于志永", "phone": "13466592236", "role": "user", "user_tag": "", "createdAt": "2026-06-25T14:25:05.372Z", "updatedAt": "2026-06-25T14:25:05.372Z"}];
@@ -257,31 +342,234 @@ document.querySelectorAll(".sub-tab").forEach(function(x){x.classList.remove("ac
 document.querySelectorAll(".sub-panel").forEach(function(x){x.classList.remove("active")});
 b.classList.add("active");document.getElementById("sub-"+b.dataset.sub).classList.add("active")})});
 
-function renderUsers(){var s=(document.getElementById("searchInput").value||"").toLowerCase();var r=document.getElementById("roleFilter").value;
-var f=currentUsers.filter(function(u){if(r&&u.role!==r)return false;if(!s)return true;return((u.username||"")+(u.nickname||"")+(u.phone||"")+(u.user_tag||"")).toLowerCase().indexOf(s)>=0});
-var t=document.getElementById("userTableBody");if(!f.length){t.innerHTML='<tr><td colspan=8 style="text-align:center;padding:20px;color:#999">无数据</td></tr>';return}
-t.innerHTML=f.map(function(u){var tags=[u.role||"user"];if(u.user_tag)u.user_tag.split(/[,，\s]+/).forEach(function(x){x=x.trim();if(x&&tags.indexOf(x)<0)tags.push(x)});
-var th=tags.map(function(t){var c=["admin","super_admin","operator","user"].indexOf(t)>=0?"tag-"+t:"tag-custom";return'<span class="tag-badge '+c+'">'+t+'</span>'}).join("");
-var a=u.avatar?'<img src="'+u.avatar+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover">':"-";
-var ll=u.lastLoginAt?u.lastLoginAt.split("T")[0]:"从未";var g=(u.gardenStats&&u.gardenStats.totalGardens)?u.gardenStats.totalGardens:0;
-return'<tr><td class="truncate">'+(u.username||"-")+'</td><td>'+(u.nickname||"-")+'</td><td>'+a+'</td><td>'+(u.locationAddress||"-")+'</td><td>'+g+'</td><td class="muted">'+ll+'</td><td>'+th+'</td><td><button class="btn btn-ghost btn-sm" data-action="tag" data-id="'+u._id+'">+标签</button> <button class="btn btn-ghost btn-sm" data-action="edit" data-id="'+u._id+'">编辑</button> <button class="btn btn-danger btn-sm" data-action="del" data-id="'+u._id+'">删除</button></td></tr>'}).join("")}
+var selectedIds={};
+function tagOf(name){for(var i=0;i<TAG_POOL.length;i++)if(TAG_POOL[i].name===name)return TAG_POOL[i];return null}
+function renderTagChip(name,removable,uid){
+  var t=tagOf(name);var col=t?t.color:"#1890ff";var bg=t?t.bg:"#e6f7ff";var bd=t?t.border:"#91d5ff";
+  var rm=removable?'<span class="rm" data-rmtag="'+name+'" data-uid="'+uid+'">×</span>':"";
+  return '<span class="tag-chip" style="color:'+col+';background:'+bg+';border-color:'+bd+'">'+name+rm+'</span>';
+}
+function userTags(u){return (u.user_tag||"").split(/[,\uff0c\s]+/).map(function(x){return x.trim()}).filter(function(x){return x})}
+function renderUsers(){
+  var s=(document.getElementById("searchInput").value||"").toLowerCase();
+  var r=document.getElementById("roleFilter").value;
+  var tf=document.getElementById("tagFilter").value;
+  var f=currentUsers.filter(function(u){
+    if(r&&u.role!==r)return false;
+    if(tf&&userTags(u).indexOf(tf)<0)return false;
+    if(!s)return true;
+    return((u.username||"")+(u.nickname||"")+(u.phone||"")+(u.user_tag||"")).toLowerCase().indexOf(s)>=0
+  });
+  var t=document.getElementById("userTableBody");
+  if(!f.length){t.innerHTML='<tr><td colspan=9 style="text-align:center;padding:20px;color:#999">无数据</td></tr>';return}
+  t.innerHTML=f.map(function(u){
+    var chips=userTags(u).map(function(n){return renderTagChip(n,true,u._id)}).join("");
+    var role='<span class="tag-badge tag-'+(u.role||"user")+'">'+(u.role||"user")+'</span>';
+    var a=u.avatar?'<img src="'+u.avatar+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover">':"-";
+    var ll=u.lastLoginAt?u.lastLoginAt.split("T")[0]:"从未";
+    var g=(u.gardenStats&&u.gardenStats.totalGardens)?u.gardenStats.totalGardens:0;
+    var ck=selectedIds[u._id]?"checked":"";
+    return'<tr><td><input type="checkbox" class="row-check" data-id="'+u._id+'" '+ck+'></td><td class="truncate">'+(u.username||"-")+'</td><td>'+(u.nickname||"-")+'</td><td>'+a+'</td><td>'+(u.locationAddress||"-")+'</td><td>'+g+'</td><td class="muted">'+ll+'</td><td>'+role+' '+chips+'</td><td><button class="btn btn-ghost btn-sm" data-action="tag" data-id="'+u._id+'">🏷️</button> <button class="btn btn-ghost btn-sm" data-action="edit" data-id="'+u._id+'">编辑</button> <button class="btn btn-danger btn-sm" data-action="del" data-id="'+u._id+'">删除</button></td></tr>'
+  }).join("");
+  updateBatchBar();
+}
+function updateBatchBar(){
+  var n=Object.keys(selectedIds).length;
+  document.getElementById("batchCount").textContent=n;
+  document.getElementById("batchBar").classList.toggle("on",n>0);
+}
 
-document.getElementById("userTableBody").addEventListener("click",function(e){var b=e.target.closest("button[data-action]");if(!b)return;var id=b.dataset.id;
-if(b.dataset.action==="tag")openTagModal(id);else if(b.dataset.action==="edit")alert("编辑:"+id);else if(b.dataset.action==="del"){if(confirm("确定删除？"))alert("删除:"+id)}});
+// 12-color palette
+var PALETTE=[
+  {color:"#722ed1",bg:"#f9f0ff",border:"#d3adf7",label:"紫"},
+  {color:"#eb2f96",bg:"#fff0f6",border:"#ffadd2",label:"粉"},
+  {color:"#fa541c",bg:"#fff2e8",border:"#ffbb96",label:"橙"},
+  {color:"#faad14",bg:"#fffbe6",border:"#ffe58f",label:"金"},
+  {color:"#52c41a",bg:"#f6ffed",border:"#b7eb8f",label:"绿"},
+  {color:"#13c2c2",bg:"#e6fffb",border:"#87e8de",label:"青"},
+  {color:"#1890ff",bg:"#e6f7ff",border:"#91d5ff",label:"蓝"},
+  {color:"#2f54eb",bg:"#f0f5ff",border:"#adc6ff",label:"靛"},
+  {color:"#a0522d",bg:"#fff7e6",border:"#f4a460",label:"棕"},
+  {color:"#08979c",bg:"#e6fffb",border:"#5cdbd3",label:"松"},
+  {color:"#7cb305",bg:"#fcffe6",border:"#d3f261",label:"柳"},
+  {color:"#c41d7f",bg:"#fff0f6",border:"#ffd6e7",label:"玫"}
+];
+var TAG_API="/api/tags";
+function loadTagPool(cb){
+  fetch(TAG_API+"?scope=user",{headers:H}).then(function(r){return r.json()}).then(function(d){
+    TAG_POOL=d.data||[];
+    var sel=document.getElementById("tagFilter");
+    var cur=sel.value;
+    sel.innerHTML='<option value="">按标签筛选</option>'+TAG_POOL.map(function(t){return '<option value="'+t.name+'">'+t.name+' ('+t.usage_count+')</option>'}).join("");
+    sel.value=cur;
+    if(cb)cb()
+  }).catch(function(){})
+}
 
-function openTagModal(uid){tagUserId=uid;var u=currentUsers.find(function(x){return x._id===uid});
-var ct=(u&&u.user_tag)?u.user_tag.split(/[,，\s]+/).map(function(t){return t.trim()}).filter(function(t){return t}):[];
-var g=document.getElementById("tagGrid");g.innerHTML="";
-PRESET_TAGS.forEach(function(t){var d=document.createElement("div");d.className="tag-pick"+(ct.indexOf(t)>=0?" on":"");d.textContent=t;d.dataset.tag=t;
-d.addEventListener("click",function(){d.classList.toggle("on")});g.appendChild(d)});document.getElementById("tagModal").classList.add("show")}
+document.getElementById("userTableBody").addEventListener("click",function(e){
+  var ck=e.target.closest("input.row-check");
+  if(ck){var id=ck.dataset.id;if(ck.checked)selectedIds[id]=1;else delete selectedIds[id];updateBatchBar();return}
+  var rm=e.target.closest("[data-rmtag]");
+  if(rm){var uid=rm.dataset.uid;var tag=rm.dataset.rmtag;
+    var u=currentUsers.find(function(x){return x._id===uid});if(!u)return;
+    var arr=userTags(u).filter(function(x){return x!==tag});
+    saveUserTags(uid,arr,function(){showToast("已移除 "+tag);loadTagPool()});return
+  }
+  var b=e.target.closest("button[data-action]");if(!b)return;var id=b.dataset.id;
+  if(b.dataset.action==="tag")openTagModal(id);
+  else if(b.dataset.action==="edit")alert("编辑:"+id);
+  else if(b.dataset.action==="del"){if(confirm("确定删除？"))alert("删除:"+id)}
+});
 
-document.getElementById("btnCloseTag").addEventListener("click",function(){document.getElementById("tagModal").classList.remove("show");tagUserId=null});
-document.getElementById("btnSaveTag").addEventListener("click",function(){if(!tagUserId)return;
-var sel=[];document.querySelectorAll("#tagGrid .tag-pick.on").forEach(function(el){sel.push(el.dataset.tag)});
-var tags=sel.join(", ");
-fetch(API+"/users/"+tagUserId,{method:"PATCH",headers:H,body:JSON.stringify({user_tag:tags})}).then(function(r){return r.json()}).then(function(){
-showToast("标签已更新");var u=currentUsers.find(function(x){return x._id===tagUserId});if(u)u.user_tag=tags;
-document.getElementById("tagModal").classList.remove("show");tagUserId=null;renderUsers()}).catch(function(){showToast("网络错误","err")})});
+document.getElementById("chkAll").addEventListener("change",function(e){
+  var on=e.target.checked;
+  document.querySelectorAll(".row-check").forEach(function(x){x.checked=on;if(on)selectedIds[x.dataset.id]=1;else delete selectedIds[x.dataset.id]});
+  updateBatchBar()
+});
+document.getElementById("btnClearSel").addEventListener("click",function(){selectedIds={};document.querySelectorAll(".row-check").forEach(function(x){x.checked=false});updateBatchBar()});
+
+function saveUserTags(uid,arr,cb){
+  var tags=arr.join(", ");
+  fetch(API+"/users/"+uid,{method:"PATCH",headers:H,body:JSON.stringify({user_tag:tags})})
+    .then(function(r){return r.json()}).then(function(){
+      var u=currentUsers.find(function(x){return x._id===uid});if(u)u.user_tag=tags;
+      renderUsers();if(cb)cb()
+    }).catch(function(){showToast("网络错误","err")})
+}
+
+function openTagModal(uid){
+  tagUserId=uid;
+  var u=currentUsers.find(function(x){return x._id===uid});
+  document.getElementById("tmTitle").textContent="🏷️ 用户标签 · "+(u&&(u.nickname||u.username)||"");
+  document.getElementById("tmSearch").value="";
+  var ct=u?userTags(u):[];
+  renderTagPickerGrid("tagGrid",ct,"tmSearch");
+  document.getElementById("tagModal").style.display="flex";
+}
+function renderTagPickerGrid(gridId,selected,searchId){
+  var s=(document.getElementById(searchId).value||"").toLowerCase();
+  var g=document.getElementById(gridId);g.innerHTML="";
+  TAG_POOL.filter(function(t){return !s||t.name.toLowerCase().indexOf(s)>=0}).forEach(function(t){
+    var on=selected.indexOf(t.name)>=0;
+    var d=document.createElement("span");
+    d.className="tag-chip"+(on?" on-sel":"");
+    d.style.cssText="color:"+t.color+";background:"+t.bg+";border-color:"+t.border+";cursor:pointer;user-select:none;"+(on?"outline:2px solid "+t.color:"");
+    d.innerHTML=t.name+' <span class="count">×'+t.usage_count+'</span>';
+    d.dataset.tag=t.name;
+    d.addEventListener("click",function(){
+      if(d.classList.contains("on-sel")){d.classList.remove("on-sel");d.style.outline=""}
+      else{d.classList.add("on-sel");d.style.outline="2px solid "+t.color}
+    });
+    g.appendChild(d)
+  })
+}
+document.getElementById("tmSearch").addEventListener("input",function(){
+  var u=currentUsers.find(function(x){return x._id===tagUserId});
+  var picked=[];document.querySelectorAll("#tagGrid .tag-chip.on-sel").forEach(function(el){picked.push(el.dataset.tag)});
+  var cur=(u?userTags(u):[]).concat(picked.filter(function(x){return (u?userTags(u):[]).indexOf(x)<0}));
+  renderTagPickerGrid("tagGrid",cur,"tmSearch")
+});
+document.getElementById("btnCloseTag").addEventListener("click",function(){document.getElementById("tagModal").style.display="none";tagUserId=null});
+document.getElementById("btnCancelTag").addEventListener("click",function(){document.getElementById("tagModal").style.display="none";tagUserId=null});
+document.getElementById("btnSaveTag").addEventListener("click",function(){
+  if(!tagUserId)return;
+  var sel=[];document.querySelectorAll("#tagGrid .tag-chip.on-sel").forEach(function(el){sel.push(el.dataset.tag)});
+  saveUserTags(tagUserId,sel,function(){showToast("标签已更新");document.getElementById("tagModal").style.display="none";tagUserId=null;loadTagPool()})
+});
+
+// ==== TAG POOL MANAGER ====
+var poolColor=PALETTE[0];
+function renderPoolSwatches(){
+  var box=document.getElementById("poolSwatches");box.innerHTML="";
+  PALETTE.forEach(function(p,i){
+    var d=document.createElement("div");
+    d.className="tm-sw"+(p===poolColor?" on":"");
+    d.style.background=p.color;d.textContent=p.label;
+    d.addEventListener("click",function(){poolColor=p;renderPoolSwatches();updatePreview()});
+    box.appendChild(d)
+  })
+}
+function updatePreview(){
+  var n=document.getElementById("poolNewName").value.trim();var pv=document.getElementById("poolPreview");
+  if(!n){pv.style.display="none";return}
+  pv.style.display="inline-block";pv.textContent=n;
+  pv.style.color=poolColor.color;pv.style.background=poolColor.bg;pv.style.borderColor=poolColor.border;
+}
+document.getElementById("poolNewName").addEventListener("input",updatePreview);
+function renderPoolList(){
+  var s=(document.getElementById("poolSearch").value||"").toLowerCase();
+  var g=document.getElementById("poolList");g.innerHTML="";
+  TAG_POOL.filter(function(t){return !s||t.name.toLowerCase().indexOf(s)>=0}).forEach(function(t){
+    var d=document.createElement("span");d.className="tag-chip";
+    d.style.cssText="color:"+t.color+";background:"+t.bg+";border-color:"+t.border;
+    d.innerHTML=t.name+' <span class="count">×'+t.usage_count+'</span> <span class="rm" data-del="'+t.name+'">×</span>';
+    g.appendChild(d)
+  })
+}
+document.getElementById("poolSearch").addEventListener("input",renderPoolList);
+document.getElementById("poolList").addEventListener("click",function(e){
+  var d=e.target.closest("[data-del]");if(!d)return;
+  var name=d.dataset.del;if(!confirm("删除标签 "+name+" ？这将从所有用户上移除。"))return;
+  fetch(TAG_API+"/"+encodeURIComponent(name),{method:"DELETE",headers:H}).then(function(r){return r.json()}).then(function(){
+    showToast("已删除 "+name);loadTagPool(function(){renderPoolList();renderUsers()})
+  }).catch(function(){showToast("删除失败","err")})
+});
+document.getElementById("btnPoolCreate").addEventListener("click",function(){
+  var n=document.getElementById("poolNewName").value.trim();if(!n){showToast("请填名称","err");return}
+  fetch(TAG_API,{method:"POST",headers:H,body:JSON.stringify({name:n,color:poolColor.color,bg:poolColor.bg,border:poolColor.border,scope:"user"})})
+    .then(function(r){return r.json()}).then(function(){
+      document.getElementById("poolNewName").value="";updatePreview();showToast("已创建 "+n);loadTagPool(renderPoolList)
+    }).catch(function(){showToast("创建失败","err")})
+});
+document.getElementById("btnTagPool").addEventListener("click",function(){renderPoolSwatches();renderPoolList();document.getElementById("poolModal").style.display="flex"});
+document.getElementById("btnClosePool").addEventListener("click",function(){document.getElementById("poolModal").style.display="none"});
+
+// ==== BATCH TAG ====
+var batchSel={};
+function renderBatchGrid(){
+  var s=(document.getElementById("batchSearch").value||"").toLowerCase();
+  var g=document.getElementById("batchGrid");g.innerHTML="";
+  TAG_POOL.filter(function(t){return !s||t.name.toLowerCase().indexOf(s)>=0}).forEach(function(t){
+    var on=batchSel[t.name];
+    var d=document.createElement("span");d.className="tag-chip";
+    d.style.cssText="color:"+t.color+";background:"+t.bg+";border-color:"+t.border+";cursor:pointer;user-select:none;"+(on?"outline:2px solid "+t.color:"");
+    d.innerHTML=t.name+' <span class="count">×'+t.usage_count+'</span>';
+    d.addEventListener("click",function(){if(batchSel[t.name])delete batchSel[t.name];else batchSel[t.name]=1;renderBatchGrid()});
+    g.appendChild(d)
+  })
+}
+document.getElementById("batchSearch").addEventListener("input",renderBatchGrid);
+document.getElementById("btnBatchTag").addEventListener("click",function(){
+  var n=Object.keys(selectedIds).length;if(!n){showToast("请先选择用户","err");return}
+  document.getElementById("batchCount2").textContent=n;batchSel={};renderBatchGrid();
+  document.getElementById("batchModal").style.display="flex"
+});
+document.getElementById("btnCloseBatch").addEventListener("click",function(){document.getElementById("batchModal").style.display="none"});
+document.getElementById("btnCancelBatch").addEventListener("click",function(){document.getElementById("batchModal").style.display="none"});
+document.getElementById("btnApplyBatch").addEventListener("click",function(){
+  var tags=Object.keys(batchSel);if(!tags.length){showToast("请至少选择一个标签","err");return}
+  var mode=document.querySelector('input[name="batchMode"]:checked').value;
+  var ids=Object.keys(selectedIds);
+  var ps=ids.map(function(id){
+    var u=currentUsers.find(function(x){return x._id===id});
+    var cur=userTags(u);var next;
+    if(mode==="append"){next=cur.slice();tags.forEach(function(t){if(next.indexOf(t)<0)next.push(t)})}
+    else if(mode==="remove"){next=cur.filter(function(t){return tags.indexOf(t)<0})}
+    else{next=tags.slice()}
+    return fetch(API+"/users/"+id,{method:"PATCH",headers:H,body:JSON.stringify({user_tag:next.join(", ")})}).then(function(r){return r.json()}).then(function(){if(u)u.user_tag=next.join(", ")})
+  });
+  Promise.all(ps).then(function(){
+    var modeLabels={append:"追加",remove:"移除",replace:"覆盖"};
+    showToast("已"+modeLabels[mode]+" "+ids.length+" 个用户");
+    document.getElementById("batchModal").style.display="none";
+    selectedIds={};document.getElementById("chkAll").checked=false;
+    loadTagPool(function(){renderUsers()})
+  }).catch(function(){showToast("批量失败","err")})
+});
+document.getElementById("tagFilter").addEventListener("change",renderUsers);
+
+// initial pool load
+loadTagPool(function(){renderUsers()});
 
 document.getElementById("btnAddUser").addEventListener("click",function(){document.getElementById("addModal").classList.add("show")});
 document.getElementById("btnCloseAdd").addEventListener("click",function(){document.getElementById("addModal").classList.remove("show")});
