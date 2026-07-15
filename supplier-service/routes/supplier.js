@@ -10,7 +10,7 @@ const PG_KEY = process.env.PG_API_KEY || '***REMOVED_API_KEY***';
 async function fetchPgSupplierMeta(mongoIds) {
   if (!mongoIds || !mongoIds.length) return {};
   try {
-    const sql = "SELECT mongo_id, tags, source_project, attributes FROM plant_collector.suppliers WHERE mongo_id = ANY($1::text[])";
+    const sql = "SELECT mongo_id, tags, source_project, attributes FROM public.suppliers WHERE mongo_id = ANY($1::text[])";
     const resp = await axios.post(`${PG_GW}/api/pg/supply_chain/query`,
       { sql, params: [mongoIds] }, { headers: { 'x-api-key': PG_KEY }, timeout: 5000 });
     const map = {};

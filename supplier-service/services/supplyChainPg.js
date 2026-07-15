@@ -21,7 +21,7 @@ async function mirrorUpsert(doc) {
   try {
     const p = getPool();
     await p.query(`
-      INSERT INTO plant_collector.suppliers
+      INSERT INTO public.suppliers
         (mongo_id, project, name, shop_name, status, contact, contacts, company_info, business_items,
          address, planting_area, estimated_inventory, sales_period, location, contract_files,
          license_files, dispatch_files, notes, product_count, product_ids, sort_order, peony_alliance, updated_at)
@@ -49,7 +49,7 @@ async function mirrorUpsert(doc) {
 }
 async function mirrorDelete(mongoId) {
   try {
-    await getPool().query('DELETE FROM plant_collector.suppliers WHERE mongo_id=$1', [String(mongoId)]);
+    await getPool().query('DELETE FROM public.suppliers WHERE mongo_id=$1', [String(mongoId)]);
   } catch (e) { console.warn('[pg-mirror delete] fail', mongoId, e.message); }
 }
 

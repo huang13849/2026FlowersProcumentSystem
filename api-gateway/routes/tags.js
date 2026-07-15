@@ -60,7 +60,7 @@ router.delete('/:name', async (req, res) => {
     await pool.query(`UPDATE plant_collector.user_profiles SET tags = array_remove(tags, $1) WHERE $1 = ANY(tags)`, [name]);
     // 从 flower_internet_supplier.tags 中移除
     await pool.query(`UPDATE public.flower_internet_supplier SET tags = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM jsonb_array_elements_text(tags) x WHERE x <> $1) WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
-    await pool.query(`UPDATE plant_collector.suppliers SET tags = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM jsonb_array_elements_text(tags) x WHERE x <> $1) WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
+    await pool.query(`UPDATE public.suppliers SET tags = (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM jsonb_array_elements_text(tags) x WHERE x <> $1) WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
     // 删除标签
     const r = await pool.query(`DELETE FROM plant_collector.tags WHERE name = $1`, [name]);
     // TODO: 同步清 Mongo product.sceneTags —— 由 product-service 提供 hook 或此处 axios 调用
@@ -90,18 +90,18 @@ router.post('/apply', async (req, res) => {
         sql = `UPDATE plant_collector.user_profiles SET tags = (SELECT ARRAY(SELECT DISTINCT unnest(COALESCE(tags,'{}'::text[]) || $1::text[]))) WHERE zid = ANY($2::text[])`;
       }
     } else if (entity === 'supplier') {
-      // plant_collector.suppliers.tags is JSONB, keyed by mongo_id
+      // public.suppliers.tags is JSONB, keyed by mongo_id
       if (mode === 'remove') {
-        sql = `UPDATE plant_collector.suppliers
+        sql = `UPDATE public.suppliers
                  SET tags = (SELECT COALESCE(jsonb_agg(x),'[]'::jsonb) FROM jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) x WHERE NOT (x = ANY($1::text[]))),
                      updated_at = NOW()
                WHERE mongo_id = ANY($2::text[])`;
       } else if (mode === 'set') {
-        sql = `UPDATE plant_collector.suppliers
+        sql = `UPDATE public.suppliers
                  SET tags = to_jsonb($1::text[]), updated_at = NOW()
                WHERE mongo_id = ANY($2::text[])`;
       } else {
-        sql = `UPDATE plant_collector.suppliers
+        sql = `UPDATE public.suppliers
                  SET tags = (SELECT jsonb_agg(DISTINCT x) FROM (
                        SELECT jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) AS x
                        UNION SELECT unnest($1::text[]) AS x) u),
