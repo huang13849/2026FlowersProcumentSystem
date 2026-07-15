@@ -4,7 +4,7 @@ const { fromReq } = require('../services/supplierService');
 
 
 // ── PG tags enrichment ────────────────────────────────────
-const PG_GW = process.env.PG_GATEWAY_URL || 'http://api-gateway:8080';
+const PG_GW = process.env.PG_GATEWAY_URL || 'http://api-gateway:3007';
 const PG_KEY = process.env.PG_API_KEY || '***REMOVED_API_KEY***';
 async function fetchPgSupplierMeta(mongoIds) {
   if (!mongoIds || !mongoIds.length) return {};
