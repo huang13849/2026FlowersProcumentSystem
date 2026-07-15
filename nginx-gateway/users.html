@@ -396,7 +396,7 @@ var PALETTE=[
 var TAG_API="/api/tags";
 function loadTagPool(cb){
   fetch(TAG_API+"?scope=user",{headers:H}).then(function(r){return r.json()}).then(function(d){
-    TAG_POOL=d.data||[];
+    var _raw=d.data||[];var _s={};TAG_POOL=[];_raw.forEach(function(t){if(!t||!t.name)return;var k=String(t.name).trim();if(_s[k])return;_s[k]=1;TAG_POOL.push(t)});
     var sel=document.getElementById("tagFilter");
     var cur=sel.value;
     sel.innerHTML='<option value="">按标签筛选</option>'+TAG_POOL.map(function(t){return '<option value="'+t.name+'">'+t.name+' ('+t.usage_count+')</option>'}).join("");
@@ -1181,7 +1181,9 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
   function refreshTagPool(cb){
     fetch('/api/tags?scope=user',{headers:{'x-api-key':'***REMOVED_API_KEY***'}})
       .then(function(r){return r.json()}).then(function(d){
-        window.__TAG_POOL = d.data || [];
+        var _raw = d.data || [];
+        var _seen={}; var _uniq=[]; _raw.forEach(function(t){if(!t||!t.name)return;var k=String(t.name).trim();if(_seen[k])return;_seen[k]=1;_uniq.push(t)});
+        window.__TAG_POOL = _uniq;
         window.__TAG_POOL_MAP = {};
         window.__TAG_POOL.forEach(function(t){window.__TAG_POOL_MAP[t.name]={color:t.color,bg:t.bg,border:t.border}});
         var sel = document.getElementById('uaTagF');
