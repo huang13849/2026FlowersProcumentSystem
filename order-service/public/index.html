@@ -294,6 +294,17 @@ function App() {
   const [search, setSearch] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [monthFilter, setMonthFilter] = useState(''); // YYYY-MM
+  const [tagPool, setTagPool] = React.useState([]);
+  const [showTagMgr, setShowTagMgr] = React.useState(false);
+  const [showBatchTag, setShowBatchTag] = React.useState(false);
+  const fetchTagPool = React.useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/tags?scope=order`);
+      const j = await r.json();
+      setTagPool(j.data || []);
+    } catch (e) {}
+  }, []);
+  React.useEffect(() => { fetchTagPool(); }, []);
   const [stats, setStats] = useState([]);
   const [amountStats, setAmountStats] = useState({ total_income: 0, total_shipping: 0, total_coupon: 0, row_count: 0 });
   const [region, setRegion] = useState('cn');
@@ -468,6 +479,21 @@ const columns = [
       editable: false,
     },
     {
+      title: '标签',
+      dataIndex: 'tags',
+      width: 200,
+      editable: false,
+      render: (val, record) => (
+        <OrderTagCell value={val || []} onChange={async (next) => {
+          await fetch(`${API_BASE}/api/orders/${record.id}`, {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ tags: next }),
+          });
+          fetchData(pagination.current);
+        }} />
+      ),
+    },
+        {
       title: '收货人',
       dataIndex: 'consignee',
       width: 100,
@@ -532,22 +558,7 @@ const columns = [
       editableType: 'select',
       options: businessTypeOptions.filter(o => o.value !== '全部'),
     },
-    {
-      title: '标签',
-      dataIndex: 'tags',
-      width: 200,
-      editable: false,
-      render: (val, record) => (
-        <OrderTagCell value={val || []} onChange={async (next) => {
-          await fetch(`${API_BASE}/api/orders/${record.id}`, {
-            method: 'PUT', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ tags: next }),
-          });
-          fetchData(pagination.current);
-        }} />
-      ),
-    },
-    {
+{
       title: '订单时间',
       dataIndex: 'purchase_time',
       width: 180,
@@ -636,6 +647,8 @@ const columns = [
           <Select value={shopName || '全部'} onChange={(v) => { setShopName(v); fetchData(1, 20, search, businessType, region, v); fetchAmountStats(search, businessType, region, v); }}
             style={{ width: 120 }} options={targetShopOptions} />
           <Button type="primary" onClick={handleAdd}>+ 新增行</Button>
+          <Button onClick={() => setShowTagMgr(true)} style={{background:'#f9f0ff',color:'#722ed1',borderColor:'#d3adf7'}}>🏷️ 标签管理</Button>
+          <Button onClick={() => setShowBatchTag(true)} disabled={!hasSelected} style={{background:'#e8eaf6',color:'#3949ab',borderColor:'#c5cae9'}}>🏷️ 批量打标签 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
           <Button onClick={handleDuplicate} disabled={!hasSelected}>📋 复制选中 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
           <Popconfirm title={`确定删除选中的 ${selectedRowKeys.length} 条记录？`} onConfirm={handleBatchDelete} disabled={!hasSelected}>
             <Button danger disabled={!hasSelected}>🗑 删除选中 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
@@ -690,9 +703,155 @@ const columns = [
         <div style={{marginTop:8,color:'#999',fontSize:12}}>💡 订单由同步服务按 pfid→xx_platform.id 导入 | 可按店铺筛选 | 双击单元格编辑 | 支付/运费/优惠列可查看与编辑 | 点击购买产品区"+"选取商品(可多选) | 个人标签可添加多个 | 勾选记录后复制/删除</div>
       </div>
       <ProductPicker visible={pickerVisible} onCancel={() => setPickerVisible(false)} onConfirm={handleProductConfirm} existingProducts={pickingExisting} />
+      {showTagMgr && <OrderTagManagerModal tagPool={tagPool} onClose={() => setShowTagMgr(false)} onChanged={fetchTagPool} />}
+      {showBatchTag && <OrderBatchTagModal ids={selectedRowKeys} tagPool={tagPool} onClose={() => setShowBatchTag(false)} onSaved={() => { setShowBatchTag(false); setSelectedRowKeys([]); fetchData(pagination.current); fetchTagPool(); }} />}
     </div>
   );
 }
+
+
+
+// ============ 订单 · 标签管理 ============
+function OrderTagManagerModal({ tagPool, onClose, onChanged }) {
+  const [items, setItems] = React.useState(tagPool || []);
+  const [name, setName] = React.useState('');
+  const [color, setColor] = React.useState('#722ed1');
+  const [bg, setBg] = React.useState('#f9f0ff');
+  const [border, setBorder] = React.useState('#d3adf7');
+  const [busy, setBusy] = React.useState(false);
+  const refresh = async () => {
+    const r = await fetch(`${API_BASE}/api/tags?scope=order`);
+    const d = await r.json();
+    if (d.success) setItems(d.data || []);
+    onChanged && onChanged();
+  };
+  const add = async () => {
+    const nm = name.trim();
+    if (!nm) return message.warning('请输入标签名');
+    setBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/tags`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nm, color, bg, border, scope: ['order'] })
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || '添加失败');
+      setName(''); await refresh();
+    } catch (e) { message.error(e.message); }
+    setBusy(false);
+  };
+  const del = async (nm) => {
+    if (!confirm('确认删除标签[' + nm + ']？已打上此标签的订单不会被删除，但会失去该标签。')) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/tags/${encodeURIComponent(nm)}`, { method: 'DELETE' });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || '删除失败');
+      await refresh();
+    } catch (e) { message.error(e.message); }
+  };
+  const PALETTE = [
+    { color: '#722ed1', bg: '#f9f0ff', border: '#d3adf7', label: '紫' },
+    { color: '#eb2f96', bg: '#fff0f6', border: '#ffadd2', label: '粉' },
+    { color: '#fa541c', bg: '#fff2e8', border: '#ffbb96', label: '橙' },
+    { color: '#faad14', bg: '#fffbe6', border: '#ffe58f', label: '金' },
+    { color: '#52c41a', bg: '#f6ffed', border: '#b7eb8f', label: '绿' },
+    { color: '#13c2c2', bg: '#e6fffb', border: '#87e8de', label: '青' },
+    { color: '#1890ff', bg: '#e6f7ff', border: '#91d5ff', label: '蓝' },
+    { color: '#2f54eb', bg: '#f0f5ff', border: '#adc6ff', label: '靖' },
+    { color: '#a0522d', bg: '#fff7e6', border: '#f4a460', label: '棕' },
+    { color: '#08979c', bg: '#e6fffb', border: '#5cdbd3', label: '松' },
+    { color: '#7cb305', bg: '#fcffe6', border: '#d3f261', label: '柳' },
+    { color: '#c41d7f', bg: '#fff0f6', border: '#ffd6e7', label: '玫' },
+  ];
+  return (
+    <Modal open={true} onCancel={onClose} footer={null} width={600}
+      title={<span style={{color:'#722ed1'}}>🏷️ 订单标签池 · 管理</span>}>
+      <div style={{ background: '#fafafa', padding: 14, borderRadius: 8, marginBottom: 16, border: '1px solid #f0f0f0' }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 8, fontWeight: 600 }}>➕ 新增标签</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="标签名（如：北京花卉订单、VIP、退款订单...）"
+            style={{ flex: 1, padding: '6px 10px', border: '1px solid #d9d9d9', borderRadius: 6, fontSize: 12, outline: 'none' }} />
+          <Button type="primary" loading={busy} onClick={add} disabled={!name.trim()} style={{background:'#722ed1',borderColor:'#722ed1'}}>添加</Button>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#999' }}>配色：</span>
+          {PALETTE.map((pl, i) => (
+            <span key={i} onClick={() => { setColor(pl.color); setBg(pl.bg); setBorder(pl.border); }}
+              title={pl.label}
+              style={{ cursor: 'pointer', padding: '2px 10px', borderRadius: 10, background: pl.bg, color: pl.color, border: '2px solid ' + (color === pl.color ? pl.color : pl.border), fontSize: 11, fontWeight: 600 }}>
+              {pl.label}
+            </span>
+          ))}
+          <span style={{ marginLeft: 6, padding: '2px 10px', borderRadius: 10, background: bg, color, border: '1px solid ' + border, fontSize: 11, fontWeight: 600 }}>{name || '预览'}</span>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: '#666', marginBottom: 8, fontWeight: 600 }}>📋 现有标签 ({items.length})</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 320, overflow: 'auto' }}>
+        {items.length === 0 && <div style={{ color: '#999', fontSize: 12, padding: 20, width: '100%', textAlign: 'center' }}>暂无标签</div>}
+        {items.map(t => (
+          <div key={t.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 6px 4px 10px', borderRadius: 14, background: t.bg || '#f9f0ff', border: '1px solid ' + (t.border || '#d3adf7') }}>
+            <span style={{ color: t.color || '#722ed1', fontSize: 12, fontWeight: 500 }}>{t.name}</span>
+            {t.usage_count > 0 && <span style={{ color: '#999', fontSize: 10 }}>x{t.usage_count}</span>}
+            <button onClick={() => del(t.name)} title="删除"
+              style={{ border: 'none', background: 'rgba(0,0,0,0.06)', color: '#666', borderRadius: '50%', width: 18, height: 18, cursor: 'pointer', fontSize: 12, lineHeight: '18px', padding: 0 }}>×</button>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
+// ============ 订单 · 批量打标签 ============
+function OrderBatchTagModal({ ids, tagPool, onClose, onSaved }) {
+  const [selected, setSelected] = React.useState(new Set());
+  const [mode, setMode] = React.useState('add');
+  const [busy, setBusy] = React.useState(false);
+  const toggle = (n) => { const x = new Set(selected); if (x.has(n)) x.delete(n); else x.add(n); setSelected(x); };
+  const save = async () => {
+    if (selected.size === 0) return message.warning('请先选择标签');
+    setBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/tags/apply`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'order', ids, tags: [...selected], mode })
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || '保存失败');
+      message.success(`已${mode==='add'?'追加':mode==='remove'?'移除':'覆盖'}到 ${d.updated} 条订单`);
+      onSaved();
+    } catch (e) { message.error(e.message); setBusy(false); }
+  };
+  return (
+    <Modal open={true} onCancel={onClose} footer={null} width={520}
+      title={<span style={{color:'#3949ab'}}>🏷️ 批量打标签 · {ids.length} 条订单</span>}>
+      <div style={{ marginBottom: 12, display: 'flex', gap: 12 }}>
+        <label style={{ fontSize: 12, cursor: 'pointer' }}><input type="radio" checked={mode === 'add'} onChange={() => setMode('add')} /> 追加</label>
+        <label style={{ fontSize: 12, cursor: 'pointer' }}><input type="radio" checked={mode === 'remove'} onChange={() => setMode('remove')} /> 移除</label>
+        <label style={{ fontSize: 12, cursor: 'pointer' }}><input type="radio" checked={mode === 'set'} onChange={() => setMode('set')} /> 覆盖</label>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16, maxHeight: 320, overflow: 'auto' }}>
+        {tagPool.map(t => {
+          const on = selected.has(t.name);
+          return (
+            <span key={t.name} onClick={() => toggle(t.name)}
+              style={{ cursor: 'pointer', padding: '4px 12px', borderRadius: 12, fontSize: 12, background: on ? (t.bg || '#f9f0ff') : '#fff', color: on ? (t.color || '#722ed1') : '#888', border: '1px solid ' + (on ? (t.border || '#d3adf7') : '#ddd'), fontWeight: on ? 600 : 400 }}>
+              {on ? '✓ ' : ''}{t.name}{t.usage_count > 0 ? ` (${t.usage_count})` : ''}
+            </span>
+          );
+        })}
+        {tagPool.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>标签池为空，请先到「🏷️ 标签管理」新建</span>}
+      </div>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <Button onClick={onClose}>取消</Button>
+        <Button type="primary" loading={busy} onClick={save} disabled={selected.size === 0}
+          style={{background:'#3949ab',borderColor:'#3949ab'}}>
+          应用到 {ids.length} 条
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>

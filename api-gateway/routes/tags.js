@@ -170,10 +170,29 @@ router.post('/apply', async (req, res) => {
       } else {
         sql = `UPDATE public.flower_internet_supplier SET tags = (SELECT jsonb_agg(DISTINCT x) FROM (SELECT jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) AS x UNION SELECT unnest($1::text[]) AS x) u) WHERE siteshop_id = ANY($2::int[])`;
       }
+    } else if (entity === 'order') {
+      if (mode === 'remove') {
+        sql = `UPDATE public.purchase_orders
+                 SET tags = (SELECT COALESCE(jsonb_agg(x),'[]'::jsonb) FROM jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) x WHERE NOT (x = ANY($1::text[]))),
+                     updated_at = NOW()
+               WHERE id = ANY($2::int[])`;
+      } else if (mode === 'set') {
+        sql = `UPDATE public.purchase_orders
+                 SET tags = to_jsonb($1::text[]), updated_at = NOW()
+               WHERE id = ANY($2::int[])`;
+      } else {
+        sql = `UPDATE public.purchase_orders
+                 SET tags = (SELECT jsonb_agg(DISTINCT x) FROM (
+                       SELECT jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) AS x
+                       UNION SELECT unnest($1::text[]) AS x) u),
+                     updated_at = NOW()
+               WHERE id = ANY($2::int[])`;
+      }
     } else {
-      return res.status(400).json({ success: false, error: 'entity must be user|supplier|product|internet_supplier' });
+      return res.status(400).json({ success: false, error: 'entity must be user|supplier|product|internet_supplier|order' });
     }
     const idsCast = (entity === 'user' || entity === 'supplier') ? ids.map(String) : ids.map(x => parseInt(x, 10)).filter(n => !isNaN(n));
+    // order uses int ids like internet_supplier (fallthrough already handles it)
     const r = await pool.query(sql, [tags, idsCast]);
     res.json({ success: true, updated: r.rowCount });
   } catch (err) {
