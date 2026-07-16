@@ -73,6 +73,20 @@ async function ensureOrderSchema() {
   for (const sql of alters) await pgPool.query(sql);
 }
 
+function autoDefaultTags(src = {}) {
+  const inbound = Array.isArray(src.tags) ? src.tags.slice() : [];
+  // Auto-tags:
+  //  - 来自 all_*_order 源表 -> 北京花卉订单
+  //  - 手工新增(无 source_table) -> 线下资源
+  if (typeof src.source_table === 'string' && /^all_.*_order/.test(src.source_table)) {
+    if (!inbound.includes('北京花卉订单')) inbound.push('北京花卉订单');
+  }
+  if (!src.source_table) {
+    if (!inbound.includes('线下资源')) inbound.push('线下资源');
+  }
+  return inbound;
+}
+
 function pickOrderFields(src = {}) {
   return {
     member_id: src.member_id || '',
@@ -259,9 +273,15 @@ app.post('/api/orders', async (req, res) => {
   try {
     const { product_id, product_title } = req.body;
     const url = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}`;
-    const result = await axiosWithRetry({ url, method: 'post', data: pickOrderFields(req.body), headers, timeout: 15000 });
+    const fields = pickOrderFields(req.body);
+    const defaultTags = fields.tags;
+    delete fields.tags;  // gateway PG POST can't serialise jsonb array; write directly
+    const result = await axiosWithRetry({ url, method: 'post', data: fields, headers, timeout: 15000 });
     const newId = result.data?.data?.id;
-    // Write JSONB fields directly
+    if (newId && Array.isArray(defaultTags) && defaultTags.length) {
+      await updateTagsField(newId, defaultTags);
+      if (result.data?.data) result.data.data.tags = defaultTags;
+    }
     if (newId && Array.isArray(product_id) && product_id.length > 0) {
       await updateJsonbFields(newId, product_id, product_title);
     }

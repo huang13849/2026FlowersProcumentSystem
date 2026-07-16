@@ -746,11 +746,19 @@ const columns = [
           <div style={{display:'flex',alignItems:'center',flexWrap:'wrap',gap:6}}>
             <span style={{color:'#722ed1',fontWeight:600,marginRight:8}}>🏷️ 标签筛选：</span>
             <Tag color={tagFilter?'default':'purple'} style={{cursor:'pointer',fontSize:13,padding:'3px 12px',borderRadius:16}} onClick={()=>setTagFilter('')}>全部</Tag>
-            {tagStats.map(t => (
-              <Tag key={t.tag} color={tagFilter===t.tag?'purple':'default'} style={{cursor:'pointer',fontSize:13,padding:'3px 12px',borderRadius:16,margin:'2px 2px'}} onClick={()=>setTagFilter(tagFilter===t.tag?'':t.tag)}>
-                {t.tag} <span style={{color:'#999',marginLeft:4}}>({t.count})</span>
-              </Tag>
-            ))}
+            {tagStats.map(t => {
+              const meta = (tagPool || []).find(x => x.name === t.tag) || {};
+              const active = tagFilter === t.tag;
+              const bg = active ? (meta.color || '#722ed1') : (meta.bg || '#fafafa');
+              const fg = active ? '#fff' : (meta.color || '#666');
+              const bd = active ? (meta.color || '#722ed1') : (meta.border || '#eee');
+              return (
+                <span key={t.tag} onClick={()=>setTagFilter(active?'':t.tag)}
+                  style={{cursor:'pointer',fontSize:13,padding:'3px 12px',borderRadius:16,margin:'2px 2px',background:bg,color:fg,border:'1px solid '+bd,fontWeight:active?600:400,transition:'all 0.15s'}}>
+                  {t.tag} <span style={{color:active?'rgba(255,255,255,0.85)':'#999',marginLeft:4}}>({t.count})</span>
+                </span>
+              );
+            })}
             {!tagStats.length && <span style={{color:'#bbb',fontSize:12}}>暂无标签（请先在标签管理中新建）</span>}
           </div>
         </Card>
