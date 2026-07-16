@@ -502,11 +502,11 @@ async function syncPaymentOrders() {
       } else {
         await pgPool.query(`
           INSERT INTO purchase_orders
-            (source_table, source_order_sn, payment_order_id, consignee, phone, delivery_address,
+            (member_id, member_name, source_table, source_order_sn, payment_order_id, consignee, phone, delivery_address,
              product_subtotal, product_id, product_title,
              purchase_time, order_status, pay_status, shop_name, synced_payload, synced_at,
              business_type, region, tags, created_at, updated_at)
-          VALUES ('plant_collector.orders', $1::text, $1::text, $2, $3, $4, $5,
+          VALUES ('', '', 'plant_collector.orders', $1::text, $1::text, $2, $3, $4, $5,
                   $6::jsonb, $7::jsonb, $8, 'paid', 'paid', $9, $10::jsonb, NOW(),
                   '\u82b1\u4f34\u5546\u57ce', $11, $12::jsonb, $13, NOW())
         `, [r.order_no, addr.memberName || addr.name || '', addr.phone || '',
