@@ -42,6 +42,7 @@ const { Table, Button, Input, InputNumber, Space, Tag, message, Card, Statistic,
 const { Search } = Input;
 
 const API_BASE = window.location.origin;
+const TAG_API_BASE = 'http://100.96.54.109:8088';
 
 const typeColors = { '微商': 'green', '单店': 'blue', '团购/电商': 'purple', '连锁': 'orange', '企业采购': 'cyan', '未设置': 'default' };
 const paymentChannelOptions = [{value:'微信支付'},{value:'支付宝'},{value:'Stripe'},{value:'PayPal'}];
@@ -242,7 +243,7 @@ function OrderTagCell({ value, onChange }) {
   const tags = Array.isArray(value) ? value : [];
   const load = async () => {
     try {
-      const r = await fetch(`${API_BASE.replace(/\/$/,'')}/api/tags?scope=order`);
+      const r = await fetch(`${TAG_API_BASE}/api/tags?scope=order`);
       const j = await r.json();
       setAllTags(j.data || []);
     } catch(e) { setAllTags([]); }
@@ -299,7 +300,7 @@ function App() {
   const [showBatchTag, setShowBatchTag] = React.useState(false);
   const fetchTagPool = React.useCallback(async () => {
     try {
-      const r = await fetch(`${API_BASE}/api/tags?scope=order`);
+      const r = await fetch(`${TAG_API_BASE}/api/tags?scope=order`);
       const j = await r.json();
       setTagPool(j.data || []);
     } catch (e) {}
@@ -780,7 +781,7 @@ function OrderTagManagerModal({ tagPool, onClose, onChanged }) {
   const [border, setBorder] = React.useState('#d3adf7');
   const [busy, setBusy] = React.useState(false);
   const refresh = async () => {
-    const r = await fetch(`${API_BASE}/api/tags?scope=order`);
+    const r = await fetch(`${TAG_API_BASE}/api/tags?scope=order`);
     const d = await r.json();
     if (d.success) setItems(d.data || []);
     onChanged && onChanged();
@@ -790,7 +791,7 @@ function OrderTagManagerModal({ tagPool, onClose, onChanged }) {
     if (!nm) return message.warning('请输入标签名');
     setBusy(true);
     try {
-      const r = await fetch(`${API_BASE}/api/tags`, {
+      const r = await fetch(`${TAG_API_BASE}/api/tags`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: nm, color, bg, border, scope: ['order'] })
       });
@@ -803,7 +804,7 @@ function OrderTagManagerModal({ tagPool, onClose, onChanged }) {
   const del = async (nm) => {
     if (!confirm('确认删除标签[' + nm + ']？已打上此标签的订单不会被删除，但会失去该标签。')) return;
     try {
-      const r = await fetch(`${API_BASE}/api/tags/${encodeURIComponent(nm)}`, { method: 'DELETE' });
+      const r = await fetch(`${TAG_API_BASE}/api/tags/${encodeURIComponent(nm)}`, { method: 'DELETE' });
       const d = await r.json();
       if (!d.success) throw new Error(d.error || '删除失败');
       await refresh();
@@ -871,7 +872,7 @@ function OrderBatchTagModal({ ids, tagPool, onClose, onSaved }) {
     if (selected.size === 0) return message.warning('请先选择标签');
     setBusy(true);
     try {
-      const r = await fetch(`${API_BASE}/api/tags/apply`, {
+      const r = await fetch(`${TAG_API_BASE}/api/tags/apply`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entity: 'order', ids, tags: [...selected], mode })
       });
