@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    field.cattle.io/publicEndpoints: '[{"port":31099,"protocol":"TCP","serviceName":"supply-chain:product-service","allNodes":true}]'
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"product-service"},"name":"product-service","namespace":"supply-chain"},"spec":{"ports":[{"name":"http","nodePort":31099,"port":3000,"protocol":"TCP","targetPort":3000}],"selector":{"app":"product-service"},"type":"NodePort"}}
+  creationTimestamp: "2026-07-01T08:51:13Z"
+  labels:
+    app: product-service
+  name: product-service
+  namespace: supply-chain
+  resourceVersion: "176586225"
+  uid: 61599316-ad8d-45f1-b396-2bc9410d36b9
+spec:
+  clusterIP: 10.43.53.127
+  clusterIPs:
+  - 10.43.53.127
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 31099
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: product-service
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}

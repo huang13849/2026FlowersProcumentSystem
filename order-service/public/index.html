@@ -503,9 +503,42 @@ const columns = [
     },
     {
       title: '操作',
-      width: 120,
+      width: 160,
+      render: (_, record) => (
+        <Space size="small">
+          <a onClick={() => openProductPicker(record)}>商品</a>
+          <Popconfirm title="确认删除此订单?" onConfirm={async () => {
+            await fetch(`${API_BASE}/api/orders/${record.id}`, { method: 'DELETE' });
+            message.success('已删除');
+            fetchData(pagination.current);
+          }}><a style={{color:'#f5222d'}}>删除</a></Popconfirm>
+        </Space>
+      ),
     },
   ];
+
+  const mergedColumns = columns.map(col => {
+    if (!col.editable) return col;
+    return {
+      ...col,
+      render: (val, record) => {
+        if (col.editableType === 'select') {
+          return <EditableCell value={val} type="select" options={col.options}
+            onChange={v => updateCell(record.id, col.dataIndex, v)} />;
+        }
+        if (['product_subtotal','shipping_fee','coupon_discount','cost_amount','income_amount','expense_amount','profit_amount'].includes(col.dataIndex)) {
+          return <MoneyEditableCell value={val}
+            onChange={v => updateCell(record.id, col.dataIndex, v)} />;
+        }
+        if (col.dataIndex === 'personal_tag') {
+          return <PersonalTagEditor value={val}
+            onChange={v => updateCell(record.id, col.dataIndex, v)} />;
+        }
+        return <EditableCell value={val}
+          onChange={v => updateCell(record.id, col.dataIndex, v)} />;
+      }
+    };
+  });
 
   const rowSelection = { selectedRowKeys, onChange: setSelectedRowKeys };
   const hasSelected = selectedRowKeys.length > 0;
@@ -571,7 +604,7 @@ const columns = [
             </Col>
           ))}
         </Row>
-        <Table columns={columns} dataSource={data} rowKey="id" loading={loading}
+        <Table columns={mergedColumns} dataSource={data} rowKey="id" loading={loading}
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
           onChange={handleTableChange} scroll={{ x: 2450 }} size="middle" />
