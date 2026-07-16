@@ -67,7 +67,8 @@ async function ensureOrderSchema() {
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS pay_status TEXT',
     "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_payload JSONB DEFAULT '{}'::jsonb",
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ',
-    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb"
+    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ux_purchase_orders_plant_collector ON purchase_orders(source_order_sn) WHERE source_table='plant_collector.orders'"
   ];
   for (const sql of alters) await pgPool.query(sql);
 }
@@ -457,7 +458,101 @@ ensureOrderSchema()
   .then(() => console.log('✅ Order schema ready: payment/profit columns'))
   .catch(err => console.error('⚠️ Order schema ensure failed:', err.message))
   .finally(() => {
-    app.listen(PORT, () => {
+    
+// ============ 同步 plant_collector.orders(paid) → purchase_orders ============
+async function syncPaymentOrders() {
+  try {
+    const { rows } = await pgPool.query(`
+      SELECT o.id, o.order_no, o.status, o.total, o.currency, o.shipping_address,
+             o.paid_at, o.created_at, o.zid, o.source, o.origin_site,
+             (SELECT jsonb_agg(jsonb_build_object(
+                'title', oi.title, 'qty', oi.qty,
+                'unit_price', oi.unit_price, 'subtotal', oi.subtotal,
+                'sku_id', oi.sku_id,
+                'image', COALESCE(oi.snapshot->>'image', oi.snapshot->'snapshot'->>'image')
+              )) FROM plant_collector.order_items oi WHERE oi.order_id = o.id) AS items
+        FROM plant_collector.orders o
+       WHERE o.status = 'paid'
+    `);
+    let upserted = 0;
+    for (const r of rows) {
+      const addr = r.shipping_address || {};
+      const items = r.items || [];
+      const titles = items.map(x => x.title || '');
+      const ids = items.map(x => x.sku_id || '').filter(Boolean);
+      const shopName = r.origin_site === 'horiculture.space' ? '\u82b1\u4f34\u5546\u57ce(\u56fd\u9645)' : '\u82b1\u4f34\u5546\u57ce';
+      const region = r.origin_site === 'horiculture.space' ? 'global' : 'cn';
+      const payload = { items, origin_site: r.origin_site, source: r.source, zid: r.zid, currency: r.currency };
+      // check exists
+      const exist = await pgPool.query(
+        `SELECT id, tags, business_type FROM purchase_orders WHERE source_table='plant_collector.orders' AND source_order_sn=$1 LIMIT 1`,
+        [r.order_no]
+      );
+      if (exist.rows.length) {
+        await pgPool.query(`
+          UPDATE purchase_orders
+             SET product_subtotal=$2, consignee=$3, phone=$4, delivery_address=$5,
+                 product_id=$6::jsonb, product_title=$7::jsonb,
+                 synced_payload=$8::jsonb, synced_at=NOW(),
+                 pay_status='paid', order_status='paid', updated_at=NOW()
+           WHERE id=$1
+        `, [exist.rows[0].id, r.total, addr.memberName || addr.name || '', addr.phone || '',
+            addr.text || addr.address || '',
+            JSON.stringify(ids), JSON.stringify(titles), JSON.stringify(payload)]);
+      } else {
+        await pgPool.query(`
+          INSERT INTO purchase_orders
+            (source_table, source_order_sn, payment_order_id, consignee, phone, delivery_address,
+             product_subtotal, product_id, product_title,
+             purchase_time, order_status, pay_status, shop_name, synced_payload, synced_at,
+             business_type, region, tags, created_at, updated_at)
+          VALUES ('plant_collector.orders', $1, $1, $2, $3, $4, $5,
+                  $6::jsonb, $7::jsonb, $8, 'paid', 'paid', $9, $10::jsonb, NOW(),
+                  '\u82b1\u4f34\u5546\u57ce', $11, $12::jsonb, $13, NOW())
+        `, [r.order_no, addr.memberName || addr.name || '', addr.phone || '',
+            addr.text || addr.address || '', r.total,
+            JSON.stringify(ids), JSON.stringify(titles), r.paid_at || r.created_at,
+            shopName, JSON.stringify(payload), region,
+            JSON.stringify(['\u82b1\u4f34\u5546\u57ce\u8ba2\u5355']), r.created_at]);
+      }
+      upserted++;
+    }
+    return { upserted };
+  } catch (e) {
+    console.error('[syncPaymentOrders]', e.message);
+    return { error: e.message };
+  }
+}
+
+// Trigger sync manually
+app.post('/api/orders/sync-payment', async (req, res) => {
+  const r = await syncPaymentOrders();
+  res.json(r);
+});
+
+// Purchase-list export (JSON — frontend renders HTML)
+app.post('/api/orders/export-purchase-list', async (req, res) => {
+  try {
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids[] required' });
+    const { rows } = await pgPool.query(
+      `SELECT id, source_order_sn, consignee, phone, delivery_address, product_subtotal,
+              purchase_time, synced_at, shop_name, product_title, synced_payload
+         FROM purchase_orders WHERE id = ANY($1::int[]) ORDER BY purchase_time DESC`,
+      [ids]
+    );
+    res.json({ success: true, data: rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+// periodic payment→purchase sync
+setTimeout(() => syncPaymentOrders().then(r => console.log('[startup sync]', r)).catch(() => {}), 5000);
+setInterval(() => syncPaymentOrders().catch(() => {}), 5 * 60 * 1000);
+
+app.listen(PORT, () => {
       console.log(`🛒 Order Service running on port ${PORT}`);
       console.log(`📡 API Gateway: ${GATEWAY_URL}`);
       console.log(`🗄️  Database: ${DB_NAME}.${TABLE_NAME}`);

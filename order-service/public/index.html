@@ -583,20 +583,6 @@ const columns = [
       width: 100,
       editable: true,
     },
-    {
-      title: '操作',
-      width: 160,
-      render: (_, record) => (
-        <Space size="small">
-          <a onClick={() => openProductPicker(record)}>商品</a>
-          <Popconfirm title="确认删除此订单?" onConfirm={async () => {
-            await fetch(`${API_BASE}/api/orders/${record.id}`, { method: 'DELETE' });
-            message.success('已删除');
-            fetchData(pagination.current);
-          }}><a style={{color:'#f5222d'}}>删除</a></Popconfirm>
-        </Space>
-      ),
-    },
   ];
 
   const mergedColumns = columns.map(col => {
@@ -623,6 +609,80 @@ const columns = [
   });
 
   const rowSelection = { selectedRowKeys, onChange: setSelectedRowKeys };
+
+  const handleSyncPayment = React.useCallback(async () => {
+    try {
+      message.loading({ content: '同步中...', key: 'sync' });
+      const r = await fetch(`${API_BASE}/api/orders/sync-payment`, { method: 'POST' });
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      message.success({ content: `已同步 ${d.upserted} 条支付订单`, key: 'sync' });
+      fetchData(pagination.current);
+    } catch (e) { message.error({ content: e.message, key: 'sync' }); }
+  }, [pagination.current]);
+
+  const handleExportPurchaseList = React.useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/orders/export-purchase-list`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ ids: selectedRowKeys })
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || '导出失败');
+      renderPurchaseListWindow(d.data || []);
+    } catch (e) { message.error(e.message); }
+  }, [selectedRowKeys]);
+
+  const renderPurchaseListWindow = (orders) => {
+    const rows = orders.map(o => {
+      const items = ((o.synced_payload && o.synced_payload.items) || []).map(it => {
+        const img = it.image && !it.image.startsWith('\ud83c') ? (it.image.startsWith('http') ? it.image : `http://100.96.54.109${it.image}`) : '';
+        return `<div class="item"><img src="${img}" onerror="this.style.display='none'" /><span class="t">${(it.title||'').replace(/</g,'&lt;')}${it.qty>1?' \u00d7'+it.qty:''}</span></div>`;
+      }).join('');
+      const fallback = (!items && Array.isArray(o.product_title)) ? o.product_title.map(t => `<div class="item">\ud83c\udf38 ${t}</div>`).join('') : '';
+      const dt = o.synced_at ? new Date(o.synced_at).toLocaleString('zh-CN') : '';
+      const purchaseTime = o.purchase_time ? new Date(o.purchase_time).toLocaleString('zh-CN') : '';
+      return `<tr>
+        <td class="prods">${items || fallback || '\u2014'}</td>
+        <td class="money">\u00a5${Number(o.product_subtotal||0).toFixed(2)}</td>
+        <td>${(o.consignee||'').replace(/</g,'&lt;')}<br/><span class="sub">${(o.phone||'').replace(/</g,'&lt;')}</span></td>
+        <td>${(o.delivery_address||'').replace(/</g,'&lt;')}</td>
+        <td>${purchaseTime}<br/><span class="sub">\u5355\u53f7 ${o.source_order_sn||o.id}</span></td>
+      </tr>`;
+    }).join('');
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>\u91c7\u8d2d\u5355</title>
+      <style>
+        *{box-sizing:border-box}body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;padding:24px;color:#333;background:#fff}
+        h1{margin:0 0 4px;color:#722ed1;font-size:22px}
+        .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #722ed1;padding-bottom:8px;margin-bottom:16px}
+        .meta{font-size:12px;color:#888}
+        table{width:100%;border-collapse:collapse;font-size:13px}
+        th{background:#f9f0ff;color:#722ed1;padding:10px;text-align:left;font-weight:600;border:1px solid #d3adf7}
+        td{padding:10px;border:1px solid #eee;vertical-align:top}
+        .item{display:flex;align-items:center;gap:8px;margin:4px 0}
+        .item img{width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #eee}
+        .item .t{flex:1;font-size:12px;line-height:1.4}
+        .money{color:#c41d7f;font-weight:600;font-size:14px}
+        .sub{color:#999;font-size:11px}
+        .toolbar{position:fixed;top:10px;right:10px;background:#722ed1;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+        @media print{.toolbar{display:none}}
+      </style></head><body>
+      <div class="toolbar" onclick="window.print()">\ud83d\udda8\ufe0f \u6253\u5370 / \u53e6\u5b58\u4e3a PDF</div>
+      <div class="head">
+        <div><h1>\ud83c\udf38 \u91c7\u8d2d\u5355 &nbsp; <span style="font-size:14px;color:#888">Purchase List</span></h1><div class="meta">\u5171 ${orders.length} \u6761\u8ba2\u5355 &middot; \u5bfc\u51fa\u65f6\u95f4 ${new Date().toLocaleString('zh-CN')}</div></div>
+        <div class="meta">\u9c9c\u82b1\u4f9b\u5e94\u94fe \u00b7 \u5b50\u5bab\u9879\u76ee</div>
+      </div>
+      <table>
+        <thead><tr><th style="width:32%">\u5546\u54c1</th><th style="width:12%">\u652f\u4ed8\u91d1\u989d</th><th style="width:14%">\u6536\u4ef6\u4eba</th><th style="width:28%">\u6536\u4ef6\u5730\u5740</th><th style="width:14%">\u4ea4\u4ed8\u65f6\u95f4</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) { message.warning('\u6d4f\u89c8\u5668\u62e6\u622a\u5f39\u7a97\uff0c\u8bf7\u5141\u8bb8\u5f39\u7a97'); return; }
+    w.document.write(html); w.document.close();
+  };
+
+
   const hasSelected = selectedRowKeys.length > 0;
 
   return (
