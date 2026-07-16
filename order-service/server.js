@@ -146,7 +146,7 @@ function normalizeOrderList(result) {
   return result;
 }
 
-async function queryOrders({ page = 1, limit = 20, search, business_type, region, shop_name, month, readFrom }) {
+async function queryOrders({ page = 1, limit = 20, search, business_type, region, shop_name, month, tag, dedupe = 'true', readFrom }) {
   const pageNum = Math.max(parseInt(page, 10) || 1, 1);
   const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
   const offset = (pageNum - 1) * limitNum;
@@ -163,9 +163,15 @@ async function queryOrders({ page = 1, limit = 20, search, business_type, region
     params.push(month + '-01');
     conditions.push(`purchase_time >= $${params.length}::date AND purchase_time < ($${params.length}::date + INTERVAL '1 month')`);
   }
+  if (tag && tag !== '全部') { params.push(tag); conditions.push(`tags @> to_jsonb(ARRAY[$${params.length}::text])`); }
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const countSql = `SELECT COUNT(*)::int AS total FROM purchase_orders ${where}`;
-  const dataSql = `SELECT * FROM purchase_orders ${where} ORDER BY COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+  const useDedupe = String(dedupe) !== 'false';
+  const countSql = useDedupe
+    ? `SELECT COUNT(*)::int AS total FROM (SELECT DISTINCT ON (COALESCE(NULLIF(source_order_sn,''), 'id-'||id)) id FROM purchase_orders ${where} ORDER BY COALESCE(NULLIF(source_order_sn,''), 'id-'||id), id DESC) t`
+    : `SELECT COUNT(*)::int AS total FROM purchase_orders ${where}`;
+  const dataSql = useDedupe
+    ? `WITH deduped AS (SELECT DISTINCT ON (COALESCE(NULLIF(source_order_sn,''), 'id-'||id)) * FROM purchase_orders ${where} ORDER BY COALESCE(NULLIF(source_order_sn,''), 'id-'||id), id DESC) SELECT * FROM deduped ORDER BY COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
+    : `SELECT * FROM purchase_orders ${where} ORDER BY COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
   const countResult = await pgPool.query(countSql, params);
   const dataResult = await pgPool.query(dataSql, [...params, limitNum, offset]);
   const total = countResult.rows[0]?.total || 0;
@@ -179,8 +185,8 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/orders', async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, business_type, region, shop_name, month, readFrom } = req.query;
-    const result = await queryOrders({ page, limit, search, business_type, region, shop_name, month, readFrom: readFrom || 'primary' });
+    const { page = 1, limit = 20, search, business_type, region, shop_name, month, tag, dedupe, readFrom } = req.query;
+    const result = await queryOrders({ page, limit, search, business_type, region, shop_name, month, tag, dedupe, readFrom: readFrom || 'primary' });
     res.json(result);
   } catch (err) {
     console.error('GET /api/orders error:', err.response?.status, err.response?.data || err.message);
@@ -391,6 +397,21 @@ app.post('/api/orders/batch-delete', async (req, res) => {
   }
 });
 
+app.get('/api/orders/stats/tags', async (req, res) => {
+  try {
+    const { rows } = await pgPool.query(`
+      SELECT tag, COUNT(DISTINCT order_key)::int AS count FROM (
+        SELECT COALESCE(NULLIF(source_order_sn,''), 'id-'||id) AS order_key,
+               jsonb_array_elements_text(COALESCE(tags,'[]'::jsonb)) AS tag
+          FROM purchase_orders
+      ) t
+      WHERE tag IS NOT NULL AND tag <> ''
+      GROUP BY tag ORDER BY count DESC
+    `);
+    res.json({ success: true, data: rows });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 app.get('/api/orders/stats/business-type', async (req, res) => {
   try {
     const { rows } = await pgPool.query('SELECT business_type, COUNT(*) as count FROM purchase_orders GROUP BY business_type ORDER BY count DESC');
@@ -417,7 +438,8 @@ app.get('/api/orders/stats/amount', async (req, res) => {
     params.push(month + '-01');
     conditions.push(`purchase_time >= $${params.length}::date AND purchase_time < ($${params.length}::date + INTERVAL '1 month')`);
   }
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    if (tag && tag !== '全部') { params.push(tag); conditions.push(`tags @> to_jsonb(ARRAY[$${params.length}::text])`); }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await pgPool.query(
       `SELECT COALESCE(SUM(income_amount),0)::float AS total_income, COALESCE(SUM(expense_amount),0)::float AS total_expense, COALESCE(SUM(shipping_fee),0)::float AS total_shipping, COALESCE(SUM(coupon_discount),0)::float AS total_coupon, COALESCE(SUM(profit_amount),0)::float AS total_profit, COUNT(*)::int AS row_count FROM purchase_orders ${where}`,
       params

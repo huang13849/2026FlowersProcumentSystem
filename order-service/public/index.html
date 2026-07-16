@@ -311,6 +311,8 @@ function App() {
   const [region, setRegion] = useState('cn');
   const [shopName, setShopName] = useState('全部');
   const [shopStats, setShopStats] = useState([]);
+  const [tagStats, setTagStats] = useState([]);
+  const [tagFilter, setTagFilter] = useState('');
   const [syncStatus, setSyncStatus] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -325,6 +327,7 @@ function App() {
       if (typeVal && typeVal !== '全部') params.set('business_type', typeVal);
       if (regionVal) params.set('region', regionVal);
       if (shopVal && shopVal !== '全部') params.set('shop_name', shopVal);
+      if (tagFilter) params.set('tag', tagFilter);
       if (monthVal) params.set('month', monthVal);
       const res = await fetch(`${API_BASE}/api/orders?${params}`);
       const json = await res.json();
@@ -334,6 +337,13 @@ function App() {
     setLoading(false);
   }, [search, businessType, region, shopName, monthFilter]);
 
+  const fetchTagStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/orders/stats/tags`);
+      const json = await res.json();
+      setTagStats(json.data || []);
+    } catch (e) { setTagStats([]); }
+  }, []);
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/orders/stats/business-type`);
@@ -357,6 +367,7 @@ function App() {
       if (typeVal && typeVal !== '全部') params.set('business_type', typeVal);
       if (regionVal) params.set('region', regionVal);
       if (shopVal && shopVal !== '全部') params.set('shop_name', shopVal);
+      if (tagFilter) params.set('tag', tagFilter);
       if (monthVal) params.set('month', monthVal);
       const res = await fetch(`${API_BASE}/api/orders/stats/amount?${params}`);
       const json = await res.json();
@@ -375,7 +386,8 @@ function App() {
 
   const formatSyncTime = (val) => val ? dayjs(val).format('YYYY-MM-DD HH:mm:ss') : '-';
 
-  useEffect(() => { fetchData(); fetchStats(); fetchShopStats(); fetchAmountStats(); fetchSyncStatus(); }, []);
+  useEffect(() => { fetchData(); fetchStats(); fetchShopStats(); fetchAmountStats(); fetchSyncStatus(); fetchTagStats(); }, []);
+  useEffect(() => { fetchData(); }, [tagFilter]);
 
   const handleTableChange = (pag) => { fetchData(pag.current, pag.pageSize, search, businessType, region, shopName); };
   const onSearch = (val) => { setSearch(val); fetchData(1, 20, val, businessType, region, shopName); fetchAmountStats(val, businessType, region, shopName); };
@@ -729,17 +741,19 @@ const columns = [
           <Col span={6}>
             <Card size="small"><Statistic title="总优惠" value={Number(amountStats.total_coupon || 0)} precision={2} prefix="¥" /></Card>
           </Col>
-          {shopStats.filter(s => ['三度花','花予生活','花哥友花','林草小店'].includes(s.shop_name)).map(s => (
-            <Col key={s.shop_name}>
-              <Card size="small"><Statistic title={`店铺 ${s.shop_name}`} value={parseInt(s.count)} /></Card>
-            </Col>
-          ))}
-          {stats.map(s => (
-            <Col key={s.business_type}>
-              <Card size="small"><Statistic title={s.business_type} value={parseInt(s.count)} /></Card>
-            </Col>
-          ))}
         </Row>
+        <Card size="small" style={{marginBottom:12}} bodyStyle={{padding:'10px 14px'}}>
+          <div style={{display:'flex',alignItems:'center',flexWrap:'wrap',gap:6}}>
+            <span style={{color:'#722ed1',fontWeight:600,marginRight:8}}>🏷️ 标签筛选：</span>
+            <Tag color={tagFilter?'default':'purple'} style={{cursor:'pointer',fontSize:13,padding:'3px 12px',borderRadius:16}} onClick={()=>setTagFilter('')}>全部</Tag>
+            {tagStats.map(t => (
+              <Tag key={t.tag} color={tagFilter===t.tag?'purple':'default'} style={{cursor:'pointer',fontSize:13,padding:'3px 12px',borderRadius:16,margin:'2px 2px'}} onClick={()=>setTagFilter(tagFilter===t.tag?'':t.tag)}>
+                {t.tag} <span style={{color:'#999',marginLeft:4}}>({t.count})</span>
+              </Tag>
+            ))}
+            {!tagStats.length && <span style={{color:'#bbb',fontSize:12}}>暂无标签（请先在标签管理中新建）</span>}
+          </div>
+        </Card>
         <Table columns={mergedColumns} dataSource={data} rowKey="id" loading={loading}
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
