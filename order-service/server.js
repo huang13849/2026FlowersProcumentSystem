@@ -495,7 +495,7 @@ async function syncPaymentOrders() {
                  product_id=$6::jsonb, product_title=$7::jsonb,
                  synced_payload=$8::jsonb, synced_at=NOW(),
                  pay_status='paid', order_status='paid', updated_at=NOW()
-           WHERE id=$1
+           WHERE id=$1::bigint
         `, [exist.rows[0].id, r.total, addr.memberName || addr.name || '', addr.phone || '',
             addr.text || addr.address || '',
             JSON.stringify(ids), JSON.stringify(titles), JSON.stringify(payload)]);
