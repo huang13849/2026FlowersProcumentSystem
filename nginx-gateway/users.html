@@ -874,7 +874,9 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
   var API_ZIT = '/api/zitadel/users';
   var SOURCE_OPTS = [
     {v:'peony',    l:'芍药联盟'},
-    {v:'club',     l:'热植联盟'},
+    {v:'club',     l:'植物收藏家'},
+    {v:'shopclub', l:'植物收藏家'},
+    {v:'tropical', l:'热植联盟'},
     {v:'space-cn', l:'植物收藏家-国内'},
     {v:'space-en', l:'植物收藏家-海外'},
     {v:'edu',      l:'幼植学校'},
@@ -885,7 +887,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
 
   function badge(text, bg, fg){ return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+bg+';color:'+(fg||'#fff')+';font-size:11px">'+text+'</span>'; }
   function sourceBadge(code, label){
-    var colors = {peony:'#c2185b', club:'#2e7d32', 'space-cn':'#1565c0', 'space-en':'#6a1b9a', edu:'#e65100', wholesale:'#455a64'};
+    var colors = {peony:'#c2185b', club:'#2e7d32', shopclub:'#2e7d32', tropical:'#00695c', 'space-cn':'#1565c0', 'space-en':'#6a1b9a', edu:'#e65100', wholesale:'#455a64'};
     return badge(label||code, colors[code]||'#607d8b');
   }
   function truncate(s,n){ s=s||''; return s.length>n? s.slice(0,n)+'…':s; }
@@ -917,7 +919,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       + '</div>'
       + '<div style="overflow-x:auto"><table style="min-width:1200px"><thead><tr>'
       + '<th style="width:32px;text-align:center"><input type="checkbox" id="uaAll"></th><th>来源</th><th>OneID</th><th>用户名/邮箱</th><th>手机</th><th>昵称</th>'
-      + '<th>Instance / 组织</th><th>用户类型</th><th>标签</th><th>地址</th><th>状态</th><th>创建</th><th>操作</th>'
+      + '<th>Instance / 组织</th><th>用户类型</th><th>标签</th><th>地址</th><th>状态</th><th>创建</th>'
       + '</tr></thead><tbody id="uaBody"></tbody></table></div>';
 
     document.getElementById('uaSearch').addEventListener('input', render);
@@ -983,7 +985,6 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
         + '<td>'+(u.address_count>0? badge(u.address_count+' 条','#0288d1'):'<span style="color:#aaa">-</span>')+'</td>'
         + '<td>'+badge(u.state_label, u.state_label==='active'?'#2e7d32':'#757575')+'</td>'
         + '<td class="muted" style="font-size:11px">'+fmt(u.creation_date)+'</td>'
-        + '<td><button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" data-edit="'+u.id+'">✎ 编辑</button></td>'
         + '</tr>';
     }).join('');
     body.querySelectorAll('[data-edit]').forEach(function(btn){
