@@ -1207,12 +1207,26 @@ export default function ProductList() {
                     // ── 场景标签列（多选弹出）──
                     if (col.type === 'sceneTags') {
                       const tags = p.sceneTags || [];
+                      const inherited = p.inheritedTags || [];
                       const editing = sceneTagEditing === p._id;
                       return (
                         <td key={ci} style={{ ...tdS, width:col.width, padding:'2px 4px', position:'relative', verticalAlign:'middle' }}>
                           <div onClick={() => { setSceneTagEditing(editing ? null : p._id); setSceneTagInput(''); }}
                             style={{ display:'flex', flexWrap:'wrap', gap:2, cursor:'pointer', minHeight:18, alignItems:'center' }}>
-                            {tags.length === 0 && <span style={{ color:'#bbb', fontSize:11 }}>+ 标签</span>}
+                            {tags.length === 0 && inherited.length === 0 && <span style={{ color:'#bbb', fontSize:11 }}>+ 标签</span>}
+                            {inherited.map(t => {
+                              const c = SCENE_TAG_COLOR[t] || { color:'#722ed1', bg:'#f9f0ff', border:'#d3adf7' };
+                              return (
+                                <span key={'inh-'+t} title={'继承自供应商 '+(p.sellerName||p.supplier_name||'')}
+                                  style={{
+                                    display:'inline-flex', alignItems:'center', gap:2,
+                                    padding:'1px 5px', borderRadius:8,
+                                    fontSize:10, lineHeight:'14px',
+                                    background:c.bg, color:c.color, border:'1px dashed '+c.border,
+                                    opacity:0.85,
+                                  }}>🏭{t}</span>
+                              );
+                            })}
                             {tags.map(t => {
                               const c = SCENE_TAG_COLOR[t] || { color:'#555', bg:'#f5f5f5', border:'#d9d9d9' };
                               return (

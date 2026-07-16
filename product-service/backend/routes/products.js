@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Product from '../models/Product.js';
 import AuditLog from '../models/AuditLog.js';
 import { uploadFile as minioUpload, deleteFile as minioDelete } from "../services/minio.js";
+import { getSupplierTagsMap, suppliersWithTags } from "../services/supplierTags.js";
 
 const router = Router();
 
@@ -46,8 +47,15 @@ router.get('/', async (req, res) => {
     // 标签筛选（支持多个，逗号分隔）
     if (req.query.sceneTags) {
       const tags = req.query.sceneTags.split(',').filter(Boolean);
-      if (tags.length === 1) query.sceneTags = tags[0];
-      else if (tags.length > 1) query.sceneTags = { $in: tags };
+      // 联合搜索：商品自有 sceneTags 匹配 OR 供应商 tags 匹配
+      let inheritSellers = [];
+      try { inheritSellers = await suppliersWithTags(tags); } catch (e) {}
+      const conds = [];
+      if (tags.length === 1) conds.push({ sceneTags: tags[0] });
+      else conds.push({ sceneTags: { $in: tags } });
+      if (inheritSellers.length) conds.push({ sellerName: { $in: inheritSellers } });
+      if (conds.length === 1) Object.assign(query, conds[0]);
+      else query.$or = conds;
     }
     // 排除标签
     if (req.query.excludeTags) {
@@ -55,8 +63,20 @@ router.get('/', async (req, res) => {
       if (exTags.length) query.sceneTags = { ...query.sceneTags, $nin: exTags };
     }
     const total = await Product.countDocuments(query);
-    const products = await Product.find(query)
+    const productsRaw = await Product.find(query)
       .sort(sort).skip((page - 1) * limit).limit(Number(limit));
+    // 继承供应商标签
+    let supMap = new Map();
+    try { supMap = await getSupplierTagsMap(); } catch (e) { console.warn('supplier tags map failed:', e.message); }
+    const products = productsRaw.map(p => {
+      const obj = p.toObject ? p.toObject() : p;
+      const supTags = (supMap.get(obj.sellerName) || supMap.get(obj.supplier_name) || []);
+      const own = Array.isArray(obj.sceneTags) ? obj.sceneTags : [];
+      const inherited = supTags.filter(t => !own.includes(t));
+      obj.inheritedTags = inherited;
+      obj.allTags = [...inherited, ...own];
+      return obj;
+    });
     res.json({ products, total, page: Number(page), totalPages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -68,6 +88,16 @@ router.get('/:id', async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ error: '商品不存在' });
+    try {
+      const supMap = await getSupplierTagsMap();
+      const supTags = supMap.get(product.sellerName) || supMap.get(product.supplier_name) || [];
+      const own = Array.isArray(product.sceneTags) ? product.sceneTags : [];
+      const inherited = supTags.filter(t => !own.includes(t));
+      const obj = product.toObject ? product.toObject() : product;
+      obj.inheritedTags = inherited;
+      obj.allTags = [...inherited, ...own];
+      return res.json(obj);
+    } catch (e) {}
     res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
