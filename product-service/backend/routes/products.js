@@ -24,6 +24,11 @@ router.get('/', async (req, res) => {
     if (sellerName) query.sellerName = sellerName;
     if (createdBy) query.createdBy = createdBy;
     if (supplier_id) query.supplier_id = supplier_id;
+    // _ids 批量查（供 publish-service ProductClient.getProductBatch 使用）
+    if (req.query._ids) {
+      const ids = String(req.query._ids).split(',').map(s => s.trim()).filter(Boolean);
+      if (ids.length) query._id = { $in: ids };
+    }
     if (req.query.tradeType) query.tradeType = { $in: req.query.tradeType.split(",") };
     if (req.query.floweringMonths) {
       const months = String(req.query.floweringMonths)

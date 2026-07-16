@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>购买订单管理</title>
+<title>订单管理</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=ding-20260701">
 <link rel="apple-touch-icon" href="/favicon.svg?v=ding-20260701">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/reset.min.css">
@@ -32,6 +32,7 @@
   .tag-input { width: 80px; }
   .selection-bar { background: #e6f4ff; padding: 8px 16px; border-radius: 6px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
 </style>
+<script id="gcNav" src="http://100.96.54.109:31040/nav.js" data-app="orders"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -502,7 +503,6 @@ const columns = [
     },
     {
       title: '操作',
-      fixed: 'right',
       width: 120,
     },
   ];
@@ -513,7 +513,7 @@ const columns = [
   return (
     <div>
       <div className="app-header">
-        <h2>🛒 购买订单管理</h2>
+        <h2>🛒 订单管理</h2>
         <div style={{display:'flex',gap:8}}>
           <Button type={region === 'cn' ? 'primary' : 'default'} onClick={() => { setRegion('cn'); fetchData(1, 20, search, businessType, 'cn', shopName); fetchAmountStats(search, businessType, 'cn', shopName); }}>🇨🇳 国内订单</Button>
           <Button type={region === 'global' ? 'primary' : 'default'} onClick={() => { setRegion('global'); fetchData(1, 20, search, businessType, 'global', shopName); fetchAmountStats(search, businessType, 'global', shopName); }}>🌍 国际订单</Button>
