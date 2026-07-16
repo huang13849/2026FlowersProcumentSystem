@@ -14,8 +14,8 @@ const productApi = require('../services/productApiClient');
 
 async function computeUsage(name, scope) {
   const pool = getPgPool();
-  const result = { product: 0, user: 0, supplier: 0 };
-  const scopes = Array.isArray(scope) ? scope : (scope ? [scope] : ['product', 'user', 'supplier']);
+  const result = { product: 0, user: 0, supplier: 0, order: 0 };
+  const scopes = Array.isArray(scope) ? scope : (scope ? [scope] : ['product', 'user', 'supplier', 'order']);
   try {
     if (scopes.includes('product')) {
       result.product = await productApi.countBySceneTag(name);
@@ -31,6 +31,12 @@ async function computeUsage(name, scope) {
     if (scopes.includes('supplier')) {
       const r = await pool.query(`SELECT COUNT(*)::int AS c FROM public.suppliers WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
       result.supplier = r.rows[0].c;
+    }
+  } catch {}
+  try {
+    if (scopes.includes('order')) {
+      const r = await pool.query(`SELECT COUNT(*)::int AS c FROM public.purchase_orders WHERE tags @> to_jsonb(ARRAY[$1]::text[])`, [name]);
+      result.order = r.rows[0].c;
     }
   } catch {}
   return result;
@@ -58,7 +64,7 @@ router.get('/', async (req, res) => {
     // 实时算 usage_count
     const rows = await Promise.all(r.rows.map(async (t) => {
       const u = await computeUsage(t.name, scope || t.scope);
-      const uc = scope ? (u[scope] || 0) : (u.product + u.user + u.supplier);
+      const uc = scope ? (u[scope] || 0) : (u.product + u.user + u.supplier + u.order);
       return { ...t, usage_count: uc, usage_breakdown: u };
     }));
     res.json({ success: true, count: rows.length, data: rows });

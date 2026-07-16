@@ -66,7 +66,8 @@ async function ensureOrderSchema() {
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS shipping_status TEXT',
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS pay_status TEXT',
     "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_payload JSONB DEFAULT '{}'::jsonb",
-    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ'
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ',
+    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb"
   ];
   for (const sql of alters) await pgPool.query(sql);
 }
@@ -103,6 +104,7 @@ function pickOrderFields(src = {}) {
     shipping_status: src.shipping_status || '',
     pay_status: src.pay_status || '',
     synced_at: src.synced_at || null,
+    tags: autoDefaultTags(src),
   };
 }
 
@@ -114,6 +116,14 @@ async function updateJsonbFields(id, productId, productTitle) {
   await pgPool.query(
     'UPDATE purchase_orders SET product_id = $1::jsonb, product_title = $2::jsonb, updated_at = NOW() WHERE id = $3',
     [JSON.stringify(pid), JSON.stringify(ptitle), id]
+  );
+}
+
+async function updateTagsField(id, tags) {
+  const arr = Array.isArray(tags) ? tags : [];
+  await pgPool.query(
+    'UPDATE purchase_orders SET tags = $1::jsonb, updated_at = NOW() WHERE id = $2',
+    [JSON.stringify(arr), id]
   );
 }
 
@@ -135,7 +145,7 @@ function normalizeOrderList(result) {
   return result;
 }
 
-async function queryOrders({ page = 1, limit = 20, search, business_type, region, shop_name, readFrom }) {
+async function queryOrders({ page = 1, limit = 20, search, business_type, region, shop_name, month, readFrom }) {
   const pageNum = Math.max(parseInt(page, 10) || 1, 1);
   const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
   const offset = (pageNum - 1) * limitNum;
@@ -148,6 +158,10 @@ async function queryOrders({ page = 1, limit = 20, search, business_type, region
   if (business_type && business_type !== '全部') { params.push(business_type); conditions.push(`business_type = $${params.length}`); }
   if (region && region !== 'all') { params.push(region); conditions.push(`region = $${params.length}`); }
   if (shop_name && shop_name !== '全部') { params.push(shop_name); conditions.push(`shop_name = $${params.length}`); }
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    params.push(month + '-01');
+    conditions.push(`purchase_time >= $${params.length}::date AND purchase_time < ($${params.length}::date + INTERVAL '1 month')`);
+  }
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const countSql = `SELECT COUNT(*)::int AS total FROM purchase_orders ${where}`;
   const dataSql = `SELECT * FROM purchase_orders ${where} ORDER BY COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
@@ -164,8 +178,8 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/orders', async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, business_type, region, shop_name, readFrom } = req.query;
-    const result = await queryOrders({ page, limit, search, business_type, region, shop_name, readFrom: readFrom || 'primary' });
+    const { page = 1, limit = 20, search, business_type, region, shop_name, month, readFrom } = req.query;
+    const result = await queryOrders({ page, limit, search, business_type, region, shop_name, month, readFrom: readFrom || 'primary' });
     res.json(result);
   } catch (err) {
     console.error('GET /api/orders error:', err.response?.status, err.response?.data || err.message);
@@ -311,6 +325,18 @@ app.put('/api/orders/:id', async (req, res) => {
   try {
     const id = req.params.id;
     const body = req.body;
+    // Handle tags jsonb directly (avoid gateway PG array serialisation issue)
+    if ('tags' in body) {
+      await updateTagsField(id, body.tags);
+      delete body.tags;
+      // If tags-only update, return early
+      if (Object.keys(body).length === 0) {
+        const getUrl = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}/${id}?readFrom=standby`;
+        const getResult = await axiosWithRetry({ url: getUrl, method: 'get', headers, timeout: 15000 });
+        normalizeOrderList(getResult.data);
+        return res.json(getResult.data);
+      }
+    }
     const hasJsonb = ('product_id' in body) || ('product_title' in body);
 
     if (hasJsonb) {
@@ -386,6 +412,10 @@ app.get('/api/orders/stats/amount', async (req, res) => {
     if (business_type && business_type !== '全部') { params.push(business_type); conditions.push(`business_type = $${params.length}`); }
     if (region && region !== 'all') { params.push(region); conditions.push(`region = $${params.length}`); }
     if (shop_name && shop_name !== '全部') { params.push(shop_name); conditions.push(`shop_name = $${params.length}`); }
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    params.push(month + '-01');
+    conditions.push(`purchase_time >= $${params.length}::date AND purchase_time < ($${params.length}::date + INTERVAL '1 month')`);
+  }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await pgPool.query(
       `SELECT COALESCE(SUM(income_amount),0)::float AS total_income, COALESCE(SUM(expense_amount),0)::float AS total_expense, COALESCE(SUM(shipping_fee),0)::float AS total_shipping, COALESCE(SUM(coupon_discount),0)::float AS total_coupon, COALESCE(SUM(profit_amount),0)::float AS total_profit, COUNT(*)::int AS row_count FROM purchase_orders ${where}`,

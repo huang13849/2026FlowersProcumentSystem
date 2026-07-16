@@ -234,12 +234,66 @@ function ProductPicker({ visible, onCancel, onConfirm, existingProducts }) {
   );
 }
 
+
+// 订单标签编辑器（对接统一标签池 scope=order）
+function OrderTagCell({ value, onChange }) {
+  const [open, setOpen] = React.useState(false);
+  const [allTags, setAllTags] = React.useState([]);
+  const tags = Array.isArray(value) ? value : [];
+  const load = async () => {
+    try {
+      const r = await fetch(`${API_BASE.replace(/\/$/,'')}/api/tags?scope=order`);
+      const j = await r.json();
+      setAllTags(j.data || []);
+    } catch(e) { setAllTags([]); }
+  };
+  return (
+    <span onDoubleClick={(e) => { e.stopPropagation(); load(); setOpen(true); }}
+      style={{ display:'inline-flex', gap:4, flexWrap:'wrap', minHeight:22, cursor:'pointer', padding:'2px 4px' }}>
+      {tags.length === 0 && <span style={{color:'#bbb',fontSize:12}}>双击添加</span>}
+      {tags.map(t => {
+        const meta = allTags.find(x => x.name === t) || {};
+        return (
+          <Tag key={t} color={meta.color || undefined}
+               style={meta.bg ? { background: meta.bg, color: meta.color, borderColor: meta.border } : {}}
+               closable onClose={(e) => { e.preventDefault(); onChange(tags.filter(x => x !== t)); }}>
+            {t}
+          </Tag>
+        );
+      })}
+      <Modal open={open} onCancel={() => setOpen(false)} onOk={() => setOpen(false)}
+             title="选择/新增标签" footer={null} width={520}>
+        <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12}}>
+          {allTags.map(t => {
+            const on = tags.includes(t.name);
+            return (
+              <span key={t.name}
+                onClick={() => onChange(on ? tags.filter(x => x !== t.name) : [...tags, t.name])}
+                style={{
+                  cursor:'pointer', padding:'4px 10px', borderRadius:12, fontSize:13,
+                  background: on ? (t.bg || '#e6f7ff') : '#fafafa',
+                  color: on ? (t.color || '#1890ff') : '#666',
+                  border: '1px solid ' + (on ? (t.border || '#91d5ff') : '#eee'),
+                  fontWeight: on ? 600 : 400,
+                }}>{t.name}{typeof t.usage_count === 'number' ? ` (${t.usage_count})` : ''}</span>
+            );
+          })}
+          {allTags.length === 0 && <span style={{color:'#999'}}>暂无标签，请在<a href="/tags-admin" target="_blank">标签总控台</a>新建 scope=order 的标签</span>}
+        </div>
+        <div style={{marginTop:8,fontSize:12,color:'#666'}}>💡 已选：{tags.length ? tags.join('、') : '无'}</div>
+      </Modal>
+    </span>
+  );
+}
+
+
 function App() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [search, setSearch] = useState('');
   const [businessType, setBusinessType] = useState('');
+  const [monthFilter, setMonthFilter] = useState(''); // YYYY-MM
   const [stats, setStats] = useState([]);
   const [amountStats, setAmountStats] = useState({ total_income: 0, total_shipping: 0, total_coupon: 0, row_count: 0 });
   const [region, setRegion] = useState('cn');
@@ -251,7 +305,7 @@ function App() {
   const [pickingOrderId, setPickingOrderId] = useState(null);
   const [pickingExisting, setPickingExisting] = useState({ ids: [], titles: [] });
 
-  const fetchData = useCallback(async (page = 1, pageSize = 20, searchVal = search, typeVal = businessType, regionVal = region, shopVal = shopName) => {
+  const fetchData = useCallback(async (page = 1, pageSize = 20, searchVal = search, typeVal = businessType, regionVal = region, shopVal = shopName, monthVal = monthFilter) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page, limit: pageSize });
@@ -259,13 +313,14 @@ function App() {
       if (typeVal && typeVal !== '全部') params.set('business_type', typeVal);
       if (regionVal) params.set('region', regionVal);
       if (shopVal && shopVal !== '全部') params.set('shop_name', shopVal);
+      if (monthVal) params.set('month', monthVal);
       const res = await fetch(`${API_BASE}/api/orders?${params}`);
       const json = await res.json();
       setData(json.data || []);
       setPagination(prev => ({ ...prev, current: json.page || page, total: json.total || 0, pageSize }));
     } catch (e) { message.error('加载失败'); }
     setLoading(false);
-  }, [search, businessType, region, shopName]);
+  }, [search, businessType, region, shopName, monthFilter]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -290,6 +345,7 @@ function App() {
       if (typeVal && typeVal !== '全部') params.set('business_type', typeVal);
       if (regionVal) params.set('region', regionVal);
       if (shopVal && shopVal !== '全部') params.set('shop_name', shopVal);
+      if (monthVal) params.set('month', monthVal);
       const res = await fetch(`${API_BASE}/api/orders/stats/amount?${params}`);
       const json = await res.json();
       setAmountStats(json.data || { total_income: 0, total_shipping: 0, total_coupon: 0, row_count: 0 });
@@ -456,7 +512,7 @@ const columns = [
       render: (val) => '¥' + Number(val || 0).toFixed(2),
     },
     {
-      title: '优惠码',
+      title: '优惠券',
       dataIndex: 'coupon_code',
       width: 100,
       editable: true,
@@ -475,6 +531,21 @@ const columns = [
       editable: true,
       editableType: 'select',
       options: businessTypeOptions.filter(o => o.value !== '全部'),
+    },
+    {
+      title: '标签',
+      dataIndex: 'tags',
+      width: 200,
+      editable: false,
+      render: (val, record) => (
+        <OrderTagCell value={val || []} onChange={async (next) => {
+          await fetch(`${API_BASE}/api/orders/${record.id}`, {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ tags: next }),
+          });
+          fetchData(pagination.current);
+        }} />
+      ),
     },
     {
       title: '订单时间',
@@ -548,8 +619,15 @@ const columns = [
       <div className="app-header">
         <h2>🛒 订单管理</h2>
         <div style={{display:'flex',gap:8}}>
-          <Button type={region === 'cn' ? 'primary' : 'default'} onClick={() => { setRegion('cn'); fetchData(1, 20, search, businessType, 'cn', shopName); fetchAmountStats(search, businessType, 'cn', shopName); }}>🇨🇳 国内订单</Button>
-          <Button type={region === 'global' ? 'primary' : 'default'} onClick={() => { setRegion('global'); fetchData(1, 20, search, businessType, 'global', shopName); fetchAmountStats(search, businessType, 'global', shopName); }}>🌍 国际订单</Button>
+          <Button type={region === 'cn' ? 'primary' : 'default'} onClick={() => { setRegion('cn'); fetchData(1, 20, search, businessType, 'cn', shopName, monthFilter); fetchAmountStats(search, businessType, 'cn', shopName); }}>🇨🇳 国内订单</Button>
+          <Button type={region === 'global' ? 'primary' : 'default'} onClick={() => { setRegion('global'); fetchData(1, 20, search, businessType, 'global', shopName, monthFilter); fetchAmountStats(search, businessType, 'global', shopName); }}>🌍 国际订单</Button>
+          <Select allowClear placeholder="📅 按月份" value={monthFilter || undefined} style={{width:140}}
+            onChange={(v) => { setMonthFilter(v || ''); fetchData(1, 20, search, businessType, region, shopName, v || ''); }}
+            options={(() => {
+              const opts = []; const now = new Date();
+              for (let i=0; i<24; i++) { const d = new Date(now.getFullYear(), now.getMonth()-i, 1); const ym = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); opts.push({value:ym,label:ym}); }
+              return opts;
+            })()} />
         </div>
         <Space wrap>
           <Search placeholder="搜索店铺/订单号/收货人/手机号" onSearch={onSearch} allowClear style={{ width: 220 }} />
@@ -566,20 +644,7 @@ const columns = [
       </div>
       <div className="app-content">
 
-        <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '10px 14px' }}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-            <Space wrap size="large">
-              <span><b>🔄 订单同步状态</b></span>
-              <span>最近扫描：{formatSyncTime(syncStatus?.latestRun?.started_at || syncStatus?.state?.last_run_at)}</span>
-              <span>源表：{syncStatus?.latestRun?.source_table || syncStatus?.state?.source_table || '-'}</span>
-              <span>扫描/匹配/新增：{syncStatus?.latestRun ? `${syncStatus.latestRun.scanned_count}/${syncStatus.latestRun.matched_count}/${syncStatus.latestRun.inserted_count}` : '-'}</span>
-              <span>状态：<Tag color={syncStatus?.latestRun?.status === 'success' ? 'green' : 'orange'}>{syncStatus?.latestRun?.status || '未知'}</Tag></span>
-              <span>游标：{syncStatus?.state?.last_seen_value || '-'}</span>
-              <span>最新入库：{syncStatus?.latestOrder ? `${syncStatus.latestOrder.source_order_sn || '-'} / ${syncStatus.latestOrder.shop_name || '-'} / ${formatSyncTime(syncStatus.latestOrder.synced_at || syncStatus.latestOrder.created_at)}` : '-'}</span>
-            </Space>
-            <Button size="small" onClick={fetchSyncStatus}>刷新同步状态</Button>
-          </div>
-        </Card>
+
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col span={6}>
             <Card size="small"><Statistic title="订单总数" value={stats.reduce((s,x)=>s + (x.count || 0),0)} /></Card>
@@ -608,6 +673,20 @@ const columns = [
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
           onChange={handleTableChange} scroll={{ x: 2450 }} size="middle" />
+        <div style={{marginTop:16}}>        <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '10px 14px' }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <Space wrap size="large">
+              <span><b>🔄 订单同步状态</b></span>
+              <span>最近扫描：{formatSyncTime(syncStatus?.latestRun?.started_at || syncStatus?.state?.last_run_at)}</span>
+              <span>源表：{syncStatus?.latestRun?.source_table || syncStatus?.state?.source_table || '-'}</span>
+              <span>扫描/匹配/新增：{syncStatus?.latestRun ? `${syncStatus.latestRun.scanned_count}/${syncStatus.latestRun.matched_count}/${syncStatus.latestRun.inserted_count}` : '-'}</span>
+              <span>状态：<Tag color={syncStatus?.latestRun?.status === 'success' ? 'green' : 'orange'}>{syncStatus?.latestRun?.status || '未知'}</Tag></span>
+              <span>游标：{syncStatus?.state?.last_seen_value || '-'}</span>
+              <span>最新入库：{syncStatus?.latestOrder ? `${syncStatus.latestOrder.source_order_sn || '-'} / ${syncStatus.latestOrder.shop_name || '-'} / ${formatSyncTime(syncStatus.latestOrder.synced_at || syncStatus.latestOrder.created_at)}` : '-'}</span>
+            </Space>
+            <Button size="small" onClick={fetchSyncStatus}>刷新同步状态</Button>
+          </div>
+        </Card></div>
         <div style={{marginTop:8,color:'#999',fontSize:12}}>💡 订单由同步服务按 pfid→xx_platform.id 导入 | 可按店铺筛选 | 双击单元格编辑 | 支付/运费/优惠列可查看与编辑 | 点击购买产品区"+"选取商品(可多选) | 个人标签可添加多个 | 勾选记录后复制/删除</div>
       </div>
       <ProductPicker visible={pickerVisible} onCancel={() => setPickerVisible(false)} onConfirm={handleProductConfirm} existingProducts={pickingExisting} />
