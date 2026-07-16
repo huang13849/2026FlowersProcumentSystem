@@ -622,16 +622,11 @@ const columns = [
     } catch (e) { message.error({ content: e.message, key: 'sync' }); }
   }, [pagination.current]);
 
-  const handleExportPurchaseList = React.useCallback(async () => {
-    try {
-      const r = await fetch(`${API_BASE}/api/orders/export-purchase-list`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ ids: selectedRowKeys })
-      });
-      const d = await r.json();
-      if (!d.success) throw new Error(d.error || '导出失败');
-      renderPurchaseListWindow(d.data || []);
-    } catch (e) { message.error(e.message); }
+  const handleExportPurchaseList = React.useCallback(() => {
+    if (!selectedRowKeys.length) return;
+    const url = `http://100.96.54.109:31015/purchase-list/render?source=purchase_orders&ids=` + selectedRowKeys.join(',') + '&title=' + encodeURIComponent('采购单');
+    const w = window.open(url, '_blank');
+    if (!w) message.warning('浏览器拦截弹窗，请允许弹窗后重试');
   }, [selectedRowKeys]);
 
   const renderPurchaseListWindow = (orders) => {
@@ -710,6 +705,8 @@ const columns = [
           <Button type="primary" onClick={handleAdd}>+ 新增行</Button>
           <Button onClick={() => setShowTagMgr(true)} style={{background:'#f9f0ff',color:'#722ed1',borderColor:'#d3adf7'}}>🏷️ 标签管理</Button>
           <Button onClick={() => setShowBatchTag(true)} disabled={!hasSelected} style={{background:'#e8eaf6',color:'#3949ab',borderColor:'#c5cae9'}}>🏷️ 批量打标签 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
+          <Button onClick={handleExportPurchaseList} disabled={!hasSelected} style={{background:'#e6fffb',color:'#08979c',borderColor:'#87e8de'}}>📥 导出采购单 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
+          <Button onClick={handleSyncPayment} style={{background:'#fff7e6',color:'#d46b08',borderColor:'#ffd591'}}>🔄 同步支付订单</Button>
           <Button onClick={handleDuplicate} disabled={!hasSelected}>📋 复制选中 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
           <Popconfirm title={`确定删除选中的 ${selectedRowKeys.length} 条记录？`} onConfirm={handleBatchDelete} disabled={!hasSelected}>
             <Button danger disabled={!hasSelected}>🗑 删除选中 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
