@@ -77,11 +77,11 @@ async function fetchRows({ source, ids, order_nos, items }) {
   if (Array.isArray(ids) && ids.length) {
     const { rows } = await pg.query(`
       SELECT id, source_order_sn, consignee, phone, delivery_address,
-             product_subtotal, purchase_time, synced_at, product_title, synced_payload
+             product_subtotal, purchase_time, synced_at, product_title, product_id, synced_payload
         FROM purchase_orders WHERE id = ANY($1::int[])
         ORDER BY purchase_time DESC
     `, [ids]);
-    return rows.map(r => {
+    const mapped = rows.map(r => {
       const p = r.synced_payload || {};
       let items = Array.isArray(p.items) && p.items.length ? p.items : null;
       if (!items) {
@@ -96,8 +96,14 @@ async function fetchRows({ source, ids, order_nos, items }) {
         amount: Number(r.product_subtotal || 0),
         delivery_time: r.purchase_time,
         items,
+        _product_ids: Array.isArray(r.product_id) ? r.product_id : [],
       };
     });
+    // Enrich items with product main images
+    const productIdsByRow = mapped.map(m => m._product_ids || []);
+    await enrichItemsWithProductImages(mapped, productIdsByRow);
+    mapped.forEach(m => delete m._product_ids);
+    return mapped;
   }
 
   return [];
@@ -114,6 +120,47 @@ app.post('/purchase-list/data', async (req, res) => {
 });
 
 // ------------- HTML renderer -------------
+// Priority chain for main image; returns the first URL found.
+const PRODUCT_API = process.env.PRODUCT_API_URL || 'http://product-api-service.supply-chain.svc.cluster.local:3000';
+async function fetchProductMainImages(ids) {
+  const out = {};
+  const uniq = [...new Set(ids.filter(x => x != null && x !== ''))];
+  if (!uniq.length) return out;
+  await Promise.all(uniq.map(async (id) => {
+    try {
+      const r = await fetch(PRODUCT_API + '/api/products/' + encodeURIComponent(id), { signal: AbortSignal.timeout(3000) });
+      if (!r.ok) return;
+      const j = await r.json();
+      const prod = j.data || j.product || j;
+      // Priority: images -> package_images -> panorama_images -> detail_images -> scene_images
+      const priority = ['images','package_images','panorama_images','detail_images','scene_images'];
+      for (const k of priority) {
+        const arr = prod && prod[k];
+        if (Array.isArray(arr) && arr.length) { out[id] = arr[0]; return; }
+      }
+    } catch (_) {}
+  }));
+  return out;
+}
+
+// Enrich items array with main image URLs if items[i].image is missing
+async function enrichItemsWithProductImages(rows, productIdsByRow) {
+  const allIds = [];
+  productIdsByRow.forEach(list => (list || []).forEach(id => allIds.push(id)));
+  if (!allIds.length) return rows;
+  const imgMap = await fetchProductMainImages(allIds);
+  rows.forEach((row, idx) => {
+    const ids = productIdsByRow[idx] || [];
+    if (!row.items || !row.items.length) return;
+    row.items.forEach((it, i) => {
+      if (it.image) return;
+      const pid = it.productId || it.product_id || ids[i] || ids[0];
+      if (pid && imgMap[pid]) it.image = imgMap[pid];
+    });
+  });
+  return rows;
+}
+
 function normalizeImg(img) {
   if (!img) return '';
   if (img.startsWith('\ud83c')) return '';
@@ -143,15 +190,15 @@ function renderHTML(rows, opts = {}) {
 <style>
   *{box-sizing:border-box}
   body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;padding:24px;color:#333;background:#fff}
-  h1{margin:0 0 4px;color:#722ed1;font-size:22px}
+  h1{margin:0 0 4px;color:#722ed1;font-size:16px}
   .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #722ed1;padding-bottom:8px;margin-bottom:16px}
   .meta{font-size:12px;color:#888}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{background:#f9f0ff;color:#722ed1;padding:10px;text-align:left;font-weight:600;border:1px solid #d3adf7}
   td{padding:10px;border:1px solid #eee;vertical-align:top}
   .item{display:flex;align-items:center;gap:8px;margin:4px 0}
-  .item img{width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #eee}
-  .item .ph{display:inline-flex;width:48px;height:48px;background:#fff0f6;border-radius:6px;align-items:center;justify-content:center;font-size:22px}
+  .item img{width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid #eee}
+  .item .ph{display:inline-flex;width:32px;height:32px;background:#fff0f6;border-radius:6px;align-items:center;justify-content:center;font-size:16px}
   .item .t{flex:1;font-size:12px;line-height:1.4}
   .money{color:#c41d7f;font-weight:600;font-size:14px}
   .sub{color:#999;font-size:11px}
