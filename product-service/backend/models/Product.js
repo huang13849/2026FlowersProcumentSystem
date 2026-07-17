@@ -75,6 +75,7 @@ const MONGO_TO_PG = {
   listedDate: 'listed_date',
   listedStore: 'listed_store',
   salesVolume: 'sales_volume',
+  salesCount: 'sales_volume',  // alias for legacy callers (flower-api uses salesCount)
   createdBy: 'created_by',
   shipping_description: 'shipping_description',
   supplier_id: 'supplier_id',
@@ -299,15 +300,21 @@ function buildOrderBy(sort) {
   if (!sort) return '';
   if (typeof sort === 'string') {
     // Mongoose string form: "-createdAt updatedAt"
-    const parts = sort.split(/\s+/).filter(Boolean).map((tok) => {
+    const parts = sort.split(/\s+/).filter(Boolean).flatMap((tok) => {
       const dir = tok.startsWith('-') ? 'DESC' : 'ASC';
       const key = tok.replace(/^[-+]/, '');
-      return `${pgCol(key) || key} ${dir}`;
+      const col = pgCol(key);
+      if (!col) return [];
+      return [`${col} ${dir}`];
     });
     return parts.length ? ' ORDER BY ' + parts.join(', ') : '';
   }
   if (typeof sort === 'object') {
-    const parts = Object.entries(sort).map(([k, v]) => `${pgCol(k) || k} ${v === -1 || v === 'desc' ? 'DESC' : 'ASC'}`);
+    const parts = Object.entries(sort).flatMap(([k, v]) => {
+      const col = pgCol(k);
+      if (!col) return [];  // ignore unknown keys instead of injecting raw identifier
+      return [`${col} ${v === -1 || v === 'desc' ? 'DESC' : 'ASC'}`];
+    });
     return parts.length ? ' ORDER BY ' + parts.join(', ') : '';
   }
   return '';
