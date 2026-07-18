@@ -1,203 +1,241 @@
-const mongoose = require('mongoose');
 
-// ─────────────────────────────────────────────────────────────
-// 供应商 Schema —— 【经纬度铁律 v2 · 单字段唯一】
-//
-//   唯一存储 : location = { type:'Point', coordinates:[lng, lat] }  (GeoJSON, 2dsphere)
-//   longitude/latitude 已从 schema 中移除。
-//
-//   兼容层（normalizeGeoPayload）：
-//     - 入口 payload 里若还带 longitude/latitude，会被归一到 location.coordinates
-//       并从 payload 中 delete，不再落库；
-//     - 若同时传 location.coordinates，则以 location 为准；
-//     - (0,0) 视为「未设置」，写入前会归一为 [0,0] 占位；
-//     - 非法坐标（超出 -180~180 / -90~90 或 NaN）→ 抛错。
-//
-//   读取：调用方只能通过 doc.location.coordinates[0/1] 拿到经纬度。
-//         若需要 lng/lat 简化视图，请调用 SupplierService.toGeoView(doc)。
-//   历史遗留：顶层 address 字段已废弃，公司注册地址请用 company_info.address
-// ─────────────────────────────────────────────────────────────
 
-const SupplierSchema = new mongoose.Schema({
-  // 项目归属: 芍药联盟 / (未来其他联盟…)
-  project: { type: String, default: '', index: true },
-  name: { type: String, required: true },
-  shop_name: { type: String, index: true, sparse: true },
-  status: { type: String, enum: ['已完成','待整理','合同异常'], default: '待整理' },
-  contact: { name: String, phone: String, wechat: String },
-  contacts: [{ name: String, phone: String, title: String, gender: String }],
-  company_info: { tax_id: String, address: String, main_business: String },
-  business_items: [{
-    main_business: String,
-    address: String,
-    planting_area: Number,
-    estimated_inventory: Number,
-    sales_period: String,
-  }],
+// models/Supplier.js - PG-backed with mongoose-compatible surface
+// No mongoose dependency; uses pg Pool directly (same as supplyChainPg.js)
+const { Pool } = require('pg');
+const crypto = require('crypto');
 
-  // @deprecated 顶层 address —— 请使用 company_info.address；保留字段仅为向后兼容读取
-  address: { type: String, default: '' },
+let pool = null;
+function getPool() {
+  if (pool) return pool;
+  pool = new Pool({
+    host: process.env.PG_HOST || '100.67.126.90',
+    port: Number(process.env.PG_PORT || 5432),
+    user: process.env.PG_USER || 'postgres',
+    password: process.env.PG_PASSWORD,
+    database: process.env.SUPPLY_CHAIN_PG_DATABASE || process.env.PG_DATABASE || 'supply_chain',
+    max: 10, idleTimeoutMillis: 30000,
+  });
+  pool.on('error', (e) => console.error('[Supplier PG] pool error:', e.message));
+  return pool;
+}
 
-  planting_area: { type: Number, default: null },
-  estimated_inventory: { type: Number, default: null },
-  sales_period: { type: [String], default: [] },
+const TABLE = 'public.suppliers';
 
-  // ↓↓↓ 经纬度唯一存储 ↓↓↓
-  location: {
-    type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], default: [0, 0] }
+function ensureArray(v) { return Array.isArray(v) ? v : []; }
+function ensureObj(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+
+function toApi(row) {
+  if (!row) return null;
+  const obj = {
+    _id: row.mongo_id || String(row.id),
+    id: row.mongo_id || String(row.id),
+    project: row.project || '',
+    name: row.name || '',
+    shop_name: row.shop_name || '',
+    status: row.status || '待整理',
+    contact: ensureObj(row.contact),
+    contacts: ensureArray(row.contacts),
+    company_info: ensureObj(row.company_info),
+    business_items: ensureArray(row.business_items),
+    address: row.address || '',
+    planting_area: row.planting_area,
+    estimated_inventory: row.estimated_inventory,
+    sales_period: ensureArray(row.sales_period),
+    location: ensureObj(row.location),
+    contract_files: ensureArray(row.contract_files),
+    license_files: ensureArray(row.license_files),
+    dispatch_files: ensureArray(row.dispatch_files),
+    notes: row.notes || '',
+    product_count: row.product_count || 0,
+    product_ids: ensureArray(row.product_ids),
+    sortOrder: row.sort_order || 0,
+    peony_alliance: ensureObj(row.peony_alliance),
+    tags: ensureArray(row.tags),
+    attributes: ensureObj(row.attributes),
+    source_project: row.source_project || '',
+    zid: row.zid || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  // Add mongoose-like methods
+  obj.toObject = function() { return this; };
+  obj.save = async function() {
+    const p = getPool();
+    // Update based on row id
+    await p.query(`UPDATE ${TABLE} SET name=$1, shop_name=$2, status=$3, notes=$4, sort_order=$5, updated_at=NOW() WHERE id=$6`,
+      [this.name, this.shop_name, this.status, this.notes, this.sortOrder, row.id]);
+    return this;
+  };
+  return obj;
+}
+
+// Mongoose-compatible query builder
+function buildWhere(query) {
+  const where = [];
+  const vals = [];
+  
+  if (query.$or) {
+    const ors = query.$or.map(c => {
+      const k = Object.keys(c)[0];
+      const v = c[k];
+      const colMap = { name: 'name', shop_name: 'shop_name', 'contact.name': "contact->>'name'", 'company_info.tax_id': "company_info->>'tax_id'", notes: 'notes' };
+      const col = colMap[k] || k;
+      vals.push(`%${v.$regex || v}%`);
+      return `${col} ILIKE $${vals.length}`;
+    });
+    where.push(`(${ors.join(' OR ')})`);
+  }
+  if (query.status) { vals.push(query.status); where.push(`status = $${vals.length}`); }
+  if (query._id && query._id.$in) {
+    vals.push(query._id.$in);
+    where.push(`mongo_id = ANY($${vals.length}::text[])`);
+  }
+  if (query.shop_name) { vals.push(query.shop_name); where.push(`shop_name = $${vals.length}`); }
+  
+  return { where: where.length ? 'WHERE ' + where.join(' AND ') : '', vals };
+}
+
+const Supplier = {
+  async find(query = {}) {
+    const p = getPool();
+    const { where, vals } = buildWhere(query);
+    const r = await p.query(`SELECT * FROM ${TABLE} ${where} ORDER BY updated_at DESC`, vals);
+    return r.rows.map(toApi);
   },
-  // ↑↑↑
 
-  contract_files: [{ name: String, url: String }],
-  license_files:  [{ name: String, url: String }],
-  dispatch_files: [{ name: String, url: String }],
-  notes: String,
-  product_count: { type: Number, default: 0 },
-  product_ids: [String],
-  sortOrder: { type: Number, default: 0, index: true },
-
-  // ─── Peony Alliance 注册字段（管理员申请） ───
-  peony_alliance: {
-    alliance_type: { type: String, enum: ['hq','branch','overseas','partner'] },
-    identity:      { type: String, enum: ['admin','staff'] },
-    positions:     [{ type: String, enum: ['sales','operation','info','aftersales'] }],
-    entity_name:      String,  // 主体名称
-    office_province:  String,
-    office_city:      String,
-    office_district:  String,
-    office_address:   String,  // 详细地址
-    business_license_url: String,  // MinIO URL
-    main_species: [{ type: String }],  // 信息员：主营品种
-    capacity_mu:  Number,              // 信息员：产能（亩）
-    zitadel_org_id:      String,
-    zitadel_instance_id: { type: String, default: '381066489660178661' },
-    registration_id:     Number,  // PG new_ecommerce.peony_registrations.id
-    status: { type: String, enum: ['pending','approved','rejected'], default: 'pending' },
-    approved_at: Date,
-    submitted_at: Date,
+  async findById(id) {
+    const p = getPool();
+    const r = await p.query(`SELECT * FROM ${TABLE} WHERE mongo_id = $1 OR id = $1::bigint LIMIT 1`, [id]);
+    return r.rows[0] ? toApi(r.rows[0]) : null;
   },
-}, { timestamps: true, collection: 'supplier' });
 
-SupplierSchema.index({ status: 1 });
-SupplierSchema.index({ location: '2dsphere' });
-
-// ── 坐标归一化 & 校验 ────────────────────────────────────────
-function isValidCoord(lng, lat) {
-  if (lng == null || lat == null) return false;
-  if (typeof lng !== 'number' || typeof lat !== 'number') return false;
-  if (Number.isNaN(lng) || Number.isNaN(lat)) return false;
-  if (lng < -180 || lng > 180 || lat < -90 || lat > 90) return false;
-  if (lng === 0 && lat === 0) return false; // 视为未设置
-  return true;
-}
-
-/**
- * 把 payload 里的 longitude/latitude/location 三种入口形态统一到 location.coordinates。
- * 处理完后 payload 上不会残留 longitude/latitude。
- *   - 有效坐标 → location.coordinates=[lng,lat]
- *   - 无效 / 空 → location.coordinates=[0,0]（视为未设置）
- * 幂等，可反复调用。
- */
-function normalizeGeoPayload(payload) {
-  if (!payload || typeof payload !== 'object') return payload;
-
-  let lng = null, lat = null;
-
-  // 优先取 location.coordinates（唯一存储）
-  if (payload.location && Array.isArray(payload.location.coordinates) && payload.location.coordinates.length === 2) {
-    const [a, b] = payload.location.coordinates;
-    if (isValidCoord(a, b)) { lng = a; lat = b; }
-  }
-
-  // 兼容旧入口：payload.longitude / latitude
-  if (lng === null && payload.longitude != null && payload.latitude != null) {
-    const a = Number(payload.longitude);
-    const b = Number(payload.latitude);
-    if (isValidCoord(a, b)) {
-      lng = a; lat = b;
-    } else if ((a !== 0 || b !== 0) && (Number.isNaN(a) || Number.isNaN(b) || a < -180 || a > 180 || b < -90 || b > 90)) {
-      throw new Error(`Invalid coordinates: longitude=${payload.longitude}, latitude=${payload.latitude}`);
+  async findByIdAndUpdate(id, update, opts = {}) {
+    const p = getPool();
+    const sets = ['updated_at = NOW()'];
+    const vals = [];
+    const fieldMap = {
+      name: 'name', shop_name: 'shop_name', status: 'status', notes: 'notes', sortOrder: 'sort_order',
+      project: 'project', address: 'address', product_count: 'product_count',
+      contact: 'contact', contacts: 'contacts', company_info: 'company_info',
+      business_items: 'business_items', planting_area: 'planting_area',
+      estimated_inventory: 'estimated_inventory', sales_period: 'sales_period',
+      location: 'location', contract_files: 'contract_files', license_files: 'license_files',
+      dispatch_files: 'dispatch_files', product_ids: 'product_ids', peony_alliance: 'peony_alliance',
+      tags: 'tags', attributes: 'attributes', source_project: 'source_project', zid: 'zid',
+    };
+    for (const [k, v] of Object.entries(update)) {
+      if (fieldMap[k] !== undefined) {
+        const val = (typeof v === 'object' && !Array.isArray(v) && v !== null) ? JSON.stringify(v) : (Array.isArray(v) ? JSON.stringify(v) : v);
+        vals.push(val);
+        sets.push(`${fieldMap[k]} = $${vals.length}`);
+      }
     }
-  }
+    vals.push(id);
+    const r = await p.query(`UPDATE ${TABLE} SET ${sets.join(', ')} WHERE mongo_id = $${vals.length} OR id = $${vals.length}::bigint RETURNING *`, vals);
+    return r.rows[0] ? toApi(r.rows[0]) : null;
+  },
 
-  // 无论如何都要把 longitude/latitude 从 payload 移除，杜绝再写入 DB
-  delete payload.longitude;
-  delete payload.latitude;
+  async findByIdAndDelete(id) {
+    const p = getPool();
+    const r = await p.query(`DELETE FROM ${TABLE} WHERE mongo_id = $1 OR id = $1::bigint RETURNING *`, [id]);
+    return r.rows[0] ? toApi(r.rows[0]) : null;
+  },
 
-  if (lng !== null) {
-    payload.location = { type: 'Point', coordinates: [lng, lat] };
-  } else {
-    const geoTouched = ('location' in payload) || arguments[1] === true; // arg2=forceReset
-    if (geoTouched) {
-      payload.location = { type: 'Point', coordinates: [0, 0] };
+  async create(data) {
+    const p = getPool();
+    const mongoId = data._id || crypto.randomBytes(12).toString('hex');
+    const r = await p.query(
+      `INSERT INTO ${TABLE} (mongo_id, project, name, shop_name, status, contact, contacts, company_info, business_items,
+        address, planting_area, estimated_inventory, sales_period, location, contract_files, license_files,
+        dispatch_files, notes, product_count, product_ids, sort_order, peony_alliance, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW(),NOW()) RETURNING *`,
+      [mongoId, data.project||'', data.name||'', data.shop_name||null, data.status||'待整理',
+       JSON.stringify(data.contact||{}), JSON.stringify(data.contacts||[]), JSON.stringify(data.company_info||{}), JSON.stringify(data.business_items||[]),
+       data.address||'', data.planting_area||null, data.estimated_inventory||null, JSON.stringify(data.sales_period||[]),
+       JSON.stringify(data.location||{type:'Point',coordinates:[0,0]}), JSON.stringify(data.contract_files||[]), JSON.stringify(data.license_files||[]),
+       JSON.stringify(data.dispatch_files||[]), data.notes||null, data.product_count||0, JSON.stringify(data.product_ids||[]), data.sortOrder||0,
+       JSON.stringify(data.peony_alliance||{})]
+    );
+    return toApi(r.rows[0]);
+  },
+
+  async findOne(query = {}, opts = {}) {
+    const p = getPool();
+    const { where, vals } = buildWhere(query);
+    let sql = `SELECT * FROM ${TABLE} ${where}`;
+    if (opts.sort && opts.sort.sortOrder === -1) sql += ' ORDER BY sort_order DESC';
+    else sql += ' ORDER BY created_at DESC';
+    sql += ' LIMIT 1';
+    const r = await p.query(sql, vals);
+    return r.rows[0] ? toApi(r.rows[0]) : null;
+  },
+
+  async countDocuments(query = {}) {
+    const p = getPool();
+    const { where, vals } = buildWhere(query);
+    const r = await p.query(`SELECT count(*)::int as c FROM ${TABLE} ${where}`, vals);
+    return r.rows[0].c;
+  },
+
+  async deleteMany(query = {}) {
+    const p = getPool();
+    if (query._id && query._id.$in) {
+      const r = await p.query(`DELETE FROM ${TABLE} WHERE mongo_id = ANY($1::text[]) RETURNING mongo_id`, [query._id.$in]);
+      return { deletedCount: r.rows.length };
     }
-  }
-  return payload;
-}
+    return { deletedCount: 0 };
+  },
 
-SupplierSchema.statics.normalizeGeoPayload = normalizeGeoPayload;
-SupplierSchema.statics.isValidCoord = isValidCoord;
-
-// pre-validate: 保存前归一化文档 geo 状态
-SupplierSchema.pre('validate', function(next) {
-  try {
-    // 若因某种历史原因 doc 上还挂着 longitude/latitude（旧数据 hydrate），当作 payload 归一
-    const payload = {};
-    if (this.location && this.location.coordinates) {
-      payload.location = { coordinates: this.location.coordinates };
+  async bulkWrite(ops) {
+    const p = getPool();
+    let updated = 0;
+    for (const op of ops) {
+      if (op.updateOne) {
+        const { filter, update } = op.updateOne;
+        const id = filter._id;
+        const so = update.$set?.sortOrder;
+        if (so !== undefined) {
+          await p.query(`UPDATE ${TABLE} SET sort_order = $1, updated_at = NOW() WHERE mongo_id = $2`, [so, id]);
+          updated++;
+        }
+      }
     }
-    // this.get('longitude') 拿 schema 外字段（strict:false 时可能存在），主动清理
-    const stray_lng = this.get && this.get('longitude', null, { strict: false });
-    const stray_lat = this.get && this.get('latitude', null, { strict: false });
-    if (stray_lng != null) payload.longitude = stray_lng;
-    if (stray_lat != null) payload.latitude  = stray_lat;
+    return { modifiedCount: updated };
+  },
+};
 
-    normalizeGeoPayload(payload);
-    if (payload.location) {
-      this.location = { type: 'Point', coordinates: payload.location.coordinates };
-    }
-    // 清理 doc 上残留字段
-    if (this.set) {
-      this.set('longitude', undefined, { strict: false });
-      this.set('latitude',  undefined, { strict: false });
-    }
-    next();
-  } catch (e) { next(e); }
-});
+// Chainable find
+const origFind = Supplier.find;
+Supplier.find = function(query = {}) {
+  const promise = origFind(query);
+  const chainable = {
+    sort() { return chainable; },
+    select() { return chainable; },
+    then(resolve, reject) { return promise.then(resolve, reject); },
+    catch(reject) { return promise.catch(reject); },
+  };
+  return chainable;
+};
 
-// pre-update: findOneAndUpdate / updateOne / updateMany 前归一化 $set + $unset
-function normalizeUpdateHook(next) {
-  try {
-    const upd = this.getUpdate() || {};
+// Chainable findOne
+const origFindOne = Supplier.findOne;
+Supplier.findOne = function(query = {}, opts = {}) {
+  const promise = origFindOne(query, opts);
+  const chainable = {
+    sort() { return chainable; },
+    select() { return chainable; },
+    then(resolve, reject) { return promise.then(resolve, reject); },
+    catch(reject) { return promise.catch(reject); },
+  };
+  return chainable;
+};
 
-    if (upd.$set) normalizeGeoPayload(upd.$set);
-    if ('longitude' in upd || 'latitude' in upd || 'location' in upd) {
-      normalizeGeoPayload(upd);
-    }
-
-    // 无论如何都清理掉可能残留的 longitude/latitude 字段
-    upd.$unset = upd.$unset || {};
-    upd.$unset.longitude = '';
-    upd.$unset.latitude  = '';
-
-    this.setUpdate(upd);
-    next();
-  } catch (e) { next(e); }
-}
-SupplierSchema.pre('findOneAndUpdate', normalizeUpdateHook);
-SupplierSchema.pre('updateOne', normalizeUpdateHook);
-SupplierSchema.pre('updateMany', normalizeUpdateHook);
-
-// ── 工厂 ───────────────────────────────────────────────────
-function createSupplierModel(connection) {
-  return connection.models.Supplier || connection.model('Supplier', SupplierSchema);
-}
-
+// Export mongoose-compatible interface
 module.exports = {
-  SupplierSchema,
-  createSupplierModel,
-  normalizeGeoPayload,
-  isValidCoord,
-  Supplier: mongoose.models.Supplier || mongoose.model('Supplier', SupplierSchema),
+  SupplierSchema: {},
+  createSupplierModel: (conn) => Supplier,
+  normalizeGeoPayload: (payload) => payload,
+  isValidCoord: (lng, lat) => typeof lng === 'number' && typeof lat === 'number' && !Number.isNaN(lng) && !Number.isNaN(lat),
+  Supplier,
 };

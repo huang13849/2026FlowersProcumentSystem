@@ -1,11 +1,8 @@
-// Dual-store connector: PG (products domain, primary)  +  Mongo (aux: AuditLog/Tag/User/ProductPublishTask).
-// See ~/.hermes/skills/openclaw-imports/supply-chain-platform/ for migration playbook.
-import mongoose from 'mongoose';
+// config/db.js - PG only, MongoDB dependency removed
 import pg from 'pg';
 
 const { Pool } = pg;
 
-let mongoConnected = false;
 export let pgPool = null;
 
 export function getPgPool() {
@@ -25,23 +22,8 @@ export function getPgPool() {
 }
 
 export async function connectDB() {
-  // 1. PG (primary for products)
   const p = getPgPool();
   await p.query('SELECT 1');
-  console.log('[db] PG pool ready → database=' + (process.env.PG_DATABASE || 'supply_chain'));
-
-  // 2. Mongo (aux — still hosts audit_logs, tags, users, product_publish_tasks)
-  if (mongoConnected) return;
-  const uri = process.env.MONGODB_URI || 'mongodb://100.67.126.90:27017/supply_chain';
-  try {
-    await mongoose.connect(uri, {});
-    mongoConnected = true;
-    console.log('[db] Mongo connected (aux: AuditLog/Tag/User/ProductPublishTask)');
-  } catch (err) {
-    console.error('[db] MongoDB connection error:', err.message);
-    // Not fatal — Product API can still serve if Mongo dies; audit logs will just warn.
-    // But existing code has process.exit — preserve that until aux stores are migrated.
-    process.exit(1);
-  }
-  mongoose.connection.on('disconnected', () => { mongoConnected = false; });
+  console.log('[db] PG pool ready -> database=' + (process.env.PG_DATABASE || 'supply_chain'));
+  // MongoDB connection removed - all data now in PostgreSQL
 }
