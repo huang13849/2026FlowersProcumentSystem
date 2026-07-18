@@ -16,7 +16,7 @@ spec:
         kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
       containers:
       - name: product-web-service
-        image: 100.76.15.64:5001/supply-chain/product-web-service:latest
+        image: 100.96.54.109:5001/supply-chain/product-web-service:latest
         imagePullPolicy: Always
         ports:
         - { containerPort: 80, name: http }

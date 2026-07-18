@@ -12,7 +12,7 @@ spec:
       nodeName: huangfra-ubun-master-ms-7e11
       containers:
       - name: web
-        image: 100.76.15.64:5001/supply-chain/console-nav-service:latest
+        image: 100.96.54.109:5001/supply-chain/console-nav-service:latest
         imagePullPolicy: Always
         ports: [{ containerPort: 3020 }]
         resources: { requests: { memory: 32Mi, cpu: 10m }, limits: { memory: 128Mi, cpu: 200m } }
