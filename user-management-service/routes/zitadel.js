@@ -146,18 +146,37 @@ router.get('/users', async (req, res) => {
       console.warn('[zitadel/users] plant_collector enrich skipped:', e.message);
     }
 
-    // last login: MAX(password_checked_at) from Zitadel sessions
+    // last login: 双源合并 - sessions8 password_checked + eventstore.events2 里所有登录相关事件
     let lastLoginByZid = new Map();
+    function upsertLogin(uid, ts) {
+      if (!uid || !ts) return;
+      const cur = lastLoginByZid.get(String(uid));
+      if (!cur || new Date(ts) > new Date(cur)) lastLoginByZid.set(String(uid), ts);
+    }
     try {
+      // 源 1: sessions8 (v2 session API)
       const lr = await zpool.query(`
         SELECT user_id, MAX(password_checked_at) AS last_login
         FROM projections.sessions8
         WHERE user_id IS NOT NULL AND password_checked_at IS NOT NULL
         GROUP BY user_id
       `);
-      for (const row of lr.rows) lastLoginByZid.set(String(row.user_id), row.last_login);
+      for (const row of lr.rows) upsertLogin(row.user_id, row.last_login);
     } catch (e) {
-      console.warn('[zitadel/users] last_login enrich skipped:', e.message);
+      console.warn('[zitadel/users] sessions8 enrich skipped:', e.message);
+    }
+    try {
+      // 源 2: eventstore.events2 - 覆盖 login-app OIDC + session API + password check 全部路径
+      const er = await zpool.query(`
+        SELECT payload->>'userID' AS user_id, MAX(created_at) AS last_login
+        FROM eventstore.events2
+        WHERE event_type IN ('session.user.checked','session.password.checked','oidc_session.added','session.token.set')
+          AND payload ? 'userID'
+        GROUP BY payload->>'userID'
+      `);
+      for (const row of er.rows) upsertLogin(row.user_id, row.last_login);
+    } catch (e) {
+      console.warn('[zitadel/users] events2 enrich skipped:', e.message);
     }
 
     // default address text
