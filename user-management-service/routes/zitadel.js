@@ -146,6 +146,43 @@ router.get('/users', async (req, res) => {
       console.warn('[zitadel/users] plant_collector enrich skipped:', e.message);
     }
 
+    // last login: MAX(password_checked_at) from Zitadel sessions
+    let lastLoginByZid = new Map();
+    try {
+      const lr = await zpool.query(`
+        SELECT user_id, MAX(password_checked_at) AS last_login
+        FROM projections.sessions8
+        WHERE user_id IS NOT NULL AND password_checked_at IS NOT NULL
+        GROUP BY user_id
+      `);
+      for (const row of lr.rows) lastLoginByZid.set(String(row.user_id), row.last_login);
+    } catch (e) {
+      console.warn('[zitadel/users] last_login enrich skipped:', e.message);
+    }
+
+    // default address text
+    let defaultAddrByZid = new Map();
+    try {
+      const pgpool2 = getPgPool();
+      const ar = await pgpool2.query(`
+        SELECT DISTINCT ON (zid) zid, name, phone, country, province, city, district, detail, postal_code
+        FROM plant_collector.user_addresses
+        ORDER BY zid, is_default DESC NULLS LAST, created_at DESC
+      `);
+      for (const row of ar.rows) {
+        const parts = [row.country, row.province, row.city, row.district, row.detail].filter(Boolean);
+        const text = parts.join(' ');
+        defaultAddrByZid.set(String(row.zid), {
+          text,
+          consignee: row.name || null,
+          consignee_phone: row.phone || null,
+          postal_code: row.postal_code || null,
+        });
+      }
+    } catch (e) {
+      console.warn('[zitadel/users] default_address enrich skipped:', e.message);
+    }
+
     const data = r.rows.map(u => {
       const prof = profByZid.get(String(u.id)) || null;
       const source = resolveSource(u.instance_name, prof && prof.source_project);
@@ -168,6 +205,10 @@ router.get('/users', async (req, res) => {
         // 密码状态
         has_password: hasPassword,
         password_change_required: !!u.password_change_required,
+        // 最后登录时间
+        last_login_at: lastLoginByZid.get(String(u.id)) || null,
+        // 默认收货地址（完整文本）
+        default_address: defaultAddrByZid.get(String(u.id)) || null,
       };
     });
     res.json({ success: true, count: data.length, data });

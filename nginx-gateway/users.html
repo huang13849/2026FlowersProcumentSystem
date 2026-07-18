@@ -953,8 +953,8 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       + '<button class="btn btn-danger" id="uaBatchDel" style="background:#d32f2f;color:#fff;border-color:#d32f2f" disabled>🗑️ 批量删除 <span id="uaSelCountDel">0</span></button>'
       + '</div>'
       + '<div style="overflow-x:auto"><table style="min-width:1200px"><thead><tr>'
-      + '<th style="width:32px;text-align:center"><input type="checkbox" id="uaAll"></th><th>来源</th><th>OneID</th><th>用户名/邮箱</th><th>手机</th><th>昵称</th>'
-      + '<th>Instance / 组织</th><th>用户类型</th><th>标签</th><th>地址</th><th>密码</th><th>状态</th><th>创建</th>'
+      + '<th style="width:32px;text-align:center"><input type="checkbox" id="uaAll"></th><th>来源</th><th>OneID</th><th>标签</th><th>用户名</th><th>邮箱</th><th>手机</th><th>昵称</th>'
+      + '<th>Instance / 组织</th><th>类型</th><th>地址</th><th>密码</th><th>最后登录</th><th>创建</th>'
       + '</tr></thead><tbody id="uaBody"></tbody></table></div>';
 
     document.getElementById('uaSearch').addEventListener('input', render);
@@ -1008,25 +1008,36 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       var name = (u.display_name || u.nick_name || (u.first_name||'')+(u.last_name||'') || '').trim() || '-';
       var email = u.email ? (u.email + (u.is_email_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
       var phone = u.phone ? (u.phone + (u.is_phone_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
+      // 地址直显（完整文本）
+      var addrText = '<span style="color:#aaa">-</span>';
+      if(u.default_address && u.default_address.text){
+        var da = u.default_address;
+        var main = truncate(da.text, 36);
+        var sub = [da.consignee, da.consignee_phone].filter(Boolean).join(' · ');
+        addrText = '<div style="font-size:12px">'+main+'</div>'
+                 + (sub ? '<div class="muted" style="font-size:10px">'+sub+'</div>' : '')
+                 + (u.address_count > 1 ? '<button class="btn-xs addrBtn" data-addr-zid="'+u.id+'" style="padding:1px 6px;font-size:10px;background:#0288d1;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-top:2px">共 '+u.address_count+' 条 👁️</button>' : '');
+      } else if(u.address_count > 0){
+        addrText = '<button class="btn-xs addrBtn" data-addr-zid="'+u.id+'" style="padding:2px 8px;font-size:12px;background:#0288d1;color:#fff;border:none;border-radius:3px;cursor:pointer">'+u.address_count+' 条 👁️</button>';
+      }
       return '<tr>'
         + '<td style="text-align:center"><input type="checkbox" class="uaSel" data-zid="'+u.id+'"></td>'
         + '<td>'+ sourceBadge(u.source_project, u.source_label, u.source_color) +'</td>'
         + '<td class="muted" style="font-family:monospace;font-size:11px">'+(u.oneid||'-')+'</td>'
-        + '<td>'+(u.username||'-')+'<div class="muted" style="font-size:11px">'+truncate(email,32)+'</div></td>'
+        + '<td>'+tagsTxt+'</td>'
+        + '<td>'+(u.username||'-')+'</td>'
+        + '<td class="muted" style="font-size:12px">'+email+'</td>'
         + '<td>'+phone+'</td>'
         + '<td>'+name+'</td>'
         + '<td class="muted" style="font-size:11px">'+(u.instance_name||'-')+'<br>'+(u.org_name||'-')+'</td>'
         + '<td>'+(u.user_type? (TYPE_LABEL[u.user_type]||u.user_type):'<span style="color:#aaa">-</span>')+'</td>'
-        + '<td>'+tagsTxt+'</td>'
-        + '<td>'+(u.address_count>0
-              ? '<button class="btn-xs addrBtn" data-addr-zid="'+u.id+'" style="padding:2px 8px;font-size:12px;background:#0288d1;color:#fff;border:none;border-radius:3px;cursor:pointer">'+u.address_count+' 条 👁️</button>'
-              : '<span style="color:#aaa">-</span>')+'</td>'
+        + '<td>'+addrText+'</td>'
         + '<td>'+ (u.has_password
               ? (u.password_change_required ? '<span style="color:#ff9800;font-size:11px">⚠️需改</span> ' : '<span style="color:#4caf50;font-size:11px">✓已设</span> ')
                 + '<button class="btn-xs" data-pwd-reset="'+u.id+'" style="padding:2px 8px;font-size:12px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-left:4px">🔑 重置</button>'
               : '<span style="color:#aaa">未设置</span>')
           + '</td>'
-        + '<td>'+badge(u.state_label, u.state_label==='active'?'#2e7d32':'#757575')+'</td>'
+        + '<td class="muted" style="font-size:11px">'+(u.last_login_at ? fmt(u.last_login_at) : '<span style="color:#aaa">从未</span>')+'</td>'
         + '<td class="muted" style="font-size:11px">'+fmt(u.creation_date)+'</td>'
         + '</tr>';
     }).join('');
