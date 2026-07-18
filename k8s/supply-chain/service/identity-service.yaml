@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: supply-chain
+  labels:
+    app: identity-service
+spec:
+  type: NodePort
+  selector:
+    app: identity-service
+  ports:
+  - port: 3017
+    targetPort: 3017
+    nodePort: 31017
+    protocol: TCP
+    name: http

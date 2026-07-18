@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+  namespace: supply-chain
+  labels:
+    app: identity-service
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: identity-service
+  template:
+    metadata:
+      labels:
+        app: identity-service
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+        - name: identity-service
+          image: 100.96.54.109:5001/supply-chain/identity-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3017
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3017"
+            - name: ZITADEL_PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: supply-chain-secrets
+                  key: ZITADEL_PG_PASSWORD
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: supply-chain-secrets
+                  key: PG_PASSWORD
+            - name: ZITADEL_SYSTEM_KEY_PATH
+              value: /system-key/systemuser.key
+            - name: ZITADEL_URL
+              value: http://zitadel.identity.svc.cluster.local:8080
+            - name: ZITADEL_AUD
+              value: http://id.horiculture.club:443
+          envFrom:
+            - configMapRef:
+                name: supply-chain-common
+          volumeMounts:
+            - name: zitadel-system-key
+              mountPath: /system-key
+              readOnly: true
+          livenessProbe:
+            httpGet: { path: /health, port: 3017 }
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet: { path: /health, port: 3017 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { cpu: 500m, memory: 384Mi }
+      volumes:
+        - name: zitadel-system-key
+          secret:
+            secretName: zitadel-system-key
+            items:
+              - key: systemuser.key
+                path: systemuser.key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: supply-chain
+  labels:
+    app: identity-service
+spec:
+  type: NodePort
+  selector:
+    app: identity-service
+  ports:
+    - name: http
+      port: 3017
+      targetPort: 3017
+      nodePort: 31017
+      protocol: TCP

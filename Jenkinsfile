@@ -45,7 +45,10 @@ pipeline {
                         "contract-service",
                         "purchase-list-service",
                         "user-management-service",
-                        "seller-binding-service"
+                        "seller-binding-service",
+                        "identity-service",
+                        "profile-service",
+                        "crm-service"
                     ]
                     for (service in services) {
                         docker.build("${REGISTRY}/supply-chain/${service}:latest", "-f ${service}/Dockerfile ${service}/")

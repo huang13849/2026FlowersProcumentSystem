@@ -132,6 +132,8 @@ app.use('/api/redis', authMiddleware);
 app.use('/api/mysql', authMiddleware);
 app.use('/api/unified', authMiddleware);
 app.use('/api/zitadel', authMiddleware);
+app.use('/api/users', authMiddleware);
+app.use('/api/crm', authMiddleware);
 app.use('/api/minio', authMiddleware);
 
 // ===== 路由 =====
@@ -144,6 +146,8 @@ app.use('/api/redis', require('./routes/redis'));
 app.use('/api/mysql', require('./routes/mysql'));
 app.use('/api/unified', require('./routes/unified'));
 app.use('/api/zitadel', require('./routes/zitadel'));
+app.use('/api/users', require('./routes/bffUsers'));
+app.use('/api/crm', require('./routes/bffCrm'));
 app.use('/api/tags', require('./routes/tags'));
 app.use('/api/minio', require('./routes/minio'));
 
