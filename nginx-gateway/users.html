@@ -132,6 +132,7 @@ tr:hover{background:var(--hover)}
 <div class="batch-bar" id="batchBar">
 <span>已选 <strong id="batchCount">0</strong> 个用户</span>
 <button class="btn btn-primary btn-sm" id="btnBatchTag">批量打标签</button>
+<button class="btn btn-danger btn-sm" id="btnBatchDelete">🗑️ 批量删除</button>
 <button class="btn btn-ghost btn-sm" id="btnClearSel">清除选择</button>
 </div>
 <table><thead><tr><th style="width:32px"><input type="checkbox" id="chkAll"></th><th>用户名/手机</th><th>昵称</th><th>头像</th><th>位置</th><th>花园</th><th>最后登录</th><th>标签</th><th>操作</th></tr></thead><tbody id="userTableBody"></tbody></table>
@@ -403,7 +404,7 @@ document.getElementById("userTableBody").addEventListener("click",function(e){
   var b=e.target.closest("button[data-action]");if(!b)return;var id=b.dataset.id;
   if(b.dataset.action==="tag")openTagModal(id);
   else if(b.dataset.action==="edit")alert("编辑:"+id);
-  else if(b.dataset.action==="del"){if(confirm("确定删除？"))alert("删除:"+id)}
+  else if(b.dataset.action==="del"){var u=currentUsers.find(function(x){return x._id===id});var name=u?(u.username||u.nickname||id):id;if(confirm("确定删除用户 "+name+"？此操作不可恢复！"))deleteUsers([id])}
 });
 
 document.getElementById("chkAll").addEventListener("change",function(e){
@@ -552,6 +553,38 @@ document.getElementById("btnApplyBatch").addEventListener("click",function(){
   }).catch(function(){showToast("批量失败","err")})
 });
 document.getElementById("tagFilter").addEventListener("change",renderUsers);
+
+function deleteUsers(zids){
+  if(!zids || !zids.length)return;
+  showToast("正在删除 "+zids.length+" 个用户...","info");
+  fetch(API+"/users/batch-delete",{method:"POST",headers:H,body:JSON.stringify({zids:zids})})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d && d.success){
+        var ok=d.deleted||0, total=d.total||zids.length;
+        showToast("已删除 "+ok+"/"+total+" 个用户");
+        var failed=(d.results||[]).filter(function(x){return !x.ok});
+        if(failed.length){
+          console.warn("Failed deletions:",failed);
+          showToast(failed.length+" 个删除失败，详见 console","err");
+        }
+        selectedIds={};
+        var chkAll=document.getElementById("chkAll");if(chkAll)chkAll.checked=false;
+        loadUsers();
+      }else{
+        showToast("删除失败: "+(d && d.error ? d.error : "unknown"),"err");
+      }
+    })
+    .catch(function(e){showToast("删除失败: "+e.message,"err")});
+}
+document.getElementById("btnBatchDelete").addEventListener("click",function(){
+  var ids=Object.keys(selectedIds);
+  if(!ids.length){showToast("请先选择用户","err");return}
+  var names=ids.slice(0,5).map(function(id){var u=currentUsers.find(function(x){return x._id===id});return u?(u.username||u.nickname||id):id});
+  var preview=names.join("、")+(ids.length>5?"...等 "+ids.length+" 人":"");
+  if(!confirm("确定删除 "+ids.length+" 个用户？\n\n"+preview+"\n\n此操作会同时删除 Zitadel 账号和 PG 用户档案，且不可恢复！"))return;
+  deleteUsers(ids);
+});
 
 // initial pool load
 loadTagPool(function(){renderUsers()});
