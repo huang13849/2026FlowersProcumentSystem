@@ -160,6 +160,39 @@ function normalizeOrderList(result) {
   return result;
 }
 
+async function enrichCostProfit(rows) {
+  // 收集所有需要补 cost 的 mongo_id / product_id
+  const need = rows.filter(r => (Number(r.cost_amount || 0) === 0) && Array.isArray(r.product_id) && r.product_id.length);
+  if (!need.length) return rows;
+  const ids = [...new Set(need.flatMap(r => r.product_id.filter(Boolean)))];
+  if (!ids.length) return rows;
+  try {
+    const q = await pgPool.query(
+      `SELECT mongo_id, product_id, id::text AS pid, cost_price, sell_price, settlement_price
+         FROM products
+        WHERE mongo_id = ANY($1::text[]) OR product_id = ANY($1::text[]) OR id::text = ANY($1::text[])`,
+      [ids]
+    );
+    const map = new Map();
+    for (const row of q.rows) {
+      const cost = Number(row.cost_price || row.settlement_price || 0);
+      [row.mongo_id, row.product_id, row.pid].forEach(k => { if (k && !map.has(k)) map.set(k, cost); });
+    }
+    for (const r of need) {
+      let total = 0;
+      for (const pid of r.product_id) { if (map.has(pid)) total += map.get(pid); }
+      if (total > 0) {
+        r.cost_amount = total.toFixed(2);
+        r.profit_amount = (Number(r.income_amount || r.product_subtotal || 0) - total).toFixed(2);
+        r._cost_from_join = true;
+      }
+    }
+  } catch (e) {
+    console.warn('[enrichCostProfit] failed:', e.message);
+  }
+  return rows;
+}
+
 async function queryOrders({ page = 1, limit = 20, search, business_type, region, shop_name, month, tag, dedupe = 'true', readFrom }) {
   const pageNum = Math.max(parseInt(page, 10) || 1, 1);
   const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
@@ -189,6 +222,7 @@ async function queryOrders({ page = 1, limit = 20, search, business_type, region
   const countResult = await pgPool.query(countSql, params);
   const dataResult = await pgPool.query(dataSql, [...params, limitNum, offset]);
   const total = countResult.rows[0]?.total || 0;
+  await enrichCostProfit(dataResult.rows);
   const result = { data: dataResult.rows, total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum), readFrom: 'primary' };
   return normalizeOrderList(result);
 }
@@ -573,6 +607,38 @@ app.post('/api/orders/sync-payment', async (req, res) => {
 });
 
 // Purchase-list export (JSON — frontend renders HTML)
+app.post('/api/orders/export-settlement', async (req, res) => {
+  try {
+    const { ids, filter } = req.body || {};
+    const params = [];
+    const clauses = [];
+    if (Array.isArray(ids) && ids.length) {
+      params.push(ids);
+      clauses.push(`id = ANY($${params.length}::int[])`);
+    } else if (filter) {
+      if (filter.region) { params.push(filter.region); clauses.push(`region = $${params.length}`); }
+      if (filter.business_type && filter.business_type !== '全部') { params.push(filter.business_type); clauses.push(`business_type = $${params.length}`); }
+      if (filter.shop_name && filter.shop_name !== '全部') { params.push(filter.shop_name); clauses.push(`shop_name = $${params.length}`); }
+      if (filter.month) {
+        params.push(filter.month + '-01'); clauses.push(`purchase_time >= $${params.length}::timestamp`);
+        params.push(filter.month + '-01'); clauses.push(`purchase_time < ($${params.length}::timestamp + interval '1 month')`);
+      }
+      if (filter.search) {
+        params.push('%' + filter.search + '%');
+        const idx = params.length;
+        clauses.push(`(shop_name ILIKE $${idx} OR consignee ILIKE $${idx} OR member_name ILIKE $${idx} OR phone ILIKE $${idx} OR payment_order_id ILIKE $${idx})`);
+      }
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    const sql = `SELECT id, payment_order_id, source_order_sn, member_id, member_name, consignee, phone, delivery_address, shop_name, business_type, product_title, product_id, product_subtotal, shipping_fee, coupon_discount, income_amount, cost_amount, profit_amount, payment_channel, order_status, shipping_status, pay_status, personal_tag, tags, region, purchase_time FROM purchase_orders ${where} ORDER BY purchase_time DESC LIMIT 5000`;
+    const { rows } = await pgPool.query(sql, params);
+    await enrichCostProfit(rows);
+    res.json({ success: true, data: rows, count: rows.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/orders/export-purchase-list', async (req, res) => {
   try {
     const { ids } = req.body || {};

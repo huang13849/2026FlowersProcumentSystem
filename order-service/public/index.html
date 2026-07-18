@@ -13,6 +13,8 @@
 <script src="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/antd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.9/babel.min.js"></script>
 <style>
+    .month-divider td { border-top: 3px solid #ff9c6e !important; background: #fff7e6 !important; }
+
   body { margin: 0; background: #f5f5f5; }
   .app-header { background: #fff; padding: 16px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
   .app-header h2 { margin: 0; }
@@ -567,6 +569,30 @@ const columns = [
       render: (val) => '¥' + Number(val || 0).toFixed(2),
     },
     {
+      title: '成本',
+      dataIndex: 'cost_amount',
+      width: 90,
+      editable: true,
+      render: (val) => <span style={{color:'#cf1322'}}>¥{Number(val || 0).toFixed(2)}</span>,
+    },
+    {
+      title: '销售额',
+      dataIndex: 'income_amount',
+      width: 90,
+      editable: true,
+      render: (val) => <span style={{color:'#1677ff'}}>¥{Number(val || 0).toFixed(2)}</span>,
+    },
+    {
+      title: '利润',
+      dataIndex: 'profit_amount',
+      width: 90,
+      editable: true,
+      render: (val) => {
+        const v = Number(val || 0);
+        return <b style={{color: v >= 0 ? '#389e0d' : '#cf1322'}}>¥{v.toFixed(2)}</b>;
+      }
+    },
+    {
       title: '运费',
       dataIndex: 'shipping_fee',
       width: 80,
@@ -692,6 +718,53 @@ const columns = [
     } catch (e) { message.error({ content: e.message, key: 'sync' }); }
   }, [pagination.current]);
 
+  const handleExportSettlement = React.useCallback(async () => {
+    try {
+      message.loading({ content: '生成结帐表...', key: 'settle' });
+      const body = { ids: selectedRowKeys, filter: { search, business_type: businessType, region, shop_name: shopName, month: monthFilter } };
+      const r = await fetch(`${API_BASE}/api/orders/export-settlement`, {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || '导出失败');
+      const rows = d.data || [];
+      if (!rows.length) { message.warning({ content: '无数据', key: 'settle' }); return; }
+      const headers = ['订单号','订单时间','会员ID','会员/收货人','手机号','收货地址','店铺名','业务类型','商品明细','订单总价','运费','优惠','销售额','成本','利润','支付渠道','订单状态','发货状态','支付状态','标签','区域'];
+      const esc = (v) => { const ss = String(v == null ? '' : v).replace(/"/g,'""'); return /[",\n]/.test(ss) ? '"'+ss+'"' : ss; };
+      const money = (v) => Number(v || 0).toFixed(2);
+      const lines = [headers.join(',')];
+      let ti = 0, tc = 0, tp = 0;
+      rows.forEach(o => {
+        const titles = Array.isArray(o.product_title) ? o.product_title.join(' | ') : (o.product_title || '');
+        const tags = Array.isArray(o.tags) ? o.tags.join('|') : (o.personal_tag || '');
+        ti += Number(o.income_amount || 0);
+        tc += Number(o.cost_amount || 0);
+        tp += Number(o.profit_amount || 0);
+        lines.push([
+          o.payment_order_id || o.source_order_sn || o.id,
+          dayjs(o.purchase_time).format('YYYY-MM-DD HH:mm'),
+          o.member_id, o.consignee || o.member_name, o.phone, o.delivery_address,
+          o.shop_name, o.business_type, titles,
+          money(o.product_subtotal), money(o.shipping_fee), money(o.coupon_discount),
+          money(o.income_amount), money(o.cost_amount), money(o.profit_amount),
+          o.payment_channel, o.order_status, o.shipping_status, o.pay_status,
+          tags, o.region
+        ].map(esc).join(','));
+      });
+      lines.push('');
+      lines.push(['合计','','','','','','','','','','','', money(ti), money(tc), money(tp),'','','','','',''].map(esc).join(','));
+      const csv = '\uFEFF' + lines.join('\n');
+      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `结帐表-${dayjs().format('YYYYMMDD-HHmmss')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      message.success({ content: `已导出 ${rows.length} 条 · 销售¥${money(ti)} 成本¥${money(tc)} 利润¥${money(tp)}`, key: 'settle', duration: 5 });
+    } catch (e) { message.error({ content: e.message, key: 'settle' }); }
+  }, [selectedRowKeys, search, businessType, region, shopName, monthFilter]);
+
   const handleExportPurchaseList = React.useCallback(() => {
     if (!selectedRowKeys.length) return;
     const url = `http://100.96.54.109:31015/purchase-list/render?source=purchase_orders&ids=` + selectedRowKeys.join(',') + '&title=' + encodeURIComponent('采购单');
@@ -776,6 +849,7 @@ const columns = [
           <Button onClick={() => setShowTagMgr(true)} style={{background:'#f9f0ff',color:'#722ed1',borderColor:'#d3adf7'}}>🏷️ 标签管理</Button>
           <Button onClick={() => setShowBatchTag(true)} disabled={!hasSelected} style={{background:'#e8eaf6',color:'#3949ab',borderColor:'#c5cae9'}}>🏷️ 批量打标签 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
           <Button onClick={handleExportPurchaseList} disabled={!hasSelected} style={{background:'#e6fffb',color:'#08979c',borderColor:'#87e8de'}}>📥 导出采购单 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
+          <Button onClick={handleExportSettlement} style={{background:'#fff7e6',color:'#d46b08',borderColor:'#ffd591'}}>📊 导出结帐表 {hasSelected ? `(${selectedRowKeys.length}选中)` : '(当前筛选)'}</Button>
           <Button onClick={handleSyncPayment} style={{background:'#fff7e6',color:'#d46b08',borderColor:'#ffd591'}}>🔄 同步支付订单</Button>
           <Button onClick={handleDuplicate} disabled={!hasSelected}>📋 复制选中 {hasSelected ? `(${selectedRowKeys.length})` : ''}</Button>
           <Popconfirm title={`确定删除选中的 ${selectedRowKeys.length} 条记录？`} onConfirm={handleBatchDelete} disabled={!hasSelected}>
@@ -820,7 +894,7 @@ const columns = [
             {!tagStats.length && <span style={{color:'#bbb',fontSize:12}}>暂无标签（请先在标签管理中新建）</span>}
           </div>
         </Card>
-        <Table columns={mergedColumns} dataSource={data} rowKey="id" loading={loading}
+        <Table columns={mergedColumns} dataSource={data} rowKey="id" loading={loading} rowClassName={(record, index) => { if (index === 0) return ''; const prev = data[index-1]; if (!prev) return ''; try { const m1 = dayjs(record.purchase_time).format('YYYY-MM'); const m2 = dayjs(prev.purchase_time).format('YYYY-MM'); return m1 !== m2 ? 'month-divider' : ''; } catch(_) { return ''; } }}
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
           onChange={handleTableChange} scroll={{ x: 2670 }} size="middle" />
