@@ -289,6 +289,24 @@ router.post('/users/:zid/password-reset', async (req, res) => {
   }
 });
 
+// GET /api/zitadel/users/:zid/addresses — 查该用户所有地址明细
+router.get('/users/:zid/addresses', async (req, res) => {
+  const zid = String(req.params.zid);
+  try {
+    const pgpool = getPgPool();
+    const r = await pgpool.query(`
+      SELECT id, addr_id, name, phone, province, city, district, detail,
+             postal_code, country, is_default, created_at, updated_at
+      FROM plant_collector.user_addresses
+      WHERE zid=$1
+      ORDER BY is_default DESC, created_at DESC
+    `, [zid]);
+    res.json({ success: true, count: r.rowCount, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/zitadel/instances
 router.get('/instances', async (req, res) => {
   try {
