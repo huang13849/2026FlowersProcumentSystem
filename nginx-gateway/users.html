@@ -953,8 +953,8 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       + '<button class="btn btn-danger" id="uaBatchDel" style="background:#d32f2f;color:#fff;border-color:#d32f2f" disabled>🗑️ 批量删除 <span id="uaSelCountDel">0</span></button>'
       + '</div>'
       + '<div style="overflow-x:auto"><table style="min-width:1200px"><thead><tr>'
-      + '<th style="width:32px;text-align:center"><input type="checkbox" id="uaAll"></th><th>来源</th><th>OneID</th><th>标签</th><th>用户名</th><th>邮箱</th><th>手机</th><th>昵称</th>'
-      + '<th>Instance / 组织</th><th>类型</th><th>地址</th><th>密码</th><th>最后登录</th><th>创建</th>'
+      + '<th style="width:32px;text-align:center"><input type="checkbox" id="uaAll"></th><th>来源</th><th>OneID</th><th>标签</th><th>邮箱</th><th>手机</th><th>姓名/昵称</th>'
+      + '<th>Instance / 组织</th><th>类型</th><th>地址</th><th>最后登录</th><th>创建</th>'
       + '</tr></thead><tbody id="uaBody"></tbody></table></div>';
 
     document.getElementById('uaSearch').addEventListener('input', render);
@@ -1002,7 +1002,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     });
     updateStats(list);
     var body = document.getElementById('uaBody');
-    if(!list.length){ body.innerHTML='<tr><td colspan=14 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
+    if(!list.length){ body.innerHTML='<tr><td colspan=12 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
     body.innerHTML = list.map(function(u){
       var tagsTxt = (u.tags||[]).map(function(t){var meta=(window.__TAG_POOL_MAP||{})[t]||{color:'#e8eaed',bg:'#455a64',border:'#607d8b'};return '<span data-tagrm="'+t+'" data-zid="'+u.id+'" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;background:'+meta.bg+';color:'+meta.color+';border:1px solid '+meta.border+';margin-right:3px">'+t+'<span style="cursor:pointer;opacity:.7;margin-left:2px" data-rmx="1">×</span></span>'}).join('') || '<span style="color:#aaa">-</span>';
       var name = (u.display_name || u.nick_name || (u.first_name||'')+(u.last_name||'') || '').trim() || '-';
@@ -1025,18 +1025,12 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
         + '<td>'+ sourceBadge(u.source_project, u.source_label, u.source_color) +'</td>'
         + '<td class="muted" style="font-family:monospace;font-size:11px">'+(u.oneid||'-')+'</td>'
         + '<td>'+tagsTxt+'</td>'
-        + '<td>'+(u.username||'-')+'</td>'
         + '<td class="muted" style="font-size:12px">'+email+'</td>'
         + '<td>'+phone+'</td>'
         + '<td>'+name+'</td>'
         + '<td class="muted" style="font-size:11px">'+(u.instance_name||'-')+'<br>'+(u.org_name||'-')+'</td>'
         + '<td>'+(u.user_type? (TYPE_LABEL[u.user_type]||u.user_type):'<span style="color:#aaa">-</span>')+'</td>'
         + '<td>'+addrText+'</td>'
-        + '<td>'+ (u.has_password
-              ? (u.password_change_required ? '<span style="color:#ff9800;font-size:11px">⚠️需改</span> ' : '<span style="color:#4caf50;font-size:11px">✓已设</span> ')
-                + '<button class="btn-xs" data-pwd-reset="'+u.id+'" style="padding:2px 8px;font-size:12px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-left:4px">🔑 重置</button>'
-              : '<span style="color:#aaa">未设置</span>')
-          + '</td>'
         + '<td class="muted" style="font-size:11px">'+(u.last_login_at ? fmt(u.last_login_at) : '<span style="color:#aaa">从未</span>')+'</td>'
         + '<td class="muted" style="font-size:11px">'+fmt(u.creation_date)+'</td>'
         + '</tr>';
@@ -1215,7 +1209,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
 
   function load(){
     var body = document.getElementById('uaBody');
-    if(body) body.innerHTML='<tr><td colspan=14 style="text-align:center;padding:20px;color:#999">加载中…</td></tr>';
+    if(body) body.innerHTML='<tr><td colspan=12 style="text-align:center;padding:20px;color:#999">加载中…</td></tr>';
     fetch(API_ZIT,{headers:{'x-api-key':'***REMOVED_API_KEY***'}})
       .then(function(r){return r.json()})
       .then(function(d){
