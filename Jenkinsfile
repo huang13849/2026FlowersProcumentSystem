@@ -43,7 +43,9 @@ pipeline {
                         "api-gateway",
                         "scene-service",
                         "contract-service",
-                        "purchase-list-service"
+                        "purchase-list-service",
+                        "user-management-service",
+                        "seller-binding-service"
                     ]
                     for (service in services) {
                         docker.build("${REGISTRY}/supply-chain/${service}:latest", "-f ${service}/Dockerfile ${service}/")
