@@ -32,6 +32,11 @@ BUILD_SPEC=(
   "console-nav-service:console-nav-service"
   "purchase-list-service:purchase-list-service"
   "seller-binding-service:seller-binding-service"
+
+  # domain microservices (user management refactor)
+  "identity-service:identity-service"
+  "profile-service:profile-service"
+  "crm-service:crm-service"
 )
 
 FAIL=0
