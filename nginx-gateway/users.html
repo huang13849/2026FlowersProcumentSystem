@@ -873,22 +873,21 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
 (function(){
   var API_ZIT = '/api/zitadel/users';
   var SOURCE_OPTS = [
-    {v:'peony',    l:'芍药联盟'},
-    {v:'club',     l:'植物收藏家'},
-    {v:'shopclub', l:'植物收藏家'},
-    {v:'tropical', l:'热植联盟'},
-    {v:'space-cn', l:'植物收藏家-国内'},
-    {v:'space-en', l:'植物收藏家-海外'},
-    {v:'edu',      l:'幼植学校'},
-    {v:'wholesale',l:'批发'},
+    {v:'peony',        l:'芍药联盟'},
+    {v:'shopclub',     l:'植物收藏家'},
+    {v:'tropical',     l:'热植联盟'},
+    {v:'edu',          l:'幼植学校'},
+    {v:'plant-share',  l:'植物共享'},
+    {v:'system',       l:'系统'},
   ];
   var USER_TYPES = ['hobbyist','student','peony_wholesaler','individual_buyer','planter','staff','guest','other'];
   var TYPE_LABEL = {hobbyist:'爱好者',student:'学生',peony_wholesaler:'芍药批发',individual_buyer:'个人买家',planter:'种植户',staff:'员工',guest:'访客',other:'其他'};
 
   function badge(text, bg, fg){ return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+bg+';color:'+(fg||'#fff')+';font-size:11px">'+text+'</span>'; }
-  function sourceBadge(code, label){
-    var colors = {peony:'#c2185b', club:'#2e7d32', shopclub:'#2e7d32', tropical:'#00695c', 'space-cn':'#1565c0', 'space-en':'#6a1b9a', edu:'#e65100', wholesale:'#455a64'};
-    return badge(label||code, colors[code]||'#607d8b');
+  function sourceBadge(code, label, color){
+    // color 由后端直接下发(source_color)；无则按 code 兜底
+    var colors = {peony:'#c2185b', shopclub:'#2e7d32', tropical:'#00695c', edu:'#e65100', 'plant-share':'#6a1b9a', system:'#607d8b', 'self-operated':'#455a64'};
+    return badge(label||code, color || colors[code] || '#607d8b');
   }
   function truncate(s,n){ s=s||''; return s.length>n? s.slice(0,n)+'…':s; }
   function fmt(d){ if(!d) return '-'; try{return new Date(d).toISOString().slice(0,16).replace('T',' ');}catch(e){return d;} }
@@ -916,10 +915,11 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       + '<button class="btn btn-ghost" id="uaReload">🔄 刷新</button>'
       + '<button class="btn btn-ghost" id="uaTagMgr" style="color:#722ed1;border-color:#722ed1">🏷️ 标签管理</button>'
       + '<button class="btn btn-primary" id="uaBatchTag" style="background:#722ed1" disabled>🏷️ 批量打标签 <span id="uaSelCount">0</span></button>'
+      + '<button class="btn btn-danger" id="uaBatchDel" style="background:#d32f2f;color:#fff;border-color:#d32f2f" disabled>🗑️ 批量删除 <span id="uaSelCountDel">0</span></button>'
       + '</div>'
       + '<div style="overflow-x:auto"><table style="min-width:1200px"><thead><tr>'
       + '<th style="width:32px;text-align:center"><input type="checkbox" id="uaAll"></th><th>来源</th><th>OneID</th><th>用户名/邮箱</th><th>手机</th><th>昵称</th>'
-      + '<th>Instance / 组织</th><th>用户类型</th><th>标签</th><th>地址</th><th>状态</th><th>创建</th>'
+      + '<th>Instance / 组织</th><th>用户类型</th><th>标签</th><th>地址</th><th>密码</th><th>状态</th><th>创建</th>'
       + '</tr></thead><tbody id="uaBody"></tbody></table></div>';
 
     document.getElementById('uaSearch').addEventListener('input', render);
@@ -932,6 +932,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       updateSelCount();
     });
     document.getElementById('uaBatchTag').addEventListener('click', openBatchTagModal);
+    document.getElementById('uaBatchDel').addEventListener('click', openBatchDeleteModal);
     document.getElementById('uaTagF').addEventListener('change', render);
     document.getElementById('uaTagMgr').addEventListener('click', openTagPoolManager);
   }
@@ -966,7 +967,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     });
     updateStats(list);
     var body = document.getElementById('uaBody');
-    if(!list.length){ body.innerHTML='<tr><td colspan=13 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
+    if(!list.length){ body.innerHTML='<tr><td colspan=14 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
     body.innerHTML = list.map(function(u){
       var tagsTxt = (u.tags||[]).map(function(t){var meta=(window.__TAG_POOL_MAP||{})[t]||{color:'#e8eaed',bg:'#455a64',border:'#607d8b'};return '<span data-tagrm="'+t+'" data-zid="'+u.id+'" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;background:'+meta.bg+';color:'+meta.color+';border:1px solid '+meta.border+';margin-right:3px">'+t+'<span style="cursor:pointer;opacity:.7;margin-left:2px" data-rmx="1">×</span></span>'}).join('') || '<span style="color:#aaa">-</span>';
       var name = (u.display_name || u.nick_name || (u.first_name||'')+(u.last_name||'') || '').trim() || '-';
@@ -974,7 +975,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       var phone = u.phone ? (u.phone + (u.is_phone_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
       return '<tr>'
         + '<td style="text-align:center"><input type="checkbox" class="uaSel" data-zid="'+u.id+'"></td>'
-        + '<td>'+ sourceBadge(u.source_project, u.source_label) +'</td>'
+        + '<td>'+ sourceBadge(u.source_project, u.source_label, u.source_color) +'</td>'
         + '<td class="muted" style="font-family:monospace;font-size:11px">'+(u.oneid||'-')+'</td>'
         + '<td>'+(u.username||'-')+'<div class="muted" style="font-size:11px">'+truncate(email,32)+'</div></td>'
         + '<td>'+phone+'</td>'
@@ -983,6 +984,14 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
         + '<td>'+(u.user_type? (TYPE_LABEL[u.user_type]||u.user_type):'<span style="color:#aaa">-</span>')+'</td>'
         + '<td>'+tagsTxt+'</td>'
         + '<td>'+(u.address_count>0? badge(u.address_count+' 条','#0288d1'):'<span style="color:#aaa">-</span>')+'</td>'
+        + '<td>'+ (u.has_password
+              ? '<span class="pwdCell" data-zid="'+u.id+'" style="cursor:pointer;user-select:none" title="点击显示/重置"><span class="pwdMask">••••••••</span>'
+                + '<span class="pwdInfo" style="display:none;font-size:11px">'
+                + (u.password_change_required ? '<span style="color:#ff9800">⚠️需改</span> ' : '<span style="color:#4caf50">✓已设</span> ')
+                + '<button class="btn-xs" data-pwd-reset="'+u.id+'" style="padding:1px 6px;font-size:11px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-left:4px">重置</button>'
+                + '</span></span>'
+              : '<span style="color:#aaa">未设置</span>')
+          + '</td>'
         + '<td>'+badge(u.state_label, u.state_label==='active'?'#2e7d32':'#757575')+'</td>'
         + '<td class="muted" style="font-size:11px">'+fmt(u.creation_date)+'</td>'
         + '</tr>';
@@ -1002,7 +1011,70 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     body.querySelectorAll('.uaSel').forEach(function(cb){
       cb.addEventListener('change', updateSelCount);
     });
+    // 密码列: 点击 mask 切换显示状态; 点击"重置"按钮触发密码重置
+    body.querySelectorAll('.pwdCell').forEach(function(cell){
+      cell.addEventListener('click', function(e){
+        if(e.target && e.target.getAttribute('data-pwd-reset')) return; // 让重置按钮独立处理
+        var mask = cell.querySelector('.pwdMask'), info = cell.querySelector('.pwdInfo');
+        if(!mask || !info) return;
+        var show = info.style.display === 'none';
+        mask.style.display = show ? 'none' : 'inline';
+        info.style.display = show ? 'inline' : 'none';
+      });
+    });
+    body.querySelectorAll('[data-pwd-reset]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var zid = btn.getAttribute('data-pwd-reset');
+        var u = all.find(function(x){return x.id===zid}); if(!u) return;
+        if(!confirm('为用户 '+ (u.username||zid) +' 生成一次性密码重置码？\n（用户下次登录需要用此 code 重设密码）')) return;
+        fetch('/api/zitadel/users/'+encodeURIComponent(zid)+'/password-reset', {
+          method:'POST', headers:{'x-api-key':'***REMOVED_API_KEY***','Content-Type':'application/json'}, body:'{}'
+        }).then(function(r){return r.json().then(function(d){return {status:r.status,data:d}})})
+          .then(function(res){
+            if(res.data && res.data.success){
+              var code = (res.data.data && (res.data.data.verificationCode || res.data.data.verification_code)) || JSON.stringify(res.data.data);
+              prompt('✅ 密码重置码（复制给用户，仅一次有效）:', code);
+            } else {
+              showToast('重置失败: '+(res.data && res.data.error || res.status), 'err');
+            }
+          }).catch(function(e){ showToast('网络错误: '+e.message, 'err'); });
+      });
+    });
     updateSelCount();
+  }
+
+  function openBatchDeleteModal(){
+    var zids = getSelectedZids();
+    if(!zids.length) return;
+    var preview = zids.slice(0,10).map(function(zid){
+      var u=all.find(function(x){return x.id===zid});
+      return u ? (u.username||zid)+' ('+(u.instance_name||'?')+')' : zid;
+    }).join('\n');
+    var extra = zids.length>10 ? '\n… 共 '+zids.length+' 个' : '';
+    if(!confirm('⚠️ 批量删除以下 '+zids.length+' 个 Zitadel 用户？\n（同时清除 plant_collector.user_profiles 关联，此操作不可恢复）\n\n'+preview+extra)) return;
+    var btn = document.getElementById('uaBatchDel');
+    if(btn){ btn.disabled = true; btn.textContent = '删除中...'; }
+    fetch('/api/zitadel/users/batch-delete', {
+      method:'POST', headers:{'x-api-key':'***REMOVED_API_KEY***','Content-Type':'application/json'},
+      body: JSON.stringify({zids: zids})
+    }).then(function(r){return r.json()}).then(function(d){
+      if(d.success){
+        var failed = (d.results||[]).filter(function(r){return !r.ok});
+        if(failed.length){
+          showToast('已删除 '+d.deleted+'/'+d.total+'，失败 '+failed.length+' 个（详情见 console）','err');
+          console.warn('[batch-delete] failed:', failed);
+        } else {
+          showToast('✅ 已删除 '+d.deleted+' 个用户');
+        }
+        load();
+      } else {
+        showToast('删除失败: '+(d.error||''),'err');
+      }
+    }).catch(function(e){ showToast('网络错误: '+e.message,'err'); })
+      .finally(function(){
+        if(btn){ btn.disabled=false; btn.innerHTML='🗑️ 批量删除 <span id="uaSelCountDel">0</span>'; }
+      });
   }
 
   function openEdit(zid){
@@ -1048,7 +1120,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
 
   function load(){
     var body = document.getElementById('uaBody');
-    if(body) body.innerHTML='<tr><td colspan=13 style="text-align:center;padding:20px;color:#999">加载中…</td></tr>';
+    if(body) body.innerHTML='<tr><td colspan=14 style="text-align:center;padding:20px;color:#999">加载中…</td></tr>';
     fetch(API_ZIT,{headers:{'x-api-key':'***REMOVED_API_KEY***'}})
       .then(function(r){return r.json()})
       .then(function(d){
@@ -1082,6 +1154,10 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     var cnt = document.getElementById('uaSelCount');
     if(cnt) cnt.textContent = n;
     if(btn) btn.disabled = (n === 0);
+    var btnDel = document.getElementById('uaBatchDel');
+    var cntDel = document.getElementById('uaSelCountDel');
+    if(cntDel) cntDel.textContent = n;
+    if(btnDel) btnDel.disabled = (n === 0);
   }
 
   function openBatchTagModal(){
