@@ -987,12 +987,8 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
               ? '<button class="btn-xs addrBtn" data-addr-zid="'+u.id+'" style="padding:2px 8px;font-size:12px;background:#0288d1;color:#fff;border:none;border-radius:3px;cursor:pointer">'+u.address_count+' 条 👁️</button>'
               : '<span style="color:#aaa">-</span>')+'</td>'
         + '<td>'+ (u.has_password
-              ? '<span class="pwdCell" data-zid="'+u.id+'">'
-                + '<button class="btn-xs pwdToggle" data-pwd-zid="'+u.id+'" style="padding:2px 8px;font-size:12px;background:#546e7a;color:#fff;border:none;border-radius:3px;cursor:pointer">👁️ 查看</button>'
-                + '<span class="pwdInfo" style="display:none;font-size:11px;margin-left:4px">'
-                + (u.password_change_required ? '<span style="color:#ff9800">⚠️需改</span> ' : '<span style="color:#4caf50">✓已设</span> ')
-                + '<button class="btn-xs" data-pwd-reset="'+u.id+'" style="padding:1px 6px;font-size:11px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-left:4px">重置</button>'
-                + '</span></span>'
+              ? (u.password_change_required ? '<span style="color:#ff9800;font-size:11px">⚠️需改</span> ' : '<span style="color:#4caf50;font-size:11px">✓已设</span> ')
+                + '<button class="btn-xs" data-pwd-reset="'+u.id+'" style="padding:2px 8px;font-size:12px;background:#ff9800;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-left:4px">🔑 重置</button>'
               : '<span style="color:#aaa">未设置</span>')
           + '</td>'
         + '<td>'+badge(u.state_label, u.state_label==='active'?'#2e7d32':'#757575')+'</td>'
@@ -1013,17 +1009,6 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     });
     body.querySelectorAll('.uaSel').forEach(function(cb){
       cb.addEventListener('change', updateSelCount);
-    });
-    // 密码列: 点击 [👁️ 查看] 按钮切换显示状态与重置按钮
-    body.querySelectorAll('[data-pwd-zid]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var cell = btn.closest('.pwdCell'); if(!cell) return;
-        var info = cell.querySelector('.pwdInfo'); if(!info) return;
-        var show = info.style.display === 'none';
-        info.style.display = show ? 'inline' : 'none';
-        btn.textContent = show ? '🙈 隐藏' : '👁️ 查看';
-      });
     });
     // 地址列: 点击按钮弹出地址明细
     body.querySelectorAll('[data-addr-zid]').forEach(function(btn){
@@ -1057,6 +1042,8 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
   function openAddressModal(zid){
     var u = all.find(function(x){return x.id===zid});
     var title = u ? (u.username||zid) + ' 的地址' : '地址明细';
+    // 先弹一个 loading modal 确保用户立刻看到反馈
+    showInfoModal(title, '<div style="padding:12px;color:#888">加载中…</div>');
     fetch('/api/zitadel/users/'+encodeURIComponent(zid)+'/addresses', {
       headers: {'x-api-key':'***REMOVED_API_KEY***'}
     }).then(function(r){return r.json()}).then(function(d){
@@ -1064,7 +1051,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       if(!d.success){ html = '<div style="padding:16px;color:#d32f2f">加载失败: '+(d.error||'')+'</div>'; }
       else if(!d.data || !d.data.length){ html = '<div style="padding:16px;color:#999">该用户无地址记录</div>'; }
       else {
-        html = '<div style="padding:12px;max-height:60vh;overflow:auto">'
+        html = '<div style="max-height:60vh;overflow:auto">'
           + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
           + '<thead><tr style="background:#f5f5f5"><th style="padding:6px;text-align:left">默认</th><th style="padding:6px;text-align:left">收货人</th><th style="padding:6px;text-align:left">电话</th><th style="padding:6px;text-align:left">地址</th><th style="padding:6px;text-align:left">邮编</th><th style="padding:6px;text-align:left">创建时间</th></tr></thead><tbody>'
           + d.data.map(function(a){
@@ -1080,24 +1067,30 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
             }).join('')
           + '</tbody></table></div>';
       }
-      showModal(title, html);
-    }).catch(function(e){ showToast('网络错误: '+e.message,'err'); });
+      showInfoModal(title, html);
+    }).catch(function(e){ showInfoModal(title, '<div style="padding:16px;color:#d32f2f">网络错误: '+e.message+'</div>'); });
   }
 
-  function showModal(title, bodyHtml){
-    var m = document.getElementById('uaModal');
+  function showInfoModal(title, bodyHtml){
+    var m = document.getElementById('uaInfoModal');
     if(!m){
       m = document.createElement('div');
-      m.id = 'uaModal';
-      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
-      m.innerHTML = '<div style="background:#fff;border-radius:8px;min-width:600px;max-width:90vw;box-shadow:0 4px 24px rgba(0,0,0,0.2)"><div style="padding:12px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><h3 id="uaModalTitle" style="margin:0;font-size:16px"></h3><button id="uaModalClose" style="background:none;border:none;font-size:22px;cursor:pointer;color:#666">×</button></div><div id="uaModalBody"></div></div>';
+      m.id = 'uaInfoModal';
+      m.className = 'modal-bg';
+      m.innerHTML = '<div class="modal" style="min-width:640px;max-width:90vw">'
+                  + '<h3 id="uaInfoTitle" style="display:flex;justify-content:space-between;align-items:center">'
+                  + '<span id="uaInfoTitleText"></span>'
+                  + '<button id="uaInfoClose" style="background:none;border:none;font-size:22px;cursor:pointer;color:#666">×</button>'
+                  + '</h3>'
+                  + '<div id="uaInfoBody"></div>'
+                  + '</div>';
       document.body.appendChild(m);
-      m.querySelector('#uaModalClose').addEventListener('click', function(){ m.style.display='none' });
-      m.addEventListener('click', function(e){ if(e.target===m) m.style.display='none' });
+      m.querySelector('#uaInfoClose').addEventListener('click', function(){ m.classList.remove('show') });
+      m.addEventListener('click', function(e){ if(e.target===m) m.classList.remove('show') });
     }
-    m.querySelector('#uaModalTitle').textContent = title;
-    m.querySelector('#uaModalBody').innerHTML = bodyHtml;
-    m.style.display = 'flex';
+    m.querySelector('#uaInfoTitleText').textContent = title;
+    m.querySelector('#uaInfoBody').innerHTML = bodyHtml;
+    m.classList.add('show');
   }
 
   function openBatchDeleteModal(){
