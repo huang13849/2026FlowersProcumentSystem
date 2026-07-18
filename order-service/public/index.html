@@ -50,7 +50,7 @@ const businessTypeOptions = [{value:'未设置'},{value:'微商'},{value:'单店
 const businessTypeFilterOptions = [{ value: '全部', label: '全部类型' }, { value: '微商' }, { value: '单店' }, { value: '团购/电商' }, { value: '连锁' }, { value: '企业采购' }, { value: '未设置' }];
 const targetShopOptions = [{ value: '全部', label: '全部店铺' }, { value: '三度花' }, { value: '花予生活' }, { value: '花哥友花' }, { value: '林草小店' }];
 
-function EditableCell({ value, onChange, type = 'text', options }) {
+function EditableCell({ value, onChange, type = 'text', options, displayRender = null }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value);
   const ref = useRef(null);
@@ -67,7 +67,7 @@ function EditableCell({ value, onChange, type = 'text', options }) {
         onBlur={() => setEditing(false)} options={options} size="small" style={{ width: '100%' }}
         open onDropdownVisibleChange={v => { if (!v) setEditing(false); }} />
     );
-    return <span className="cell-display" onDoubleClick={() => setEditing(true)}>{value ? <Tag color={typeColors[value] || 'default'}>{value}</Tag> : <span style={{color:'#bbb'}}>双击编辑</span>}</span>;
+    return <span className="cell-display" onDoubleClick={() => setEditing(true)}>{displayRender ? displayRender() : (value ? <Tag color={typeColors[value] || 'default'}>{value}</Tag> : <span style={{color:'#bbb'}}>双击编辑</span>)}</span>;
   }
 
   if (editing) return <Input ref={ref} className="editable-cell-input" value={val || ''} onChange={e => setVal(e.target.value)}
@@ -604,30 +604,65 @@ const columns = [
     {
       title: '订单状态',
       dataIndex: 'order_status',
-      width: 100,
+      width: 110,
       editable: true,
+      editableType: 'select',
+      options: [
+        { value: '已下单', label: '已下单' },
+        { value: '处理中', label: '处理中' },
+        { value: '已完成', label: '已完成' },
+        { value: '已取消', label: '已取消' },
+      ],
+      render: (val) => {
+        const v = val || '';
+        const colorMap = { '已下单': '#1677ff', '处理中': '#faad14', '已完成': '#52c41a', '已取消': '#8c8c8c' };
+        return v ? <Tag color={colorMap[v] || 'default'}>{v}</Tag> : <span style={{color:'#bfbfbf'}}>—</span>;
+      }
     },
     {
       title: '发货状态',
       dataIndex: 'shipping_status',
-      width: 100,
+      width: 110,
       editable: true,
+      editableType: 'select',
+      options: [
+        { value: '未发货', label: '未发货' },
+        { value: '包装中', label: '包装中' },
+        { value: '已发货', label: '已发货' },
+        { value: '已签收', label: '已签收' },
+      ],
+      render: (val) => {
+        const v = val || '未发货';
+        const colorMap = { '未发货': '#8c8c8c', '包装中': '#faad14', '已发货': '#1677ff', '已签收': '#52c41a' };
+        return <Tag color={colorMap[v] || 'default'}>{v}</Tag>;
+      }
     },
     {
       title: '支付状态',
       dataIndex: 'pay_status',
       width: 100,
       editable: true,
+      editableType: 'select',
+      options: [
+        { value: '已支付', label: '已支付' },
+        { value: '未支付', label: '未支付' },
+      ],
+      render: (val) => {
+        const v = val || '';
+        const colorMap = { '已支付': '#52c41a', '未支付': '#faad14' };
+        return v ? <Tag color={colorMap[v] || 'default'}>{v}</Tag> : <span style={{color:'#bfbfbf'}}>—</span>;
+      }
     },
   ];
 
   const mergedColumns = columns.map(col => {
     if (!col.editable) return col;
+    const origRender = col.render;
     return {
       ...col,
       render: (val, record) => {
         if (col.editableType === 'select') {
-          return <EditableCell value={val} type="select" options={col.options}
+          return <EditableCell value={val} type="select" options={col.options} displayRender={origRender ? () => origRender(val, record) : null}
             onChange={v => updateCell(record.id, col.dataIndex, v)} />;
         }
         if (['product_subtotal','shipping_fee','coupon_discount','cost_amount','income_amount','expense_amount','profit_amount'].includes(col.dataIndex)) {
