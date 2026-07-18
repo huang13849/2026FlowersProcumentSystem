@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-sync-worker
+  namespace: supply-chain
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: payment-sync-worker }
+  template:
+    metadata:
+      labels: { app: payment-sync-worker }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+        - name: payment-sync-worker
+          image: 100.96.54.109:5001/supply-chain/payment-sync-worker:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef: { name: supply-chain-common }
+          env:
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: supply-chain-secrets, key: PG_PASSWORD }
+            - name: NATS_URL
+              value: nats://nats.messaging.svc.cluster.local:4222
+          ports:
+            - { name: health, containerPort: 3020 }
+          readinessProbe:
+            httpGet: { path: /health, port: 3020 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 3020 }
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-sync-worker
+  namespace: supply-chain
+spec:
+  selector: { app: payment-sync-worker }
+  ports:
+    - { name: health, port: 3020, targetPort: 3020 }
+  type: ClusterIP

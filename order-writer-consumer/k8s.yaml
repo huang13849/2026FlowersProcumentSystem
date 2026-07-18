@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-writer-consumer
+  namespace: supply-chain
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: order-writer-consumer } }
+  template:
+    metadata: { labels: { app: order-writer-consumer } }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+        - name: order-writer-consumer
+          image: 100.96.54.109:5001/supply-chain/order-writer-consumer:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef: { name: supply-chain-common }
+          env:
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: supply-chain-secrets, key: PG_PASSWORD }
+            - name: NATS_URL
+              value: nats://nats.messaging.svc.cluster.local:4222
+          ports: [{ name: health, containerPort: 3021 }]
+          readinessProbe:
+            httpGet: { path: /health, port: 3021 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: order-writer-consumer, namespace: supply-chain }
+spec:
+  selector: { app: order-writer-consumer }
+  ports: [{ name: health, port: 3021, targetPort: 3021 }]

@@ -125,6 +125,8 @@ function pickOrderFields(src = {}) {
 
 
 // Update JSONB fields directly via pg
+
+// NOTE: payment sync 已迁移到 payment-sync-worker (LISTEN pg_notify) + order-writer-consumer (NATS JetStream). 见 skill supply-chain-platform-deploy-ops §34.
 async function updateJsonbFields(id, productId, productTitle) {
   const pid = Array.isArray(productId) ? productId : [];
   const ptitle = Array.isArray(productTitle) ? productTitle : [];
@@ -536,77 +538,6 @@ ensureOrderSchema()
   .finally(() => {
     
 // ============ 同步 plant_collector.orders(paid) → purchase_orders ============
-async function syncPaymentOrders() {
-  try {
-    const { rows } = await pgPool.query(`
-      SELECT o.id, o.order_no, o.status, o.total, o.currency, o.shipping_address,
-             o.paid_at, o.created_at, o.zid, o.source, o.origin_site,
-             (SELECT jsonb_agg(jsonb_build_object(
-                'title', oi.title, 'qty', oi.qty,
-                'unit_price', oi.unit_price, 'subtotal', oi.subtotal,
-                'sku_id', oi.sku_id,
-                'image', COALESCE(oi.snapshot->>'image', oi.snapshot->'snapshot'->>'image')
-              )) FROM plant_collector.order_items oi WHERE oi.order_id = o.id) AS items
-        FROM plant_collector.orders o
-       WHERE o.status = 'paid'
-    `);
-    let upserted = 0;
-    for (const r of rows) {
-      const addr = r.shipping_address || {};
-      const items = r.items || [];
-      const titles = items.map(x => x.title || '');
-      const ids = items.map(x => x.sku_id || '').filter(Boolean);
-      const shopName = r.origin_site === 'horiculture.space' ? '\u82b1\u4f34\u5546\u57ce(\u56fd\u9645)' : '\u82b1\u4f34\u5546\u57ce';
-      const region = r.origin_site === 'horiculture.space' ? 'global' : 'cn';
-      const payload = { items, origin_site: r.origin_site, source: r.source, zid: r.zid, currency: r.currency };
-      // check exists
-      const exist = await pgPool.query(
-        `SELECT id, tags, business_type FROM purchase_orders WHERE source_table='plant_collector.orders' AND source_order_sn=$1 LIMIT 1`,
-        [r.order_no]
-      );
-      if (exist.rows.length) {
-        await pgPool.query(`
-          UPDATE purchase_orders
-             SET product_subtotal=$2, consignee=$3, phone=$4, delivery_address=$5,
-                 product_id=$6::jsonb, product_title=$7::jsonb,
-                 synced_payload=$8::jsonb, synced_at=NOW(),
-                 pay_status='paid', order_status='paid', updated_at=NOW()
-           WHERE id=$1::int
-        `, [exist.rows[0].id, r.total, addr.memberName || addr.name || '', addr.phone || '',
-            addr.text || addr.address || '',
-            JSON.stringify(ids), JSON.stringify(titles), JSON.stringify(payload)]);
-      } else {
-        await pgPool.query(`
-          INSERT INTO purchase_orders
-            (member_id, member_name, source_table, source_order_sn, payment_order_id, consignee, phone, delivery_address,
-             product_subtotal, product_id, product_title,
-             purchase_time, order_status, pay_status, shop_name, synced_payload, synced_at,
-             business_type, region, tags, created_at, updated_at)
-          VALUES ('', '', 'plant_collector.orders', $1::text, $1::text, $2, $3, $4, $5,
-                  $6::jsonb, $7::jsonb, $8, 'paid', 'paid', $9, $10::jsonb, NOW(),
-                  '\u82b1\u4f34\u5546\u57ce', $11, $12::jsonb, $13, NOW())
-        `, [r.order_no, addr.memberName || addr.name || '', addr.phone || '',
-            addr.text || addr.address || '', r.total,
-            JSON.stringify(ids), JSON.stringify(titles), r.paid_at || r.created_at,
-            shopName, JSON.stringify(payload), region,
-            JSON.stringify(['\u82b1\u4f34\u5546\u57ce\u8ba2\u5355']), r.created_at]);
-      }
-      upserted++;
-    }
-    return { upserted };
-  } catch (e) {
-    console.error('[syncPaymentOrders]', e.message);
-    return { error: e.message };
-  }
-}
-
-// Trigger sync manually
-app.post('/api/orders/sync-payment', async (req, res) => {
-  const r = await syncPaymentOrders();
-  res.json(r);
-});
-
-// Purchase-list export (JSON — frontend renders HTML)
 app.post('/api/orders/export-settlement', async (req, res) => {
   try {
     const { ids, filter } = req.body || {};
@@ -657,8 +588,6 @@ app.post('/api/orders/export-purchase-list', async (req, res) => {
 
 
 // periodic payment→purchase sync
-setTimeout(() => syncPaymentOrders().then(r => console.log('[startup sync]', r)).catch(() => {}), 5000);
-setInterval(() => syncPaymentOrders().catch(() => {}), 5 * 60 * 1000);
 
 app.listen(PORT, () => {
       console.log(`🛒 Order Service running on port ${PORT}`);

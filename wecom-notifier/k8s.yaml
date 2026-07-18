@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wecom-notifier
+  namespace: supply-chain
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: wecom-notifier } }
+  template:
+    metadata: { labels: { app: wecom-notifier } }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+        - name: wecom-notifier
+          image: 100.96.54.109:5001/supply-chain/wecom-notifier:latest
+          imagePullPolicy: Always
+          env:
+            - name: NATS_URL
+              value: nats://nats.messaging.svc.cluster.local:4222
+            - name: WECOM_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef: { name: wecom-webhook, key: WECOM_WEBHOOK_URL }
+          ports: [{ name: health, containerPort: 3022 }]
+          readinessProbe:
+            httpGet: { path: /health, port: 3022 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 10m, memory: 48Mi }
+            limits:   { cpu: 100m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: wecom-notifier, namespace: supply-chain }
+spec:
+  selector: { app: wecom-notifier }
+  ports: [{ name: health, port: 3022, targetPort: 3022 }]

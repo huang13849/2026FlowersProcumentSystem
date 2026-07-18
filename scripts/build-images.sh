@@ -31,6 +31,9 @@ BUILD_SPEC=(
   "price-service:price-service"
   "console-nav-service:console-nav-service"
   "purchase-list-service:purchase-list-service"
+  "payment-sync-worker:payment-sync-worker"
+  "order-writer-consumer:order-writer-consumer"
+  "wecom-notifier:wecom-notifier"
   "seller-binding-service:seller-binding-service"
 
   # domain microservices (user management refactor)

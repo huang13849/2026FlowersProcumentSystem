@@ -1,0 +1,8 @@
+{
+  "name": "wecom-notifier",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "nats": "^2.28.0"
+  }
+}
