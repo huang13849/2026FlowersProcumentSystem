@@ -3,7 +3,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 
 const GATEWAY = process.env.GATEWAY_URL || 'http://api-gateway.supply-chain.svc.cluster.local:3007';
-const API_KEY = process.env.API_KEY || '***REMOVED_API_KEY***';
+const API_KEY = process.env.API_KEY || (function(){throw new Error('API_KEY env required')}());
 const PG_BASE = `${GATEWAY}/api/pg`;
 const TABLE = 'contracts';
 

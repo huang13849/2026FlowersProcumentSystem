@@ -27,6 +27,8 @@ spec:
         envFrom:
         - configMapRef:
             name: supply-chain-common
+        - secretRef:
+            name: supply-chain-secrets
         env:
         - name: NODE_ENV
           value: "production"

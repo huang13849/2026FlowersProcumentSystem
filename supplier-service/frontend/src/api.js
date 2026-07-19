@@ -16,7 +16,7 @@ api.interceptors.response.use(r => r, e => {
 
 // API Gateway 客户端 — MinIO 文件操作走 Gateway
 const GATEWAY_URL = window.__GATEWAY_URL__ || 'http://100.96.54.109:31007'
-const GATEWAY_API_KEY = window.__GATEWAY_API_KEY__ || '***REMOVED_API_KEY***'
+const GATEWAY_API_KEY = window.__GATEWAY_API_KEY__ || ''
 
 const gatewayApi = axios.create({ baseURL: GATEWAY_URL })
 gatewayApi.interceptors.request.use(c => {

@@ -25,7 +25,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:3007';
-const API_KEY = process.env.API_KEY || '***REMOVED_API_KEY***';
+const API_KEY = process.env.API_KEY || (function(){throw new Error('API_KEY env required')}());
 const DB_NAME = process.env.PG_DATABASE || 'supply_chain';
 const TABLE_NAME = 'purchase_orders';
 const headers = { 'x-api-key': API_KEY, 'Content-Type': 'application/json' };

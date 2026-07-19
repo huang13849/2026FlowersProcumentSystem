@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const GATEWAY_HOST = process.env.GATEWAY_HOST || 'api-gateway.supply-chain.svc.cluster.local';
 const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 3007);
-const API_KEY = process.env.GATEWAY_API_KEY || '***REMOVED_API_KEY***';
+const API_KEY = process.env.GATEWAY_API_KEY || (function(){throw new Error('GATEWAY_API_KEY env required')}());
 const TABLE = 'shops';
 
 function pgQuery(query, params) {
