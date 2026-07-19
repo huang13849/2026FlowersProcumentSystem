@@ -1,333 +1,333 @@
-process.env.MONGO_URI/**
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URIconst mongoose = require('mongoose');
-process.env.MONGO_URIconst { Pool } = require('pg');
-process.env.MONGO_URIconst redis = require('redis');
-process.env.MONGO_URIconst { Client: MinioClient } = require('minio');
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== 连接配置 =====
-process.env.MONGO_URIconst config = {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI};
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== MongoDB =====
-process.env.MONGO_URIlet mongoDb = null;
-process.env.MONGO_URI
-process.env.MONGO_URIasync function connectMongo() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URIfunction getMongoDb() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== PostgreSQL Primary (RPi8) =====
-process.env.MONGO_URIlet pgPool = null;
-process.env.MONGO_URI
-process.env.MONGO_URIasync function connectPostgres() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URIfunction getPgPool() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== PostgreSQL Standby(s) - 读副本池,支持多副本round-robin =====
-process.env.MONGO_URI// pgStandbyPools: [{ pool, host, port, healthy }]
-process.env.MONGO_URIlet pgStandbyPools = [];
-process.env.MONGO_URIlet pgStandbyRR = 0;
-process.env.MONGO_URI
-process.env.MONGO_URIasync function connectPostgresStandby() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI// 兼容旧代码:返回当前 RR 选中的健康副本 pool(单值)
-process.env.MONGO_URIfunction getPgStandbyPool() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI// 新接口:返回所有健康副本(供 /replication 端点展示)
-process.env.MONGO_URIfunction getPgStandbyPools() {
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== PostgreSQL Zitadel (RPi8, read-only aggregation) =====
-process.env.MONGO_URIlet zitadelPgPool = null;
-process.env.MONGO_URI
-process.env.MONGO_URIasync function connectZitadelPg() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URIfunction getZitadelPgPool() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== Redis =====
-process.env.MONGO_URIlet redisClient = null;
-process.env.MONGO_URI
-process.env.MONGO_URIasync function connectRedis() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URIfunction getRedisClient() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== MinIO =====
-process.env.MONGO_URIlet minioClient = null;
-process.env.MONGO_URI
-process.env.MONGO_URIasync function connectMinio() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URIfunction getMinioClient() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URIfunction getMinioBucket() {
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URIfunction getMinioPublicUrl() {
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== 连接全部 =====
-process.env.MONGO_URIasync function connectAll() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URI// ===== 健康检查 =====
-process.env.MONGO_URIasync function healthCheck() {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI}
-process.env.MONGO_URI
-process.env.MONGO_URImodule.exports = {
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI
-process.env.MONGO_URI};
+/**
+ * API Gateway - 统一数据库连接管理
+ * MongoDB Replica Set / PostgreSQL Primary+Standby / Redis + Sentinel / MinIO
+ */
+const mongoose = require('mongoose');
+const { Pool } = require('pg');
+const redis = require('redis');
+const { Client: MinioClient } = require('minio');
+
+// ===== 连接配置 =====
+const config = {
+  mongodb: {
+    uri: process.env.MONGO_URI, // no fallback: assert MONGO_URI env,
+    options: {
+      maxPoolSize: 20,
+      minPoolSize: 2,
+      serverSelectionTimeoutMS: 5000,
+    },
+  },
+  postgres: {
+    host: process.env.PG_HOST || '100.67.126.90',
+    port: process.env.PG_PORT || 5432,
+    user: process.env.PG_USER || 'postgres',
+    password: process.env.PG_PASSWORD || undefined,
+    database: process.env.PG_DATABASE || 'postgres',
+    max: 10,
+    idleTimeoutMillis: 30000,
+  },
+  // 只读副本列表: PG_STANDBY_HOSTS='host1:port1,host2:port2'
+  // 默认: xsyysj(office2) primary read replica + mac-mini fallback
+  pgStandbys: (() => {
+    const list = process.env.PG_STANDBY_HOSTS
+      ? process.env.PG_STANDBY_HOSTS.split(',').map(s => s.trim()).filter(Boolean)
+      : [
+          (process.env.PG_STANDBY_HOST || '100.127.141.83') + ':' + (process.env.PG_STANDBY_PORT || '5433'),
+        ];
+    return list.map(hp => {
+      const [host, port] = hp.split(':');
+      return {
+        host,
+        port: parseInt(port || '5432', 10),
+        user: process.env.PG_USER || 'postgres',
+        password: process.env.PG_PASSWORD || undefined,
+        database: process.env.PG_DATABASE || 'postgres',
+        max: 5,
+        idleTimeoutMillis: 30000,
+      };
+    });
+  })(),
+  // 保留向后兼容(未使用,只作为标记)
+  pgStandby: null,
+  zitadelPg: {
+    host: process.env.ZITADEL_PG_HOST || '100.67.126.90',
+    port: parseInt(process.env.ZITADEL_PG_PORT || '5432'),
+    user: process.env.ZITADEL_PG_USER || 'zitadel',
+    password: process.env.ZITADEL_PG_PASSWORD || undefined,
+    database: process.env.ZITADEL_PG_DATABASE || 'zitadel',
+    max: 5,
+    idleTimeoutMillis: 30000,
+  },
+  redis: {
+    sentinel: process.env.REDIS_SENTINEL_HOSTS
+      ? process.env.REDIS_SENTINEL_HOSTS.split(',').map(h => ({ host: h.split(':')[0], port: parseInt(h.split(':')[1]) || 26379 }))
+      : [{ host: process.env.REDIS_HOST || '100.96.54.109', port: 26379 }],
+    name: process.env.REDIS_SENTINEL_NAME || 'mymaster',
+    password: process.env.REDIS_PASSWORD || undefined,
+    db: parseInt(process.env.REDIS_DB || '0'),
+  },
+  minio: {
+    endPoint: (process.env.MINIO_ENDPOINT || '100.96.54.109:9000').split(':')[0],
+    port: parseInt((process.env.MINIO_ENDPOINT || '100.96.54.109:9000').split(':')[1] || '9000'),
+    useSSL: (process.env.MINIO_ENDPOINT || '').startsWith('https'),
+    accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
+    secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
+    bucket: process.env.MINIO_BUCKET || 'supply-chain',
+    publicUrl: process.env.MINIO_PUBLIC_URL || 'http://100.96.54.109:9000',
+  },
+};
+
+// ===== MongoDB =====
+let mongoDb = null;
+
+async function connectMongo() {
+  if (mongoDb) return mongoDb;
+  try {
+    await mongoose.connect(config.mongodb.uri, config.mongodb.options);
+    mongoDb = mongoose.connection.db;
+    console.log('✅ MongoDB connected: ' + mongoose.connection.host + ' / ' + mongoDb.databaseName);
+    return mongoDb;
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err.message);
+    throw err;
+  }
+}
+
+function getMongoDb() {
+  if (!mongoDb) throw new Error('MongoDB not connected');
+  return mongoDb;
+}
+
+// ===== PostgreSQL Primary (RPi8) =====
+let pgPool = null;
+
+async function connectPostgres() {
+  if (pgPool) return pgPool;
+  pgPool = new Pool(config.postgres);
+  const client = await pgPool.connect();
+  console.log('✅ PostgreSQL Primary connected: ' + config.postgres.host + ':' + config.postgres.port + '/' + config.postgres.database);
+  client.release();
+  return pgPool;
+}
+
+function getPgPool() {
+  if (!pgPool) throw new Error('PostgreSQL not connected');
+  return pgPool;
+}
+
+// ===== PostgreSQL Standby(s) - 读副本池,支持多副本round-robin =====
+// pgStandbyPools: [{ pool, host, port, healthy }]
+let pgStandbyPools = [];
+let pgStandbyRR = 0;
+
+async function connectPostgresStandby() {
+  if (pgStandbyPools.length > 0) return pgStandbyPools;
+  for (const cfg of config.pgStandbys) {
+    try {
+      const pool = new Pool(cfg);
+      const client = await pool.connect();
+      client.release();
+      pgStandbyPools.push({ pool, host: cfg.host, port: cfg.port, healthy: true });
+      console.log('✅ PostgreSQL Standby connected: ' + cfg.host + ':' + cfg.port + '/' + cfg.database);
+    } catch (err) {
+      console.warn('⚠️  PG Standby ' + cfg.host + ':' + cfg.port + ' connection failed: ' + err.message);
+    }
+  }
+  return pgStandbyPools;
+}
+
+// 兼容旧代码:返回当前 RR 选中的健康副本 pool(单值)
+function getPgStandbyPool() {
+  const healthy = pgStandbyPools.filter(p => p.healthy);
+  if (healthy.length === 0) return null;
+  const idx = pgStandbyRR++ % healthy.length;
+  return healthy[idx].pool;
+}
+
+// 新接口:返回所有健康副本(供 /replication 端点展示)
+function getPgStandbyPools() {
+  return pgStandbyPools;
+}
+
+// ===== PostgreSQL Zitadel (RPi8, read-only aggregation) =====
+let zitadelPgPool = null;
+
+async function connectZitadelPg() {
+  if (zitadelPgPool) return zitadelPgPool;
+  try {
+    zitadelPgPool = new Pool(config.zitadelPg);
+    const client = await zitadelPgPool.connect();
+    console.log('✅ PostgreSQL Zitadel connected: ' + config.zitadelPg.host + ':' + config.zitadelPg.port + '/' + config.zitadelPg.database);
+    client.release();
+    return zitadelPgPool;
+  } catch (err) {
+    console.warn('⚠️  PostgreSQL Zitadel connection failed:', err.message);
+    zitadelPgPool = null;
+    return null;
+  }
+}
+
+function getZitadelPgPool() {
+  if (!zitadelPgPool) throw new Error('Zitadel PostgreSQL not connected');
+  return zitadelPgPool;
+}
+
+
+// ===== Redis =====
+let redisClient = null;
+
+async function connectRedis() {
+  if (redisClient) return redisClient;
+  try {
+    const sentinelHost = config.redis.sentinel[0];
+    const sentinelClient = redis.createClient({ socket: { host: sentinelHost.host, port: sentinelHost.port } });
+    await sentinelClient.connect();
+    const masterInfo = await sentinelClient.sendCommand(['SENTINEL', 'get-master-addr-by-name', config.redis.name]);
+    await sentinelClient.disconnect();
+
+    if (masterInfo && masterInfo.length >= 2) {
+      console.log('✅ Redis Sentinel resolved master, connecting direct: ' + (process.env.REDIS_HOST || '100.96.54.109') + ':6379');
+      redisClient = redis.createClient({
+        socket: { host: process.env.REDIS_HOST || '100.96.54.109', port: 6379 },
+        password: config.redis.password,
+        database: config.redis.db,
+      });
+    } else {
+      throw new Error('Sentinel returned no master');
+    }
+  } catch (err) {
+    console.log('⚠️  Sentinel fallback, direct connect: ' + config.redis.sentinel[0].host + ':6379');
+    redisClient = redis.createClient({
+      socket: { host: config.redis.sentinel[0].host, port: 6379 },
+      password: config.redis.password,
+      database: config.redis.db,
+    });
+  }
+  await redisClient.connect();
+  console.log('✅ Redis connected');
+  return redisClient;
+}
+
+function getRedisClient() {
+  if (!redisClient) throw new Error('Redis not connected');
+  return redisClient;
+}
+
+// ===== MinIO =====
+let minioClient = null;
+
+async function connectMinio() {
+  if (minioClient) return minioClient;
+  minioClient = new MinioClient({
+    endPoint: config.minio.endPoint,
+    port: config.minio.port,
+    useSSL: config.minio.useSSL,
+    accessKey: config.minio.accessKey,
+    secretKey: config.minio.secretKey,
+  });
+
+  // 确保 bucket 存在
+  try {
+    const exists = await minioClient.bucketExists(config.minio.bucket);
+    if (!exists) {
+      await minioClient.makeBucket(config.minio.bucket);
+      console.log('📦 MinIO bucket created: ' + config.minio.bucket);
+    }
+  } catch (err) {
+    console.warn('⚠️  MinIO bucket check failed:', err.message);
+  }
+
+  console.log('✅ MinIO connected: ' + config.minio.endPoint + ':' + config.minio.port + ' bucket=' + config.minio.bucket);
+  return minioClient;
+}
+
+function getMinioClient() {
+  if (!minioClient) throw new Error('MinIO not connected');
+  return minioClient;
+}
+
+function getMinioBucket() {
+  return config.minio.bucket;
+}
+
+function getMinioPublicUrl() {
+  return config.minio.publicUrl;
+}
+
+// ===== 连接全部 =====
+async function connectAll() {
+  const results = {};
+  try { results.mongodb = await connectMongo(); } catch (e) { results.mongodbError = e.message; }
+  try { results.postgres = await connectPostgres(); } catch (e) { results.postgresError = e.message; }
+  try { results.pgStandbys = await connectPostgresStandby(); } catch (e) { results.pgStandbyError = e.message; }
+  try { results.zitadelPg = await connectZitadelPg(); } catch (e) { results.zitadelPgError = e.message; }
+  try { results.redis = await connectRedis(); } catch (e) { results.redisError = e.message; }
+  try { results.minio = await connectMinio(); } catch (e) { results.minioError = e.message; }
+  return results;
+}
+
+// ===== 健康检查 =====
+async function healthCheck() {
+  const health = { timestamp: new Date().toISOString() };
+
+  try {
+    const adminDb = mongoose.connection.db.admin();
+    await adminDb.ping();
+    health.mongodb = { status: 'ok', database: mongoDb?.databaseName, host: mongoose.connection.host };
+  } catch (e) {
+    health.mongodb = { status: 'error', error: e.message };
+  }
+
+  try {
+    const client = await pgPool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    health.postgres = { status: 'ok', host: config.postgres.host, database: config.postgres.database, role: 'primary' };
+  } catch (e) {
+    health.postgres = { status: 'error', error: e.message };
+  }
+
+  try {
+    const hpool = getPgStandbyPool();
+    if (hpool) {
+      const sClient = await hpool.connect();
+      const replResult = await sClient.query('SELECT pg_is_in_recovery(), pg_last_wal_receive_lsn() as receive_lsn, pg_last_wal_replay_lsn() as replay_lsn');
+      sClient.release();
+      const row = replResult.rows[0];
+      health.pgStandby = {
+        status: 'ok',
+        host: (pgStandbyPools[0] && pgStandbyPools[0].host) || 'unknown',
+        database: (config.pgStandbys[0] && config.pgStandbys[0].database) || 'unknown',
+        role: row.pg_is_in_recovery ? 'standby' : 'primary',
+        receiveLsn: row.receive_lsn,
+        replayLsn: row.replay_lsn,
+      };
+    } else {
+      health.pgStandby = { status: 'disabled' };
+    }
+  } catch (e) {
+    health.pgStandby = { status: 'error', error: e.message };
+  }
+
+  try {
+    const pong = await redisClient.ping();
+    health.redis = { status: pong === 'PONG' ? 'ok' : 'error' };
+  } catch (e) {
+    health.redis = { status: 'error', error: e.message };
+  }
+
+  try {
+    const exists = await minioClient.bucketExists(config.minio.bucket);
+    health.minio = { status: exists ? 'ok' : 'error', bucket: config.minio.bucket, endpoint: config.minio.endPoint + ':' + config.minio.port };
+  } catch (e) {
+    health.minio = { status: 'error', error: e.message };
+  }
+
+  return health;
+}
+
+module.exports = {
+  connectAll, healthCheck,
+  getMongoDb, getPgPool, getPgStandbyPool, getPgStandbyPools, getZitadelPgPool, getRedisClient,
+  getMinioClient, getMinioBucket, getMinioPublicUrl,
+};
