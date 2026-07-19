@@ -15,7 +15,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const Minio = require('minio');
 
 const PORT = parseInt(process.env.SCENE_PORT || '3012', 10);
-const MONGO_URI = proces...URI || (function(){throw new Error('MONGO_URI env required')})();
+const MONGO_URI = process.env.MONGO_URI || (function(){throw new Error('MONGO_URI env required')})();
 const DB_NAME = process.env.SCENE_DB || 'supply_chain';
 const COLL = 'scene_cases';
 
