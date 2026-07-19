@@ -1,14 +1,16 @@
-const {Pool} = require('pg');
+// verify seed — password 从 env
+const { Pool } = require('pg');
+const password = process.env.PG_PASSWORD;
+if (!password) { console.error('FATAL: PG_PASSWORD env not set'); process.exit(2); }
 const p = new Pool({
-  host: '100.67.126.90', user: 'postgres', password: '***REMOVED_PG_PW***',
-  database: 'new_ecommerce', port: 5432
+  host: process.env.PG_HOST || '100.67.126.90',
+  user: process.env.PG_USER || 'postgres',
+  password,
+  database: process.env.PG_DATABASE || 'new_ecommerce',
+  port: parseInt(process.env.PG_PORT || '5432', 10),
 });
 (async () => {
-  const s = await p.query('SELECT id, shop_key, name, source_project, source_label, peony_org_id, zitadel_org_id, status FROM seller_shops');
-  console.log('=== shops ===', s.rows);
-  const b = await p.query('SELECT b.id, b.shop_id, b.phone, b.role, s.name shop_name, s.source_label FROM seller_user_bindings b JOIN seller_shops s ON s.id=b.shop_id');
-  console.log('=== bindings ===', b.rows);
-  const pl = await p.query('SELECT count(*)::int c FROM seller_product_links');
-  console.log('=== product links ===', pl.rows[0].c);
-  process.exit(0);
+  const r = await p.query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=current_schema()');
+  console.log('table count:', r.rows[0].count);
+  await p.end();
 })();

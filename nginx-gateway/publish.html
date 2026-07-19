@@ -414,7 +414,7 @@ let searchTimer=null;let BATCH_CHANNELS=new Set();let HUAXIANG_ACCOUNT=null;
 document.addEventListener("DOMContentLoaded",async()=>{initHuaxiangAccountUI();await login();loadCategories();await resetProducts();loadTasks();loadSyncStatus();setInterval(()=>{loadTasks();loadSyncStatus()},15000)});
 
 async function login(){
-  try{const r=await fetch('http://100.96.54.109:31001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123'})});const d=await r.json();AUTH.token=d.token}catch(e){console.error(e)}
+  if(!localStorage.getItem('admin_user')||!localStorage.getItem('admin_pass'))return;try{const r=await fetch('http://100.96.54.109:31001/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:localStorage.getItem('admin_user')||'',password:localStorage.getItem('admin_pass')||''})});const d=await r.json();AUTH.token=d.token}catch(e){console.error(e)}
 }
 function authHeaders(){return{Authorization:'Bearer '+AUTH.token,'Content-Type':'application/json'}}
 

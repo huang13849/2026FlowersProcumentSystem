@@ -13,7 +13,7 @@ async function seed() {
   if (!existing) {
     await User.create({
       username: 'admin',
-      password: 'admin123',
+      password: process.env.SEED_ADMIN_PW || (function(){throw new Error('SEED_ADMIN_PW env required')})(),
       role: 'admin',
       displayName: '系统管理员',
     });
@@ -27,7 +27,7 @@ async function seed() {
   if (!op) {
     await User.create({
       username: 'operator',
-      password: 'operator123',
+      password: process.env.SEED_OPERATOR_PW || (function(){throw new Error('SEED_OPERATOR_PW env required')})(),
       role: 'operator',
       displayName: '操作员',
     });

@@ -51,3 +51,13 @@ publish-service-data-k3s/
 *.env.bak
 *.env.example
 !.env.template
+
+# backup dirs / files
+**/backend.bak.*/
+**/*.bak
+**/*.bak[0-9]*
+**/*.bak-*
+**/*.bak.20*
+**/*.myoverwrite.bak
+.k8s-archive/
+docker-compose.env

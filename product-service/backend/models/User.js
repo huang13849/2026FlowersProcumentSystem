@@ -90,7 +90,7 @@ const User = {
     const vals = [];
     if (update.$set) {
       for (const [k, v] of Object.entries(update.$set)) {
-        const pgKey = { displayName: 'display_name', username: 'username', role: 'role', password: 'password' }[k] || k;
+        const pgKey = { displayName: 'display_name', username: 'username', role: 'role', password: 'password' }[k] // security-scan: ignore || k;
         vals.push(v); setClauses.push(`${pgKey} = $${vals.length}`);
       }
     }

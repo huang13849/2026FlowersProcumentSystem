@@ -149,16 +149,16 @@ services:
     - ./production.secrets.env
     environment:
       PORT: '3007'
-      MONGO_URI: mongodb://admin:Hy%401987921@100.67.126.90:27017/supply_chain?authSource=admin&replicaSet=rs0&readPreference=secondaryPreferred
+      MONGO_URI: ${MONGO_URI}
       PG_HOST: 100.67.126.90
       PG_PORT: '5432'
       PG_USER: postgres
-      PG_PASSWORD: "***REMOVED_PG_PW***"
+      PG_PASSWORD: ${PG_PASSWORD}
       PG_DATABASE: postgres
       PG_STANDBY_HOST: 100.76.15.64
       REDIS_SENTINEL_HOSTS: 100.96.54.109:26379
-      API_KEYS: ***REMOVED_API_KEY***,***REMOVED_API_KEY***
-      INTERNAL_TOKEN: ***REMOVED_INTERNAL_TOKEN***
+      API_KEYS: ${API_KEYS}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
       REDIS_HOST: 100.96.54.109
   scene-service:
     build: ./scene-service
@@ -167,14 +167,14 @@ services:
     network_mode: host
     environment:
       SCENE_PORT: '3012'
-      MONGO_URI: mongodb://admin:Hy%401987921@100.67.126.90:27017/supply_chain?authSource=admin&replicaSet=rs0&readPreference=secondaryPreferred
+      MONGO_URI: ${MONGO_URI}
       SCENE_DB: supply_chain
       MINIO_ENDPOINT: 100.96.54.109:9000
       MINIO_BUCKET: supply-chain
       MINIO_PREFIX: scenes
       MINIO_PUBLIC_URL: http://100.96.54.109:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
   order-service:
     build: ./order-service
     container_name: order-service
@@ -185,7 +185,7 @@ services:
     environment:
       PORT: 3008
       GATEWAY_URL: http://localhost:3007
-      API_KEY: ***REMOVED_API_KEY***
+      API_KEY: ${API_KEY}
       PG_DATABASE: supply_chain
       PG_HOST: 100.67.126.90
       PG_PORT: 5432
