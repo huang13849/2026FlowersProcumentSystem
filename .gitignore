@@ -44,3 +44,10 @@ Thumbs.db
 verify-*.cjs
 backups/
 publish-service-data-k3s/
+
+# secrets - 兜底
+*.env
+*.env.*
+*.env.bak
+*.env.example
+!.env.template
