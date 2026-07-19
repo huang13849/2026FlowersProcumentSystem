@@ -18,6 +18,7 @@ spec:
           ports: [ { containerPort: 3013 } ]
           envFrom:
             - configMapRef: { name: supply-chain-common }
+            - secretRef: { name: supply-chain-secrets }
 ---
 apiVersion: v1
 kind: Service

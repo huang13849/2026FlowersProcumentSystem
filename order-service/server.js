@@ -36,7 +36,7 @@ const pgPool = new Pool({
   port: process.env.PG_PORT || 5432,
   database: DB_NAME,
   user: process.env.PG_USER || 'postgres',
-  password: process.env.PG_PASSWORD || process.env.POSTGRES_PASSWORD || '***REMOVED_PG_PW***',
+  password: process.env.PG_PASSWORD || (function(){throw new Error('PG_PASSWORD env required')}()),
   max: 5,
   idleTimeoutMillis: 30000,
 });

@@ -5,7 +5,7 @@ const { Pool } = pg
 const host = process.env.PG_HOST || '36.139.238.74'
 const port = Number(process.env.PG_PORT || 5432)
 const user = process.env.PG_USER || 'postgres'
-const password = process.env.PG_PASSWORD || '***REMOVED_PG_PW***'
+const password = process.env.PG_PASSWORD || (function(){throw new Error('PG_PASSWORD env required')}())
 const database = process.env.PG_DATABASE || 'flowerpriceindex'
 
 // Use connectionString with URL-encoded password to avoid special char issues

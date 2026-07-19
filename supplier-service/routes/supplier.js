@@ -10,7 +10,7 @@ const PRODUCT_API_URL = (process.env.PRODUCT_SVC_URL || 'http://product-api-serv
 
 // ── PG tags enrichment ────────────────────────────────────
 const PG_GW = process.env.PG_GATEWAY_URL || 'http://api-gateway:3007';
-const PG_KEY = process.env.PG_API_KEY || '***REMOVED_API_KEY***';
+const PG_KEY = process.env.PG_API_KEY || (function(){throw new Error('PG_API_KEY env required')}());
 async function fetchPgSupplierMeta(mongoIds) {
   if (!mongoIds || !mongoIds.length) return {};
   try {

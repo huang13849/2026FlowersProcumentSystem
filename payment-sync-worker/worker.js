@@ -15,7 +15,7 @@ const PG_CONFIG = {
   host: process.env.PG_HOST || '100.67.126.90',
   port: parseInt(process.env.PG_PORT || '5432', 10),
   user: process.env.PG_USER || 'postgres',
-  password: process.env.PG_PASSWORD || '***REMOVED_PG_PW***',
+  password: process.env.PG_PASSWORD || (function(){throw new Error('PG_PASSWORD env required')}()),
   database: process.env.PG_DATABASE || 'supply_chain',
 };
 const NATS_URL = process.env.NATS_URL || 'nats://nats.messaging.svc.cluster.local:4222';
