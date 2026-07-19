@@ -2,8 +2,8 @@
  * API Gateway - 认证中间件
  * 支持 API Key 和 JWT 两种认证方式
  */
-const API_KEYS = (process.env.API_KEYS || '***REMOVED_API_KEY***,***REMOVED_API_KEY***').split(',');
-const JWT_SECRET = process.env.JWT_SECRET || 'supply-chain-secret';
+const API_KEYS = (process.env.API_KEYS || (function(){throw new Error('API_KEYS env required')})()).split(',').filter(Boolean);
+const JWT_SECRET = process.env.JWT_SECRET || (function(){throw new Error('JWT_SECRET env required')})();
 
 function authMiddleware(req, res, next) {
   // 白名单路径
