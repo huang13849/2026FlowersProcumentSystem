@@ -1,35 +1,30 @@
-// models/Shop.js - PG via API Gateway using native http (no axios/pg dependency)
-const http = require('http');
+// models/Shop.js - Direct PG connection (pg Pool). Writes must NOT go through
+// api-gateway /api/pg/:db/query which is SELECT-only (returns 403 on INSERT/UPDATE/DELETE).
+const { Pool } = require('pg');
 const crypto = require('crypto');
 
-const GATEWAY_HOST = process.env.GATEWAY_HOST || 'api-gateway.supply-chain.svc.cluster.local';
-const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 3007);
-const API_KEY = process.env.GATEWAY_API_KEY || (function(){throw new Error('GATEWAY_API_KEY env required')}());
 const TABLE = 'shops';
-
-function pgQuery(query, params) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ sql: query, params });
-    const req = http.request({
-      hostname: GATEWAY_HOST,
-      port: GATEWAY_PORT,
-      path: '/api/pg/supply_chain/query',
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'Content-Length': Buffer.byteLength(body) },
-      timeout: 15000,
-    }, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); } catch(e) { reject(e); }
-      });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Gateway timeout')); });
-    req.write(body);
-    req.end();
+let pool = null;
+function getPool() {
+  if (pool) return pool;
+  pool = new Pool({
+    host:     process.env.PG_HOST || 'pg-primary.pg-cluster.svc.cluster.local',
+    port:     Number(process.env.PG_PORT || 5432),
+    user:     process.env.PG_USER || 'postgres',
+    password: process.env.PG_PASSWORD,
+    database: process.env.PG_DATABASE || 'supply_chain',
+    max: 5, idleTimeoutMillis: 30000,
   });
+  pool.on('error', (e) => console.error('[shop-pg] pool error:', e.message));
+  return pool;
 }
+async function pgQuery(sql, params = []) {
+  const r = await getPool().query(sql, params);
+  return { data: r.rows, rows: r.rows };
+}
+// Only append `OR id = $N::bigint` when id is all-digits, else mongo ObjectId
+// (24 hex chars) would blow up the bigint cast.
+const isNumId = (id) => /^[0-9]+$/.test(String(id));
 
 function toApi(row) {
   if (!row) return null;
@@ -86,7 +81,10 @@ const Shop = {
   },
 
   async findById(id) {
-    const r = await pgQuery(`SELECT * FROM ${TABLE} WHERE mongo_id = $1 OR id = $1::bigint LIMIT 1`, [id]);
+    const num = isNumId(id);
+    const r = await pgQuery(
+      `SELECT * FROM ${TABLE} WHERE mongo_id = $1${num ? ' OR id = $1::bigint' : ''} LIMIT 1`,
+      [id]);
     const rows = r.data || r.rows || [];
     return rows[0] ? toApi(rows[0]) : null;
   },
@@ -103,13 +101,19 @@ const Shop = {
       }
     }
     vals.push(id);
-    const r = await pgQuery(`UPDATE ${TABLE} SET ${sets.join(', ')} WHERE mongo_id = $${vals.length} OR id = $${vals.length}::bigint RETURNING *`, vals);
+    const num = isNumId(id);
+    const r = await pgQuery(
+      `UPDATE ${TABLE} SET ${sets.join(', ')} WHERE mongo_id = $${vals.length}${num ? ` OR id = $${vals.length}::bigint` : ''} RETURNING *`,
+      vals);
     const rows = r.data || r.rows || [];
     return rows[0] ? toApi(rows[0]) : null;
   },
 
   async findByIdAndDelete(id) {
-    const r = await pgQuery(`DELETE FROM ${TABLE} WHERE mongo_id = $1 OR id = $1::bigint RETURNING *`, [id]);
+    const num = isNumId(id);
+    const r = await pgQuery(
+      `DELETE FROM ${TABLE} WHERE mongo_id = $1${num ? ' OR id = $1::bigint' : ''} RETURNING *`,
+      [id]);
     const rows = r.data || r.rows || [];
     return rows[0] ? toApi(rows[0]) : null;
   },
@@ -126,8 +130,9 @@ const Shop = {
   },
 
   async findOne(query = {}, opts = {}) {
-    let sql = `SELECT * FROM ${TABLE} ORDER BY sort_order DESC LIMIT 1`;
-    const r = await pgQuery(sql, []);
+    // opts.sort supports { sortOrder: -1 } used by shops route to compute next sortOrder
+    const dir = (opts && opts.sort && opts.sort.sortOrder === -1) ? 'DESC' : 'ASC';
+    const r = await pgQuery(`SELECT * FROM ${TABLE} ORDER BY sort_order ${dir} LIMIT 1`, []);
     const rows = r.data || r.rows || [];
     return rows[0] ? toApi(rows[0]) : null;
   },
