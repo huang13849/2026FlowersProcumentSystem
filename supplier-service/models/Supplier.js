@@ -106,7 +106,10 @@ const Supplier = {
 
   async findById(id) {
     const p = getPool();
-    const r = await p.query(`SELECT * FROM ${TABLE} WHERE mongo_id = $1 OR id = $1::bigint LIMIT 1`, [id]);
+    const _numId = /^[0-9]+$/.test(String(id));
+    const r = await p.query(
+      `SELECT * FROM ${TABLE} WHERE mongo_id = $1${_numId ? ' OR id = $1::bigint' : ''} LIMIT 1`,
+      [id]);
     return r.rows[0] ? toApi(r.rows[0]) : null;
   },
 
@@ -132,13 +135,19 @@ const Supplier = {
       }
     }
     vals.push(id);
-    const r = await p.query(`UPDATE ${TABLE} SET ${sets.join(', ')} WHERE mongo_id = $${vals.length} OR id = $${vals.length}::bigint RETURNING *`, vals);
+    const _numIdU = /^[0-9]+$/.test(String(id));
+    const r = await p.query(
+      `UPDATE ${TABLE} SET ${sets.join(', ')} WHERE mongo_id = $${vals.length}${_numIdU ? ` OR id = $${vals.length}::bigint` : ''} RETURNING *`,
+      vals);
     return r.rows[0] ? toApi(r.rows[0]) : null;
   },
 
   async findByIdAndDelete(id) {
     const p = getPool();
-    const r = await p.query(`DELETE FROM ${TABLE} WHERE mongo_id = $1 OR id = $1::bigint RETURNING *`, [id]);
+    const _numIdD = /^[0-9]+$/.test(String(id));
+    const r = await p.query(
+      `DELETE FROM ${TABLE} WHERE mongo_id = $1${_numIdD ? ' OR id = $1::bigint' : ''} RETURNING *`,
+      [id]);
     return r.rows[0] ? toApi(r.rows[0]) : null;
   },
 
