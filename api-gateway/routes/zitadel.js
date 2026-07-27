@@ -18,7 +18,7 @@ const SOURCE_META = {
   peony:         { label: '芍药联盟',  color: '#c2185b' },  // 粉红
   shopclub:      { label: '植物收藏家', color: '#2e7d32' }, // 绿
   tropical:      { label: '热植联盟',  color: '#00695c' },  // 青绿
-  edu:           { label: '幼植学校',  color: '#e65100' },  // 橙
+  edu:           { label: '金匠人学校',  color: '#e65100' },  // 橙
   'plant-share': { label: '植物共享',  color: '#6a1b9a' },  // 紫
   system:        { label: '系统',      color: '#607d8b' },  // 灰
   'self-operated': { label: '自营录入', color: '#455a64' }, // 深灰

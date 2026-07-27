@@ -21,6 +21,38 @@ router.get('/', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Supplier ↔ Shop 关联 (PG 原生整数 FK; MUST be before /:id) ──
+router.get('/link/supplier/:supplierId', async (req, res) => {
+  try {
+    const sid = parseInt(req.params.supplierId, 10);
+    if (!Number.isInteger(sid)) return res.status(400).json({ error: 'supplierId 必须是整数' });
+    const shop = await Shop.findBySupplierId(sid);
+    if (!shop) return res.status(404).json({ error: '该供应商尚未关联店铺', linked: false });
+    res.json({ shop, linked: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/link/supplier/:supplierId', async (req, res) => {
+  try {
+    const sid = parseInt(req.params.supplierId, 10);
+    if (!Number.isInteger(sid)) return res.status(400).json({ error: 'supplierId 必须是整数' });
+    const r = await Shop.linkBySupplier(sid);
+    if (r.error) return res.status(r.code || 400).json({ error: r.error });
+    res.json(r);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.delete('/link/supplier/:supplierId', async (req, res) => {
+  try {
+    const sid = parseInt(req.params.supplierId, 10);
+    if (!Number.isInteger(sid)) return res.status(400).json({ error: 'supplierId 必须是整数' });
+    const shop = await Shop.findBySupplierId(sid);
+    if (!shop) return res.status(404).json({ error: '无关联' });
+    const upd = await Shop.setShopSupplier(shop._id, null);
+    res.json({ shop: upd, unlinked: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Get one shop ──
 router.get('/:id', async (req, res) => {
   try {

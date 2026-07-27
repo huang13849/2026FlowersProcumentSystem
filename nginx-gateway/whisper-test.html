@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper 语音识别 + 声纹识别测试</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .control-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #toggleBtn {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #3498db;
+            color: white;
+        }
+        #toggleBtn.recording {
+            background: #e74c3c;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+        }
+        .status {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #7f8c8d;
+        }
+        .status.error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .speaker-management {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .speaker-management h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        .speaker-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .speaker-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .speaker-input button {
+            padding: 10px 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .speaker-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .speaker-tag {
+            padding: 5px 15px;
+            background: #ecf0f1;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .speaker-tag .remove {
+            cursor: pointer;
+            color: #95a5a6;
+            font-weight: bold;
+        }
+        .speaker-tag .remove:hover {
+            color: #e74c3c;
+        }
+        .results {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .results h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        .transcript {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            background: #f8f9fa;
+        }
+        .message .speaker {
+            font-weight: bold;
+            color: #2980b9;
+            margin-bottom: 5px;
+        }
+        .message .text {
+            color: #2c3e50;
+            line-height: 1.5;
+        }
+        .message .time {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 5px;
+        }
+        .config {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .config h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .config-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .config-row label {
+            min-width: 120px;
+            color: #7f8c8d;
+        }
+        .config-row input[type="number"] {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .empty-state {
+            text-align: center;
+            color: #95a5a6;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎙️ Whisper 语音识别 + 声纹识别测试</h1>
+
+    <div class="control-panel">
+        <button id="toggleBtn">开始录音</button>
+        <div class="status" id="status">点击按钮开始，从麦克风采集语音</div>
+    </div>
+
+    <div class="config">
+        <h3>⚙️ 配置</h3>
+        <div class="config-row">
+            <label>分段间隔(秒):</label>
+            <input type="number" id="chunkInterval" value="3" min="1" max="10">
+            <span style="color: #7f8c8d;">每录制 X 秒识别一次</span>
+        </div>
+        <div class="config-row">
+            <label>相似度阈值:</label>
+            <input type="number" id="similarityThreshold" value="0.7" min="0" max="1" step="0.05">
+            <span style="color: #7f8c8d;">大于阈值认为是同一说话人</span>
+        </div>
+    </div>
+
+    <div class="speaker-management">
+        <h2>👤 注册说话人</h2>
+        <div class="speaker-input">
+            <input type="text" id="newSpeakerName" placeholder="输入姓名">
+            <button id="registerSpeaker">注册当前说话人</button>
+        </div>
+        <div id="speakerList" class="speaker-list">
+            <!-- 动态添加 -->
+        </div>
+    </div>
+
+    <div class="results">
+        <h2>📝 识别结果</h2>
+        <div id="transcript" class="transcript">
+            <div class="empty-state">暂无识别结果</div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - use relative path, works via HTTPS proxy
+        const WHISPER_API_URL = '/whisper/asr';
+        let isRecording = false;
+        let audioContext = null;
+        let scriptProcessor = null;
+        let input = null;
+        let currentAudioData = [];
+        let recordingInterval = null;
+        
+        // Speaker recognition (simple embedding-based)
+        let speakers = new Map(); // name -> embedding
+        let lastSpeaker = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRegisteredSpeakers();
+            setupEventListeners();
+        });
+        
+        function setupEventListeners() {
+            document.getElementById('toggleBtn').addEventListener('click', toggleRecording);
+            document.getElementById('registerSpeaker').addEventListener('click', registerCurrentSpeaker);
+            document.getElementById('newSpeakerName').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') registerCurrentSpeaker();
+            });
+        }
+        
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+        
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
+                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                input = audioContext.createMediaStreamSource(stream);
+                scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                
+                input.connect(scriptProcessor);
+                scriptProcessor.connect(audioContext.destination);
+                
+                currentAudioData = [];
+                scriptProcessor.onaudioprocess = (event) => {
+                    const inputBuffer = event.inputBuffer.getChannelData(0);
+                    currentAudioData.push(...inputBuffer);
+                };
+                
+                isRecording = true;
+                updateUI();
+                
+                // Start periodic recognition
+                const intervalMs = parseInt(document.getElementById('chunkInterval').value) * 1000;
+                recordingInterval = setInterval(processChunk, intervalMs);
+                
+                updateStatus('正在录音...');
+                
+            } catch (error) {
+                console.error('Failed to start recording:', error);
+                showError('错误: ' + error.message + '\n\n请在浏览器地址栏点击左侧🔒图标，允许麦克风权限');
+            }
+        }
+        
+        function stopRecording() {
+            if (recordingInterval) {
+                clearInterval(recordingInterval);
+                recordingInterval = null;
+            }
+            
+            if (scriptProcessor && input) {
+                scriptProcessor.disconnect();
+                input.disconnect();
+                scriptProcessor = null;
+                input = null;
+            }
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            isRecording = false;
+            updateUI();
+            updateStatus('已停止');
+        }
+        
+        async function processChunk() {
+            if (currentAudioData.length === 0) return;
+            
+            // Extract MFCC-like features for speaker embedding (simplified)
+            const embedding = extractSpeakerEmbedding(currentAudioData);
+            
+            // Identify speaker
+            const identifiedSpeaker = identifySpeaker(embedding);
+            
+            try {
+                updateStatus('正在识别...');
+                
+                // Convert audio data to WAV
+                const wavBlob = audioToWav(currentAudioData, audioContext.sampleRate);
+                
+                // Create form data for Whisper
+                const formData = new FormData();
+                formData.append('audio_file', wavBlob, 'audio.wav');
+                
+                const response = await fetch(WHISPER_API_URL + '?output=txt', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const text = await response.text();
+                const trimmedText = text.trim();
+                
+                if (trimmedText) {
+                    addMessage(identifiedSpeaker, trimmedText, embedding);
+                }
+                
+                // Clear after processing
+                currentAudioData = [];
+                
+                updateStatus('正在录音...');
+                
+            } catch (error) {
+                console.error('Recognition error:', error);
+                showError('识别错误: ' + error.message);
+            }
+        }
+        
+        function audioToWav(audioData, sampleRate) {
+            const numChannels = 1;
+            const bitsPerSample = 16;
+            const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+            const blockAlign = numChannels * bitsPerSample / 8;
+            const dataSize = audioData.length * bitsPerSample / 8;
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+            
+            // RIFF identifier
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(view, 8, 'WAVE');
+            // fmt subchunk
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitsPerSample, true);
+            // data subchunk
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+            
+            // Write audio data
+            let offset = 44;
+            for (let i = 0; i < audioData.length; i++) {
+                let sample = Math.max(-1, Math.min(1, audioData[i]));
+                sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                view.setInt16(offset, sample, true);
+                offset += 2;
+            }
+            
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+        
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+        
+        // Simplified speaker embedding: use statistical features of audio
+        function extractSpeakerEmbedding(audioData) {
+            if (audioData.length === 0) return new Array(12).fill(0);
+            
+            // Basic statistics
+            let sum = 0, sumSq = 0, min = Infinity, max = -Infinity;
+            for (let i = 0; i < audioData.length; i++) {
+                const val = Math.abs(audioData[i]);
+                sum += val;
+                sumSq += val * val;
+                if (audioData[i] < min) min = audioData[i];
+                if (audioData[i] > max) max = audioData[i];
+            }
+            
+            const mean = sum / audioData.length;
+            const variance = (sumSq / audioData.length) - mean * mean;
+            const std = Math.sqrt(variance);
+            
+            // Zero-crossing rate
+            let zcr = 0;
+            for (let i = 1; i < audioData.length; i++) {
+                if (audioData[i] * audioData[i-1] < 0) zcr++;
+            }
+            const zcrRate = zcr / audioData.length;
+            
+            // Energy in different frequency bands (simplified - just energy in different blocks)
+            const blockSize = Math.floor(audioData.length / 8);
+            const features = [];
+            for (let b = 0; b < 8; b++) {
+                let blockEnergy = 0;
+                const start = b * blockSize;
+                const end = Math.min(start + blockSize, audioData.length);
+                for (let i = start; i < end; i++) {
+                    blockEnergy += audioData[i] * audioData[i];
+                }
+                features.push(blockEnergy / (end - start));
+            }
+            
+            // Add the statistical features
+            features.push(mean, std, max - min, zcrRate);
+            
+            // Normalize the embedding
+            const norm = Math.sqrt(features.reduce((acc, val) => acc + val*val, 0));
+            return features.map(val => val / (norm || 1));
+        }
+        
+        // Cosine similarity between two embeddings
+        function cosineSimilarity(a, b) {
+            let dot = 0;
+            let normA = 0;
+            let normB = 0;
+            for (let i = 0; i < a.length; i++) {
+                dot += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
+            }
+            return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
+        }
+        
+        function identifySpeaker(embedding) {
+            if (speakers.size === 0) {
+                return null;
+            }
+            
+            let maxSimilarity = parseFloat(document.getElementById('similarityThreshold').value);
+            let bestSpeaker = null;
+            
+            for (const [name, registeredEmbedding] of speakers.entries()) {
+                const similarity = cosineSimilarity(embedding, registeredEmbedding);
+                if (similarity > maxSimilarity) {
+                    maxSimilarity = similarity;
+                    bestSpeaker = name;
+                }
+            }
+            
+            if (bestSpeaker) {
+                lastSpeaker = bestSpeaker;
+            }
+            return lastSpeaker;
+        }
+        
+        function registerCurrentSpeaker() {
+            const name = document.getElementById('newSpeakerName').value.trim();
+            if (!name) {
+                alert('请输入姓名');
+                return;
+            }
+            
+            if (currentAudioData.length === 0) {
+                alert('请先录制一段语音再注册');
+                return;
+            }
+            
+            const embedding = extractSpeakerEmbedding(currentAudioData);
+            speakers.set(name, embedding);
+            saveRegisteredSpeakers();
+            renderSpeakerList();
+            
+            document.getElementById('newSpeakerName').value = '';
+            updateStatus(`已注册说话人: ${name}`);
+        }
+        
+        function addMessage(speaker, text, embedding) {
+            const transcript = document.getElementById('transcript');
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            
+            const speakerName = speaker || '未知发言人';
+            
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.innerHTML = `
+                <div class="speaker">${speakerName}</div>
+                <div class="text">${text}</div>
+                <div class="time">${timeStr}</div>
+            `;
+            
+            // Remove empty state if exists
+            const empty = transcript.querySelector('.empty-state');
+            if (empty) empty.remove();
+            
+            transcript.appendChild(div);
+            transcript.scrollTop = transcript.scrollHeight;
+        }
+        
+        function removeSpeaker(name) {
+            speakers.delete(name);
+            saveRegisteredSpeakers();
+            renderSpeakerList();
+        }
+        
+        function renderSpeakerList() {
+            const list = document.getElementById('speakerList');
+            list.innerHTML = '';
+            
+            if (speakers.size === 0) {
+                const div = document.createElement('div');
+                div.style.color = '#95a5a6';
+                div.textContent = '尚未注册任何说话人';
+                list.appendChild(div);
+                return;
+            }
+            
+            for (const name of speakers.keys()) {
+                const tag = document.createElement('div');
+                tag.className = 'speaker-tag';
+                tag.innerHTML = `
+                    <span>${name}</span>
+                    <span class="remove" data-name="${name}">&times;</span>
+                `;
+                tag.querySelector('.remove').addEventListener('click', () => removeSpeaker(name));
+                list.appendChild(tag);
+            }
+        }
+        
+        function saveRegisteredSpeakers() {
+            const data = {};
+            for (const [name, embedding] of speakers.entries()) {
+                data[name] = embedding;
+            }
+            localStorage.setItem('whisper-speakers', JSON.stringify(data));
+        }
+        
+        function loadRegisteredSpeakers() {
+            const data = localStorage.getItem('whisper-speakers');
+            if (data) {
+                const parsed = JSON.parse(data);
+                speakers.clear();
+                for (const [name, embedding] of Object.entries(parsed)) {
+                    speakers.set(name, embedding);
+                }
+                renderSpeakerList();
+            }
+        }
+        
+        function updateUI() {
+            const btn = document.getElementById('toggleBtn');
+            if (isRecording) {
+                btn.textContent = '停止录音';
+                btn.classList.add('recording');
+            } else {
+                btn.textContent = '开始录音';
+                btn.classList.remove('recording');
+            }
+        }
+        
+        function updateStatus(text) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = text;
+            statusEl.classList.remove('error');
+        }
+        
+        function showError(message) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.classList.add('error');
+        }
+    </script>
+</body>
+</html>

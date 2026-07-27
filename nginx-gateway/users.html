@@ -112,7 +112,6 @@ tr:hover{background:var(--hover)}
 <div class="tabs">
 <button class="tab-btn active" data-tab="system">全部用户</button>
 <button class="tab-btn" data-tab="customer">订单客户分析</button>
-<button class="tab-btn" data-tab="zitadel">🔐 Zitadel 原始数据</button>
 </div>
 
 <!-- SYSTEM USERS -->
@@ -278,39 +277,9 @@ tr:hover{background:var(--hover)}
 <div class="form-actions"><button class="btn btn-ghost" id="btnClosePrk">取消</button><button class="btn btn-primary" id="btnSavePrk">保存</button></div>
 </div></div>
 
-<!-- ZITADEL IDENTITY USERS (READ-ONLY) -->
-<div id="panel-zitadel" class="tab-panel"><div class="content">
-<div class="stats">
-<div class="stat">身份用户总数 <strong id="zTotal">-</strong></div>
-<div class="stat">Human <strong id="zHuman">-</strong></div>
-<div class="stat">Machine <strong id="zMachine">-</strong></div>
-<div class="stat">Instance <strong id="zInst">-</strong></div>
-</div>
-<div class="toolbar">
-<input type="text" class="search-box" id="zSearch" placeholder="搜索 用户名/登录名/邮箱/手机/姓名...">
-<select id="zInstanceFilter" class="search-box" style="flex:0;min-width:180px"><option value="">全部 Instance</option></select>
-<select id="zOrgFilter" class="search-box" style="flex:0;min-width:180px"><option value="">全部 Organization</option></select>
-<select id="zStateFilter" class="search-box" style="flex:0;min-width:120px">
-  <option value="">全部状态</option>
-  <option value="active">Active</option>
-  <option value="inactive">Inactive</option>
-  <option value="locked">Locked</option>
-  <option value="initial">Initial</option>
-  <option value="deleted">Deleted</option>
-</select>
-<span class="muted" style="margin-left:auto;font-size:12px">只读 · 数据源: Zitadel PostgreSQL projections</span>
-</div>
-<table>
-<thead><tr>
-<th>Instance</th><th>组织 (Org)</th><th>用户名</th><th>姓名</th><th>邮箱</th><th>手机</th><th>类型</th><th>状态</th><th>语言</th><th>创建时间</th>
-</tr></thead>
-<tbody id="zTableBody"></tbody>
-</table>
-</div></div>
-
 <script>
 var TAG_POOL=[];
-var H={"Content-Type":"application/json","x-api-key":"***REMOVED_API_KEY***"};
+var H={"Content-Type":"application/json","x-api-key":"supply-chain-key-2024"};
 var API="/api/mongo";
   var API_ZIT="/api/users";
   var H_ZIT={"Content-Type":"application/json"};
@@ -821,86 +790,6 @@ document.getElementById("btnRefreshParking").addEventListener("click",loadAllCrm
 updateStats();renderUsers();
 
 
-// ===== Zitadel Identity Users (read-only) =====
-var zAllUsers = [];
-var zLoaded = false;
-function zFmtDate(s){ if(!s) return '-'; return String(s).replace('T',' ').replace(/\..+$/,''); }
-function zStateBadge(s){
-  var m = { active:'#2e7d32', inactive:'#9e9e9e', locked:'#d32f2f', initial:'#f57c00', deleted:'#616161', suspend:'#c62828' };
-  var color = m[s] || '#607d8b';
-  return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:'+color+';color:#fff;font-size:11px">'+s+'</span>';
-}
-function zTypeBadge(t){ return t==='human' ? '<span style="color:#4fc3f7">👤 Human</span>' : '<span style="color:#ff8a65">🤖 Machine</span>'; }
-function zRenderStats(list){
-  document.getElementById('zTotal').textContent = list.length;
-  document.getElementById('zHuman').textContent = list.filter(function(u){return u.type_label==='human'}).length;
-  document.getElementById('zMachine').textContent = list.filter(function(u){return u.type_label==='machine'}).length;
-  var inst = {}; list.forEach(function(u){ if(u.instance_name) inst[u.instance_name]=1 });
-  document.getElementById('zInst').textContent = Object.keys(inst).length;
-}
-function zFilter(){
-  var s = (document.getElementById('zSearch').value||'').toLowerCase();
-  var inst = document.getElementById('zInstanceFilter').value;
-  var org = document.getElementById('zOrgFilter').value;
-  var st = document.getElementById('zStateFilter').value;
-  return zAllUsers.filter(function(u){
-    if(inst && u.instance_name !== inst) return false;
-    if(org && u.org_name !== org) return false;
-    if(st && u.state_label !== st) return false;
-    if(!s) return true;
-    var hay = ((u.username||'')+'|'+(u.email||'')+'|'+(u.phone||'')+'|'+(u.first_name||'')+(u.last_name||'')+(u.display_name||'')+(u.nick_name||'')+(u.org_name||'')).toLowerCase();
-    return hay.indexOf(s) >= 0;
-  });
-}
-function zRender(){
-  var f = zFilter();
-  var t = document.getElementById('zTableBody');
-  if(!f.length){ t.innerHTML='<tr><td colspan=10 style="text-align:center;padding:20px;color:#999">无数据</td></tr>'; return; }
-  t.innerHTML = f.map(function(u){
-    var name = [u.first_name||'', u.last_name||''].join(' ').trim() || u.display_name || u.nick_name || '-';
-    var email = u.email ? (u.email + (u.is_email_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
-    var phone = u.phone ? (u.phone + (u.is_phone_verified?' <span style="color:#4caf50">✓</span>':'')) : '-';
-    var instTag = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:#37474f;color:#fff;font-size:11px">'+(u.instance_name||'-')+'</span>';
-    return '<tr>'
-      + '<td>'+instTag+'</td>'
-      + '<td class="muted">'+(u.org_name||'-')+'</td>'
-      + '<td>'+(u.username||'-')+'</td>'
-      + '<td>'+name+'</td>'
-      + '<td class="truncate">'+email+'</td>'
-      + '<td>'+phone+'</td>'
-      + '<td>'+zTypeBadge(u.type_label)+'</td>'
-      + '<td>'+zStateBadge(u.state_label)+'</td>'
-      + '<td class="muted">'+(u.preferred_language||'-')+'</td>'
-      + '<td class="muted">'+zFmtDate(u.creation_date)+'</td>'
-      + '</tr>';
-  }).join('');
-}
-function zPopulateFilters(){
-  var instSet = {}, orgSet = {};
-  zAllUsers.forEach(function(u){ if(u.instance_name) instSet[u.instance_name]=1; if(u.org_name) orgSet[u.org_name]=1; });
-  var iSel = document.getElementById('zInstanceFilter');
-  Object.keys(instSet).sort().forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; iSel.appendChild(o); });
-  var oSel = document.getElementById('zOrgFilter');
-  Object.keys(orgSet).sort().forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; oSel.appendChild(o); });
-}
-function zLoad(){
-  if(zLoaded) return; zLoaded = true;
-  fetch(API_ZIT,{headers:H}).then(function(r){return r.json()}).then(function(d){
-    if(!d.success){ showToast('加载失败: '+(d.error||''),'err'); zLoaded=false; return; }
-    zAllUsers = d.data || [];
-    zRenderStats(zAllUsers);
-    zPopulateFilters();
-    zRender();
-  }).catch(function(e){ showToast('网络错误: '+e.message,'err'); zLoaded=false; });
-}
-document.getElementById('zSearch').addEventListener('input', zRender);
-document.getElementById('zInstanceFilter').addEventListener('change', zRender);
-document.getElementById('zOrgFilter').addEventListener('change', zRender);
-document.getElementById('zStateFilter').addEventListener('change', zRender);
-// hook into tab switcher — trigger load when Zitadel tab clicked
-document.querySelectorAll('.tab-btn').forEach(function(b){
-  b.addEventListener('click', function(){ if(b.dataset.tab === 'zitadel') zLoad(); });
-});
 </script>
 
 <!-- 全部用户智能表格 override (2026-07-14) -->
@@ -911,7 +800,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     {v:'peony',        l:'芍药联盟'},
     {v:'shopclub',     l:'植物收藏家'},
     {v:'tropical',     l:'热植联盟'},
-    {v:'edu',          l:'幼植学校'},
+    {v:'edu',          l:'金匠人学校'},
     {v:'plant-share',  l:'植物共享'},
     {v:'system',       l:'系统'},
   ];
@@ -1023,7 +912,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       return '<tr>'
         + '<td style="text-align:center"><input type="checkbox" class="uaSel" data-zid="'+u.id+'"></td>'
         + '<td>'+ sourceBadge(u.source_project, u.source_label, u.source_color) +'</td>'
-        + '<td class="muted" style="font-family:monospace;font-size:11px">'+(u.oneid||'-')+'</td>'
+        + '<td class="muted" style="font-family:monospace;font-size:11px">'+(u.oneid? '<a href="#" class="oneidLink" data-oneid-zid="'+u.id+'" data-oneid-phone="'+(u.phone||'')+'" style="color:#4fc3f7;text-decoration:underline;cursor:pointer">'+u.oneid+'</a>' : '-')+'</td>'
         + '<td>'+tagsTxt+'</td>'
         + '<td class="muted" style="font-size:12px">'+email+'</td>'
         + '<td>'+phone+'</td>'
@@ -1044,7 +933,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
         var wrap=x.closest('[data-tagrm]'); if(!wrap) return;
         var zid=wrap.dataset.zid, tag=wrap.dataset.tagrm;
         if(!confirm('从此用户上移除标签 '+tag+' ？')) return;
-        fetch('/api/tags/apply',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':'***REMOVED_API_KEY***'},body:JSON.stringify({entity:'user',ids:[zid],tags:[tag],mode:'remove'})}).then(function(r){return r.json()}).then(function(d){if(d.success){showToast('已移除 '+tag);load()}else showToast('失败','err')})
+        fetch('/api/tags/apply',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':'supply-chain-key-2024'},body:JSON.stringify({entity:'user',ids:[zid],tags:[tag],mode:'remove'})}).then(function(r){return r.json()}).then(function(d){if(d.success){showToast('已移除 '+tag);load()}else showToast('失败','err')})
       });
     });
     body.querySelectorAll('.uaSel').forEach(function(cb){
@@ -1057,6 +946,15 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
         openAddressModal(btn.getAttribute('data-addr-zid'));
       });
     });
+    // OneID: 点击跳转到订单客户分析 tab 并打开客户 360 详情
+    body.querySelectorAll('.oneidLink').forEach(function(a){
+      a.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        var zid=a.getAttribute('data-oneid-zid');
+        var phone=a.getAttribute('data-oneid-phone');
+        openCustomer360(zid, phone);
+      });
+    });
     body.querySelectorAll('[data-pwd-reset]').forEach(function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
@@ -1064,7 +962,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
         var u = all.find(function(x){return x.id===zid}); if(!u) return;
         if(!confirm('为用户 '+ (u.username||zid) +' 生成一次性密码重置码？\n（用户下次登录需要用此 code 重设密码）')) return;
         fetch(API_ZIT+'/'+encodeURIComponent(zid)+'/password-reset', {
-          method:'POST', headers:{'x-api-key':'***REMOVED_API_KEY***','Content-Type':'application/json'}, body:'{}'
+          method:'POST', headers:{'x-api-key':'supply-chain-key-2024','Content-Type':'application/json'}, body:'{}'
         }).then(function(r){return r.json().then(function(d){return {status:r.status,data:d}})})
           .then(function(res){
             if(res.data && res.data.success){
@@ -1085,7 +983,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     // 先弹一个 loading modal 确保用户立刻看到反馈
     showInfoModal(title, '<div style="padding:12px;color:#888">加载中…</div>');
     fetch(API_ZIT+'/'+encodeURIComponent(zid)+'/addresses', {
-      headers: {'x-api-key':'***REMOVED_API_KEY***'}
+      headers: {'x-api-key':'supply-chain-key-2024'}
     }).then(function(r){return r.json()}).then(function(d){
       var html;
       if(!d.success){ html = '<div style="padding:16px;color:#d32f2f">加载失败: '+(d.error||'')+'</div>'; }
@@ -1145,7 +1043,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     var btn = document.getElementById('uaBatchDel');
     if(btn){ btn.disabled = true; btn.textContent = '删除中...'; }
     fetch(API_ZIT+'/batch-delete', {
-      method:'POST', headers:{'x-api-key':'***REMOVED_API_KEY***','Content-Type':'application/json'},
+      method:'POST', headers:{'x-api-key':'supply-chain-key-2024','Content-Type':'application/json'},
       body: JSON.stringify({zids: zids})
     }).then(function(r){return r.json()}).then(function(d){
       if(d.success){
@@ -1197,7 +1095,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
         user_type: overlay.querySelector('#eType').value || null,
         tags: overlay.querySelector('#eTags').value.split(',').map(function(s){return s.trim()}).filter(Boolean),
       };
-      fetch(API_ZIT+'/'+encodeURIComponent(zid),{method:'PATCH',headers:{'Content-Type':'application/json','x-api-key':'***REMOVED_API_KEY***'},body:JSON.stringify(body)})
+      fetch(API_ZIT+'/'+encodeURIComponent(zid),{method:'PATCH',headers:{'Content-Type':'application/json','x-api-key':'supply-chain-key-2024'},body:JSON.stringify(body)})
         .then(function(r){return r.json()})
         .then(function(d){
           if(d.success){ showToast('已保存'); overlay.remove(); load(); }
@@ -1210,7 +1108,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
   function load(){
     var body = document.getElementById('uaBody');
     if(body) body.innerHTML='<tr><td colspan=12 style="text-align:center;padding:20px;color:#999">加载中…</td></tr>';
-    fetch(API_ZIT,{headers:{'x-api-key':'***REMOVED_API_KEY***'}})
+    fetch(API_ZIT,{headers:{'x-api-key':'supply-chain-key-2024'}})
       .then(function(r){return r.json()})
       .then(function(d){
         if(!d.success){ showToast('加载失败: '+(d.error||''),'err'); return; }
@@ -1272,7 +1170,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     overlay.querySelector('#btClose').onclick = function(){ overlay.remove(); };
     overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
     var chosen = new Set();
-    fetch('/api/tags?scope=user', { headers:{'x-api-key':'***REMOVED_API_KEY***'} })
+    fetch('/api/tags?scope=user', { headers:{'x-api-key':'supply-chain-key-2024'} })
       .then(function(r){return r.json()})
       .then(function(d){
         if(!d.success){ overlay.querySelector('#btChips').innerHTML = '<span style="color:#f88">加载失败: '+(d.error||'')+'</span>'; return; }
@@ -1293,7 +1191,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
       if(chosen.size===0) return alert('请先选择标签');
       fetch('/api/tags/apply', {
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':'***REMOVED_API_KEY***'},
+        headers:{'Content-Type':'application/json','x-api-key':'supply-chain-key-2024'},
         body: JSON.stringify({ entity:'user', ids: zids, tags:[...chosen], mode: mode })
       })
         .then(function(r){return r.json()})
@@ -1329,7 +1227,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
   window.__TAG_POOL_MAP = window.__TAG_POOL_MAP || {};
 
   function refreshTagPool(cb){
-    fetch('/api/tags?scope=user',{headers:{'x-api-key':'***REMOVED_API_KEY***'}})
+    fetch('/api/tags?scope=user',{headers:{'x-api-key':'supply-chain-key-2024'}})
       .then(function(r){return r.json()}).then(function(d){
         var _raw = d.data || [];
         var _seen={}; var _uniq=[]; _raw.forEach(function(t){if(!t||!t.name)return;var k=String(t.name).trim();if(_seen[k])return;_seen[k]=1;_uniq.push(t)});
@@ -1403,7 +1301,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
         x.onclick=function(){
           var name=x.dataset.del;
           if(!confirm('删除标签 '+name+' ？将从所有用户/供应商上剥离。')) return;
-          fetch('/api/tags/'+encodeURIComponent(name),{method:'DELETE',headers:{'x-api-key':'***REMOVED_API_KEY***'}})
+          fetch('/api/tags/'+encodeURIComponent(name),{method:'DELETE',headers:{'x-api-key':'supply-chain-key-2024'}})
             .then(function(r){return r.json()}).then(function(d){
               if(d.success){showToast('已删除 '+name);refreshTagPool(drawList);load()}
               else showToast('删除失败','err');
@@ -1416,7 +1314,7 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
     overlay.querySelector('#tpAdd').onclick=function(){
       var n=overlay.querySelector('#tpName').value.trim();
       if(!n){showToast('请填名称','err');return}
-      fetch('/api/tags',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':'***REMOVED_API_KEY***'},body:JSON.stringify({name:n,color:pickColor.color,bg:pickColor.bg,border:pickColor.border,scope:['user']})})
+      fetch('/api/tags',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':'supply-chain-key-2024'},body:JSON.stringify({name:n,color:pickColor.color,bg:pickColor.bg,border:pickColor.border,scope:['user']})})
         .then(function(r){return r.json()}).then(function(d){
           if(d.success){overlay.querySelector('#tpName').value='';updatePv();showToast('已创建 '+n);refreshTagPool(drawList)}
           else showToast('创建失败: '+(d.error||''),'err');
@@ -1430,6 +1328,184 @@ document.querySelectorAll('.tab-btn').forEach(function(b){
   // 直接在 window load 阶段拉一次
   window.addEventListener('DOMContentLoaded', function(){ setTimeout(refreshTagPool, 300); });
 
+})();
+</script>
+
+<!-- 客户 360 详情模块 (OneID 点击进入) -->
+<script>
+(function(){
+  var AK='supply-chain-key-2024';
+  function H(){ return {'Content-Type':'application/json','x-api-key':AK}; }
+  function fmtT(s){ if(!s) return '-'; try{ var d=new Date(s); if(isNaN(d)) return String(s); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }catch(e){ return String(s);} }
+  function p2(n){ return (n<10?'0':'')+n; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function ensureModal(){
+    var m=document.getElementById('c360Modal');
+    if(m) return m;
+    m=document.createElement('div');
+    m.id='c360Modal';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:32px 16px';
+    m.innerHTML='<div style="background:#121e34;color:#e8eaed;border:1px solid #1e2d48;border-radius:14px;width:1000px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.5)">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 22px;border-bottom:1px solid #1e2d48;position:sticky;top:0;background:#121e34;border-radius:14px 14px 0 0">'
+        +'<h3 id="c360Title" style="margin:0;font-size:16px">👤 客户 360 画像</h3>'
+        +'<button id="c360Close" style="background:none;border:none;color:#9aa0b0;font-size:24px;cursor:pointer;line-height:1">×</button>'
+      +'</div>'
+      +'<div id="c360Body" style="padding:20px 22px"></div>'
+    +'</div>';
+    document.body.appendChild(m);
+    m.querySelector('#c360Close').onclick=function(){ m.style.display='none'; };
+    m.addEventListener('click',function(e){ if(e.target===m) m.style.display='none'; });
+    return m;
+  }
+
+  function card(title, inner, accent){
+    return '<div style="background:#19243b;border:1px solid #1e2d48;border-radius:12px;padding:16px;margin-bottom:16px">'
+      +'<div style="font-size:13px;font-weight:600;color:'+(accent||'#a78bfa')+';margin-bottom:12px;display:flex;align-items:center;gap:6px">'+title+'</div>'
+      +inner+'</div>';
+  }
+
+  // 人脸识别模块 (背后无数据源 → 展示占位 + 重置按钮)
+  function faceModule(u, faceInfo){
+    faceInfo = faceInfo || {};
+    var registered = faceInfo.registered;
+    var lastFace = faceInfo.last_face_login_at ? fmtT(faceInfo.last_face_login_at) : '<span style="color:#5e6a82">暂无刷脸登录记录</span>';
+    var regBadge = registered
+      ? '<span style="background:#14532d;color:#86efac;padding:2px 10px;border-radius:10px;font-size:12px">✓ 已录入人脸</span>'
+      : '<span style="background:#334155;color:#94a3b8;padding:2px 10px;border-radius:10px;font-size:12px">未录入人脸</span>';
+    var sim = faceInfo.last_similarity!=null ? ' <span style="font-size:11px;color:#5e6a82">(相似度 '+Number(faceInfo.last_similarity).toFixed(3)+')</span>' : '';
+    var inner='<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:280px">'
+        +'<div style="display:grid;grid-template-columns:150px 1fr;gap:8px 12px;font-size:13px;align-items:center">'
+          +'<div style="color:#9aa0b0">人脸录入状态</div><div>'+regBadge+'</div>'
+          +'<div style="color:#9aa0b0">最后刷脸登录成功</div><div>'+lastFace+sim+'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
+          +'<button class="btn btn-ghost btn-sm" data-c360act="reset-email" style="color:#60a5fa;border-color:#60a5fa">✉️ 重置邮箱</button>'
+          +'<button class="btn btn-ghost btn-sm" data-c360act="reset-phone" style="color:#34d399;border-color:#34d399">📱 重置手机</button>'
+          +'<button class="btn btn-ghost btn-sm" data-c360act="reset-pwd" style="color:#f472b6;border-color:#f472b6">🔑 重置密码</button>'
+        +'</div>'
+        +'<div style="font-size:11px;color:#5e6a82;margin-top:8px">邮箱: '+esc(u.email||'-')+' · 手机: '+esc(u.phone||'-')+'</div>'
+      +'</div>'
+    +'</div>';
+    return card('🧑‍💻 人脸识别·账号安全', inner, '#fb923c');
+  }
+
+  function loginModule(logins){
+    var inner;
+    if(!logins || !logins.length){
+      inner='<div style="color:#5e6a82;font-size:13px">暂无登录记录</div>';
+    } else {
+      inner='<div style="max-height:200px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+        +'<thead><tr style="color:#9aa0b0;text-align:left"><th style="padding:4px 8px">时间</th><th style="padding:4px 8px">事件</th></tr></thead><tbody>'
+        +logins.slice(0,20).map(function(e){
+          var t = e.created_at || (e.payload && e.payload.checkedAt);
+          var typ = (e.event_type||'').replace('session.','').replace('oidc_session.','oidc.');
+          return '<tr style="border-top:1px solid #1e2d48"><td style="padding:4px 8px">'+fmtT(t)+'</td><td style="padding:4px 8px;color:#9aa0b0">'+esc(typ)+'</td></tr>';
+        }).join('')
+        +'</tbody></table></div>';
+    }
+    return card('🕐 近期登录记录', inner, '#60a5fa');
+  }
+
+  function orderModule(orders){
+    var cnt=orders.length;
+    var total=orders.reduce(function(s,o){return s+(Number(o.product_subtotal||o.income_amount||0)||0)},0);
+    var profit=orders.reduce(function(s,o){return s+(Number(o.profit_amount||0)||0)},0);
+    var avg=cnt?total/cnt:0;
+    var kpi='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
+      +kpiBox('订单数', cnt, '笔', '#60a5fa')
+      +kpiBox('总消费', '¥'+total.toFixed(0), '累计', '#34d399')
+      +kpiBox('客单价', '¥'+avg.toFixed(0), '均值', '#a78bfa')
+      +kpiBox('贡献利润', '¥'+profit.toFixed(0), '累计', '#fb923c')
+      +'</div>';
+    // 消费频率柱状图: 按月统计近 6 个月订单数
+    var buckets={}; var order=[];
+    var now=new Date();
+    for(var i=5;i>=0;i--){ var d=new Date(now.getFullYear(), now.getMonth()-i, 1); var k=d.getFullYear()+'-'+p2(d.getMonth()+1); buckets[k]={c:0,amt:0}; order.push(k); }
+    orders.forEach(function(o){
+      var t=o.purchase_time||o.created_at; if(!t) return;
+      var d=new Date(t); if(isNaN(d)) return;
+      var k=d.getFullYear()+'-'+p2(d.getMonth()+1);
+      if(buckets[k]){ buckets[k].c++; buckets[k].amt+=Number(o.product_subtotal||o.income_amount||0)||0; }
+    });
+    var maxC=Math.max.apply(null, order.map(function(k){return buckets[k].c}).concat([1]));
+    var bars='<div style="display:flex;align-items:flex-end;gap:14px;height:160px;padding:0 8px">'
+      +order.map(function(k){
+        var b=buckets[k]; var h=Math.round(b.c/maxC*130)+4;
+        return '<div style="flex:1;text-align:center">'
+          +'<div style="font-size:11px;color:#e8eaed;margin-bottom:2px">'+b.c+'</div>'
+          +'<div title="¥'+b.amt.toFixed(0)+'" style="height:'+h+'px;background:linear-gradient(180deg,#a78bfa,#60a5fa);border-radius:5px 5px 0 0"></div>'
+          +'<div style="font-size:10px;color:#9aa0b0;margin-top:4px">'+k.slice(2)+'</div>'
+        +'</div>';
+      }).join('')
+      +'</div>';
+    var freqTitle='<div style="font-size:12px;color:#9aa0b0;margin:6px 0 4px">近 6 个月消费频率 (柱高=订单数, 悬停看金额)</div>';
+    var recent='';
+    if(cnt){
+      var sorted=orders.slice().sort(function(a,b){return new Date(b.purchase_time||b.created_at)-new Date(a.purchase_time||a.created_at)}).slice(0,8);
+      recent='<div style="font-size:12px;color:#9aa0b0;margin:14px 0 4px">最近订单</div>'
+        +'<div style="max-height:180px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+        +'<thead><tr style="color:#9aa0b0;text-align:left"><th style="padding:4px 8px">时间</th><th style="padding:4px 8px">商品</th><th style="padding:4px 8px;text-align:right">金额</th></tr></thead><tbody>'
+        +sorted.map(function(o){
+          var title=Array.isArray(o.product_title)?o.product_title.join(', '):(o.product_title||'-');
+          return '<tr style="border-top:1px solid #1e2d48"><td style="padding:4px 8px">'+fmtT(o.purchase_time||o.created_at)+'</td><td style="padding:4px 8px">'+esc(title).slice(0,40)+'</td><td style="padding:4px 8px;text-align:right">¥'+(Number(o.product_subtotal||o.income_amount||0)||0).toFixed(2)+'</td></tr>';
+        }).join('')
+        +'</tbody></table></div>';
+    }
+    return card('💰 订单消费分析', kpi+freqTitle+bars+recent, '#34d399');
+  }
+  function kpiBox(label,val,unit,color){
+    return '<div style="background:#0b172b;border:1px solid #1e2d48;border-radius:10px;padding:12px;text-align:center">'
+      +'<div style="font-size:20px;font-weight:700;color:'+color+'">'+val+'</div>'
+      +'<div style="font-size:11px;color:#9aa0b0;margin-top:2px">'+esc(label)+' · '+esc(unit)+'</div>'
+    +'</div>';
+  }
+
+  window.openCustomer360=function(zid, phone){
+    var m=ensureModal();
+    m.style.display='flex';
+    var body=m.querySelector('#c360Body');
+    body.innerHTML='<div style="padding:40px;text-align:center;color:#9aa0b0">加载中…</div>';
+    // 拉 用户详情 + 登录历史 + 订单
+    var normPhone = (phone||'').replace(/^\+?86/,'').replace(/\D/g,'');
+    Promise.all([
+      fetch('/api/users',{headers:H()}).then(function(r){return r.json()}).catch(function(){return{}}),
+      zid ? fetch('/api/users/'+encodeURIComponent(zid)+'/login-history?limit=30').then(function(r){return r.json()}).catch(function(){return{}}) : Promise.resolve({}),
+      fetch('/api/orders?limit=5000').then(function(r){return r.json()}).catch(function(){return{}}),
+      zid ? fetch('/api/school-face/face/last?zid='+encodeURIComponent(zid)).then(function(r){return r.json()}).catch(function(){return{}}) : Promise.resolve({})
+    ]).then(function(R){
+      var users=(R[0]&&R[0].data)||[];
+      var u=users.find(function(x){return x.id===zid}) || {id:zid, phone:phone};
+      var logins=(R[1]&&R[1].data)||[];
+      var allOrders=(R[2]&&R[2].data)||[];
+      var faceInfo=R[3]||{};
+      var myOrders=allOrders.filter(function(o){
+        var op=(o.phone||'').replace(/^\+?86/,'').replace(/\D/g,'');
+        return normPhone && op===normPhone;
+      });
+      m.querySelector('#c360Title').innerHTML='👤 客户 360 · '+esc(u.display_name||u.nick_name||u.username||phone||zid)+' <span style="font-size:12px;color:#9aa0b0;font-family:monospace">'+esc(u.oneid||'')+'</span>';
+      body.innerHTML=faceModule(u, faceInfo)+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div>'+loginModule(logins)+'</div><div>'+orderModule(myOrders)+'</div></div>';
+      // 重置操作
+      body.querySelectorAll('[data-c360act]').forEach(function(btn){
+        btn.addEventListener('click', function(){ handleReset(btn.getAttribute('data-c360act'), u); });
+      });
+    }).catch(function(e){ body.innerHTML='<div style="padding:40px;text-align:center;color:#ef4444">加载失败: '+esc(e.message)+'</div>'; });
+  };
+
+  function handleReset(act, u){
+    var zid=u.id;
+    if(act==='reset-pwd'){
+      if(!confirm('为用户 '+(u.username||zid)+' 生成一次性密码重置码？')) return;
+      fetch('/api/users/'+encodeURIComponent(zid)+'/password-reset',{method:'POST',headers:H(),body:'{}'})
+        .then(function(r){return r.json()}).then(function(d){
+          if(d.success){ var code=(d.data&&(d.data.verificationCode||d.data.verification_code))||JSON.stringify(d.data); prompt('✅ 密码重置码（仅一次有效）:', code); }
+          else alert('重置失败: '+(d.error||'')); }).catch(function(e){ alert('网络错误: '+e.message); });
+      return;
+    }
+    var names={'reset-face':'人脸','reset-email':'邮箱','reset-phone':'手机'};
+    alert('“重置'+(names[act]||'')+'”功能待后端接口接入（当前 Zitadel 尚未提供该能力）。');
+  }
 })();
 </script>
 
