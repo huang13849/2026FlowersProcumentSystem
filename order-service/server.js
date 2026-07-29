@@ -470,7 +470,12 @@ app.get('/api/orders/stats/tags', async (req, res) => {
 
 app.get('/api/orders/stats/business-type', async (req, res) => {
   try {
-    const { rows } = await pgPool.query('SELECT business_type, COUNT(*) as count FROM purchase_orders GROUP BY business_type ORDER BY count DESC');
+    const { rows } = await pgPool.query(`
+      SELECT business_type, COUNT(*)::int AS count
+        FROM purchase_orders
+       WHERE COALESCE(order_status,'') <> '关闭'
+       GROUP BY business_type
+       ORDER BY count DESC`);
     res.json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -480,8 +485,8 @@ app.get('/api/orders/stats/business-type', async (req, res) => {
 // Aggregate sum of income_amount and expense_amount
 app.get('/api/orders/stats/amount', async (req, res) => {
   try {
-    const { search, business_type, region, shop_name } = req.query;
-    const conditions = [];
+    const { search, business_type, region, shop_name, month, tag } = req.query;
+    const conditions = [`COALESCE(order_status,'') <> '关闭'`];
     const params = [];
     if (search) {
       params.push(`%${search}%`);
@@ -490,12 +495,12 @@ app.get('/api/orders/stats/amount', async (req, res) => {
     if (business_type && business_type !== '全部') { params.push(business_type); conditions.push(`business_type = $${params.length}`); }
     if (region && region !== 'all') { params.push(region); conditions.push(`region = $${params.length}`); }
     if (shop_name && shop_name !== '全部') { params.push(shop_name); conditions.push(`shop_name = $${params.length}`); }
-  if (month && /^\d{4}-\d{2}$/.test(month)) {
-    params.push(month + '-01');
-    conditions.push(`purchase_time >= $${params.length}::date AND purchase_time < ($${params.length}::date + INTERVAL '1 month')`);
-  }
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      params.push(month + '-01');
+      conditions.push(`purchase_time >= $${params.length}::date AND purchase_time < ($${params.length}::date + INTERVAL '1 month')`);
+    }
     if (tag && tag !== '全部') { params.push(tag); conditions.push(`tags @> to_jsonb(ARRAY[$${params.length}::text])`); }
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await pgPool.query(
       `SELECT COALESCE(SUM(income_amount),0)::float AS total_income, COALESCE(SUM(expense_amount),0)::float AS total_expense, COALESCE(SUM(shipping_fee),0)::float AS total_shipping, COALESCE(SUM(coupon_discount),0)::float AS total_coupon, COALESCE(SUM(profit_amount),0)::float AS total_profit, COUNT(*)::int AS row_count FROM purchase_orders ${where}`,
       params

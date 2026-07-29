@@ -239,10 +239,11 @@ function ProductPicker({ visible, onCancel, onConfirm, existingProducts }) {
 
 
 // 订单标签编辑器（对接统一标签池 scope=order）
-function OrderTagCell({ value, onChange }) {
+function OrderTagCell({ value, onChange, tagPool = [] }) {
   const [open, setOpen] = React.useState(false);
   const [allTags, setAllTags] = React.useState([]);
   const tags = Array.isArray(value) ? value : [];
+  const displayTags = allTags.length ? allTags : tagPool;
   const load = async () => {
     try {
       const r = await fetch(`${TAG_API_BASE}/api/tags?scope=order`);
@@ -255,7 +256,7 @@ function OrderTagCell({ value, onChange }) {
       style={{ display:'inline-flex', gap:4, flexWrap:'wrap', minHeight:22, cursor:'pointer', padding:'2px 4px' }}>
       {tags.length === 0 && <span style={{color:'#bbb',fontSize:12}}>双击添加</span>}
       {tags.map(t => {
-        const meta = allTags.find(x => x.name === t) || {};
+        const meta = displayTags.find(x => x.name === t) || {};
         return (
           <Tag key={t} color={meta.color || undefined}
                style={meta.bg ? { background: meta.bg, color: meta.color, borderColor: meta.border } : {}}
@@ -362,7 +363,7 @@ function App() {
     } catch (e) {}
   }, []);
 
-  const fetchAmountStats = useCallback(async (searchVal = search, typeVal = businessType, regionVal = region, shopVal = shopName) => {
+  const fetchAmountStats = useCallback(async (searchVal = search, typeVal = businessType, regionVal = region, shopVal = shopName, monthVal = monthFilter) => {
     try {
       const params = new URLSearchParams();
       if (searchVal) params.set('search', searchVal);
@@ -375,7 +376,7 @@ function App() {
       const json = await res.json();
       setAmountStats(json.data || { total_income: 0, total_shipping: 0, total_coupon: 0, row_count: 0 });
     } catch (e) {}
-  }, [search, businessType, region, shopName]);
+  }, [search, businessType, region, shopName, monthFilter, tagFilter]);
 
 
   const fetchSyncStatus = useCallback(async () => {
@@ -499,7 +500,7 @@ const columns = [
       width: 200,
       editable: false,
       render: (val, record) => (
-        <OrderTagCell value={val || []} onChange={async (next) => {
+        <OrderTagCell value={val || []} tagPool={tagPool} onChange={async (next) => {
           await fetch(`${API_BASE}/api/orders/${record.id}`, {
             method: 'PUT', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ tags: next }),
@@ -638,10 +639,11 @@ const columns = [
         { value: '处理中', label: '处理中' },
         { value: '已完成', label: '已完成' },
         { value: '已取消', label: '已取消' },
+        { value: '关闭', label: '关闭' },
       ],
       render: (val) => {
         const v = val || '';
-        const colorMap = { '已下单': '#1677ff', '处理中': '#faad14', '已完成': '#52c41a', '已取消': '#8c8c8c' };
+        const colorMap = { '已下单': '#1677ff', '处理中': '#faad14', '已完成': '#52c41a', '已取消': '#8c8c8c', '关闭': '#8c8c8c' };
         return v ? <Tag color={colorMap[v] || 'default'}>{v}</Tag> : <span style={{color:'#bfbfbf'}}>—</span>;
       }
     },
@@ -1069,4 +1071,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
-
