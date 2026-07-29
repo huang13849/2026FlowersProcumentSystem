@@ -205,3 +205,52 @@ router.delete('/tags/:name', async (req, res) => {
 });
 
 module.exports = router;
+
+
+// PATCH /profile/users/:zid/avatar - Update avatar_url in profile
+router.patch('/users/:zid/avatar', async (req, res) => {
+  const zid = String(req.params.zid);
+  const { avatar_url } = req.body || {};
+  try {
+    const pg = getPgPool();
+    const now = new Date();
+    const existing = await pg.query('SELECT id FROM plant_collector.user_profiles WHERE zid=$1', [zid]);
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'user_profile_not_found' });
+    }
+    await pg.query(
+      'UPDATE plant_collector.user_profiles SET avatar_url = COALESCE($2, avatar_url), updated_at = now() WHERE zid = $1',
+      [zid, avatar_url || null]
+    );
+    const r = await pg.query(
+      'SELECT zid, avatar_url FROM plant_collector.user_profiles WHERE zid=$1', [zid]
+    );
+    res.json({ success: true, data: r.rows[0] });
+  } catch (err) {
+    console.error('[profile PATCH avatar]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /profile/users/:zid/avatar/get-upload-url - Get presigned upload URL for MinIO
+router.post('/users/:zid/avatar/get-upload-url', async (req, res) => {
+  const zid = String(req.params.zid);
+  try {
+    const minio = getMinioClient();
+    const bucket = getMinioBucket();
+    const objectName = 'avatars/' + zid + '-' + Date.now() + '.png';
+    const presignedUrl = await minio.presignedPutObject(bucket, objectName, 60 * 5); // 5 minutes expiry
+    const publicUrl = getMinioPublicUrl() + '/' + bucket + '/' + objectName;
+    res.json({
+      success: true,
+      data: {
+        upload_url: presignedUrl,
+        public_url: publicUrl,
+        object_name: objectName
+      }
+    });
+  } catch (err) {
+    console.error('[profile avatar get-upload-url]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
