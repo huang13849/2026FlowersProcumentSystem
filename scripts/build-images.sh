@@ -11,7 +11,7 @@
 # ─────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
-REGISTRY="${REGISTRY:-100.96.54.109:5001}"
+REGISTRY="${REGISTRY:-100.76.15.64:5001}"
 
 BUILD_SPEC=(
   # ── shared infra / gateway ──
