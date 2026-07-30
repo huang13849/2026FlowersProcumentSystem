@@ -1215,16 +1215,7 @@ export default function ProductList() {
                             style={{ display:'flex', flexWrap:'wrap', gap:2, cursor:'pointer', minHeight:18, alignItems:'center' }}>
                             {tags.length === 0 && inherited.length === 0 && <span style={{ color:'#bbb', fontSize:11 }}>+ 标签</span>}
                             {inherited.map(t => {
-                              let c = SCENE_TAG_COLOR[t];
-                              if (!c) {
-                                const remoteTag = remoteTags.find(rt => rt.name === t);
-                                if (remoteTag) {
-                                  c = { color: remoteTag.color, bg: remoteTag.bg, border: remoteTag.border };
-                                }
-                              }
-                              if (!c) {
-                                c = { color:'#722ed1', bg:'#f9f0ff', border:'#d3adf7' };
-                              }
+                              const c = SCENE_TAG_COLOR[t] || { color:'#722ed1', bg:'#f9f0ff', border:'#d3adf7' };
                               return (
                                 <span key={'inh-'+t} title={'继承自供应商 '+(p.sellerName||p.supplier_name||'')}
                                   style={{
@@ -1237,16 +1228,7 @@ export default function ProductList() {
                               );
                             })}
                             {tags.map(t => {
-                              let c = SCENE_TAG_COLOR[t];
-                              if (!c) {
-                                const remoteTag = remoteTags.find(rt => rt.name === t);
-                                if (remoteTag) {
-                                  c = { color: remoteTag.color, bg: remoteTag.bg, border: remoteTag.border };
-                                }
-                              }
-                              if (!c) {
-                                c = { color:'#555', bg:'#f5f5f5', border:'#d9d9d9' };
-                              }
+                              const c = SCENE_TAG_COLOR[t] || { color:'#555', bg:'#f5f5f5', border:'#d9d9d9' };
                               return (
                                 <span key={t} style={{
                                   display:'inline-block', padding:'1px 5px', borderRadius:8,
@@ -1569,17 +1551,7 @@ export default function ProductList() {
                 const extras = customSceneTags.filter(t => !presetVals.includes(t));
                 const allOpts = [...presetVals, ...extras];
                 return allOpts.map(v => {
-                  // 优先取预设颜色，其次取远程标签颜色，最后用默认色
-                  let o = SCENE_TAG_COLOR[v];
-                  if (!o) {
-                    const remoteTag = remoteTags.find(t => t.name === v);
-                    if (remoteTag) {
-                      o = { color: remoteTag.color, bg: remoteTag.bg, border: remoteTag.border };
-                    }
-                  }
-                  if (!o) {
-                    o = { color:'#555', bg:'#f0f0f0', border:'#d9d9d9' };
-                  }
+                  const o = SCENE_TAG_COLOR[v] || { v, color:'#555', bg:'#f0f0f0', border:'#d9d9d9' };
                   const on = batchTagPending.has(v);
                   return (
                     <span key={v}

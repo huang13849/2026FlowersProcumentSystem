@@ -343,7 +343,7 @@ function buildUpdate(update, params) {
         const col = pgCol(kk);
         if (!col || !ARRAY_COLUMNS.has(col)) continue;
         const each = vv && typeof vv === 'object' && '$each' in vv ? vv.$each : [vv];
-        sets.push(`${col} = COALESCE(${col}, ARRAY[]::${col === 'flowering_months' ? 'smallint' : 'text'}[]) || ${push(each)}::${col === 'flowering_months' ? 'int[]' : 'text[]'}`);
+        sets.push(`${col} = COALESCE(${col}, ARRAY[]::${col === 'flowering_months' ? 'smallint' : 'text'}[]) || ${push(each)}`);
       }
     } else if (k === '$pull') {
       for (const [kk, vv] of Object.entries(v)) {
@@ -351,7 +351,7 @@ function buildUpdate(update, params) {
         if (!col || !ARRAY_COLUMNS.has(col)) continue;
         if (vv && typeof vv === 'object' && '$in' in vv) {
           const drop = vv.$in;
-          sets.push(`${col} = COALESCE((SELECT array_agg(e) FROM unnest(${col}) e WHERE e <> ALL(${push(drop)}::text[])), ARRAY[]::text[])`);
+          sets.push(`${col} = COALESCE((SELECT array_agg(e) FROM unnest(${col}) e WHERE e <> ALL(${push(drop)})), ARRAY[]::text[])`);
         } else {
           sets.push(`${col} = array_remove(${col}, ${push(vv)})`);
         }
@@ -362,7 +362,7 @@ function buildUpdate(update, params) {
         if (!col || !ARRAY_COLUMNS.has(col)) continue;
         const each = vv && typeof vv === 'object' && '$each' in vv ? vv.$each : [vv];
         // Union while preserving order: existing values first, then new ones not already present.
-        sets.push(`${col} = COALESCE((SELECT array_agg(x) FROM (SELECT unnest(COALESCE(${col}, ARRAY[]::text[])) AS x UNION SELECT unnest(${push(each)}::text[])) u), ARRAY[]::text[])`);
+        sets.push(`${col} = COALESCE((SELECT array_agg(x) FROM (SELECT unnest(COALESCE(${col}, ARRAY[]::text[])) AS x UNION SELECT unnest(${push(each)})) u), ARRAY[]::text[])`);
       }
     } else if (k === '$inc') {
       for (const [kk, vv] of Object.entries(v)) {
