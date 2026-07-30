@@ -4,7 +4,7 @@ metadata:
   name: supply-chain-common
   namespace: supply-chain
 data:
-  PG_HOST: "100.67.126.90"
+  PG_HOST: "pgbouncer-rw.pg-access.svc.cluster.local"
   PG_PORT: "5432"
   PG_DATABASE: "supply_chain"
   PG_USER: "postgres"
