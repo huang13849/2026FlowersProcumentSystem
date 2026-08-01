@@ -103,10 +103,15 @@ let pgPool = null;
 
 async function connectPostgres() {
   if (pgPool) return pgPool;
-  pgPool = new Pool(config.postgres);
-  const client = await pgPool.connect();
-  console.log('✅ PostgreSQL Primary connected: ' + config.postgres.host + ':' + config.postgres.port + '/' + config.postgres.database);
-  client.release();
+  pgPool = new Pool({ ...config.postgres, connectionTimeoutMillis: 3000 });
+  try {
+    const client = await pgPool.connect();
+    console.log('✅ PostgreSQL Primary connected: ' + config.postgres.host + ':' + config.postgres.port + '/' + config.postgres.database);
+    client.release();
+  } catch (e) {
+    pgPool = null;  // allow retry on next call
+    throw e;
+  }
   return pgPool;
 }
 
@@ -155,7 +160,7 @@ let zitadelPgPool = null;
 async function connectZitadelPg() {
   if (zitadelPgPool) return zitadelPgPool;
   try {
-    zitadelPgPool = new Pool(config.zitadelPg);
+    zitadelPgPool = new Pool({ ...config.zitadelPg, connectionTimeoutMillis: 3000 });
     const client = await zitadelPgPool.connect();
     console.log('✅ PostgreSQL Zitadel connected: ' + config.zitadelPg.host + ':' + config.zitadelPg.port + '/' + config.zitadelPg.database);
     client.release();

@@ -9,12 +9,21 @@
  */
 const express = require('express');
 const router = express.Router();
+const { resolveServiceBase } = require('../services/nacosResolver');
 
 const ORDER_URL         = process.env.ORDER_URL         || 'http://order-service.supply-chain.svc.cluster.local:3000';
 const PURCHASE_LIST_URL = process.env.PURCHASE_LIST_URL || 'http://purchase-list-service.supply-chain.svc.cluster.local:3000';
 const CONTRACT_URL      = process.env.CONTRACT_URL      || 'http://contract-service.supply-chain.svc.cluster.local:3000';
+const ORDER_SERVICE_NAME = process.env.ORDER_SERVICE_NAME || 'k8s.supply-chain.order-service';
+const PURCHASE_LIST_SERVICE_NAME = process.env.PURCHASE_LIST_SERVICE_NAME || 'k8s.supply-chain.purchase-list-service';
+const CONTRACT_SERVICE_NAME = process.env.CONTRACT_SERVICE_NAME || 'k8s.supply-chain.contract-service';
 
-async function proxy(req, res, base, pathPrefix = '/api/orders') {
+async function resolveOrderBase() { return resolveServiceBase({ serviceName: ORDER_SERVICE_NAME, fallbackUrl: ORDER_URL }); }
+async function resolvePurchaseListBase() { return resolveServiceBase({ serviceName: PURCHASE_LIST_SERVICE_NAME, fallbackUrl: PURCHASE_LIST_URL }); }
+async function resolveContractBase() { return resolveServiceBase({ serviceName: CONTRACT_SERVICE_NAME, fallbackUrl: CONTRACT_URL }); }
+
+async function proxy(req, res, resolveBase, pathPrefix = '/api/orders') {
+  const base = await resolveBase();
   const url = `${base}${pathPrefix}${req.url === '/' ? '' : req.url}`;
   try {
     const opts = {
@@ -40,9 +49,9 @@ async function proxy(req, res, base, pathPrefix = '/api/orders') {
 router.get('/summary', async (req, res) => {
   try {
     const [o, p, c] = await Promise.all([
-      fetch(`${ORDER_URL}/api/orders?limit=1&page=1`).then(r=>r.json()).catch(()=>({total:0})),
-      fetch(`${PURCHASE_LIST_URL}/api/purchase-lists?limit=1`).then(r=>r.json()).catch(()=>({total:0})),
-      fetch(`${CONTRACT_URL}/api/contracts?limit=1`).then(r=>r.json()).catch(()=>({total:0})),
+      resolveOrderBase().then(base => fetch(`${base}/api/orders?limit=1&page=1`).then(r=>r.json())).catch(()=>({total:0})),
+      resolvePurchaseListBase().then(base => fetch(`${base}/api/purchase-lists?limit=1`).then(r=>r.json())).catch(()=>({total:0})),
+      resolveContractBase().then(base => fetch(`${base}/api/contracts?limit=1`).then(r=>r.json())).catch(()=>({total:0})),
     ]);
     res.json({
       orders:         o.total ?? o.count ?? 0,
@@ -55,7 +64,7 @@ router.get('/summary', async (req, res) => {
 });
 
 // GET/POST/PUT/DELETE /api/orders/* → order-service /api/orders/*
-router.all('/*', (req, res) => proxy(req, res, ORDER_URL, '/api/orders'));
-router.all('/',  (req, res) => proxy(req, res, ORDER_URL, '/api/orders'));
+router.all('/*', (req, res) => proxy(req, res, resolveOrderBase, '/api/orders'));
+router.all('/',  (req, res) => proxy(req, res, resolveOrderBase, '/api/orders'));
 
 module.exports = router;

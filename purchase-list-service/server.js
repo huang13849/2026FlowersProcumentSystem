@@ -1,5 +1,6 @@
 const express = require('express');
 const { Pool } = require('pg');
+const { resolveServiceBase } = require('./nacosResolver');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -122,13 +123,15 @@ app.post('/purchase-list/data', async (req, res) => {
 // ------------- HTML renderer -------------
 // Priority chain for main image; returns the first URL found.
 const PRODUCT_API = process.env.PRODUCT_API_URL || 'http://product-api-service.supply-chain.svc.cluster.local:3000';
+const PRODUCT_SERVICE_NAME = process.env.PRODUCT_SERVICE_NAME || 'k8s.supply-chain.product-api-service';
 async function fetchProductMainImages(ids) {
   const out = {};
   const uniq = [...new Set(ids.filter(x => x != null && x !== ''))];
   if (!uniq.length) return out;
+  const productBase = await resolveServiceBase({ serviceName: PRODUCT_SERVICE_NAME, fallbackUrl: PRODUCT_API });
   await Promise.all(uniq.map(async (id) => {
     try {
-      const r = await fetch(PRODUCT_API + '/api/products/' + encodeURIComponent(id), { signal: AbortSignal.timeout(3000) });
+      const r = await fetch(productBase + '/api/products/' + encodeURIComponent(id), { signal: AbortSignal.timeout(3000) });
       if (!r.ok) return;
       const j = await r.json();
       const prod = j.data || j.product || j;

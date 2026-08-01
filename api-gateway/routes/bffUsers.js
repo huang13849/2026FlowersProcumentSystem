@@ -9,9 +9,21 @@
  */
 const express = require('express');
 const router = express.Router();
+const { resolveServiceBase } = require('../services/nacosResolver');
 
 const IDENTITY_URL = process.env.IDENTITY_URL || 'http://identity-service.supply-chain.svc.cluster.local:3017';
 const PROFILE_URL  = process.env.PROFILE_URL  || 'http://profile-service.supply-chain.svc.cluster.local:3018';
+const IDENTITY_SERVICE_NAME = process.env.IDENTITY_SERVICE_NAME || 'k8s.supply-chain.identity-service';
+const PROFILE_SERVICE_NAME = process.env.PROFILE_SERVICE_NAME || 'k8s.supply-chain.profile-service';
+
+async function identityUrl(path) {
+  const base = await resolveServiceBase({ serviceName: IDENTITY_SERVICE_NAME, fallbackUrl: IDENTITY_URL });
+  return `${base}${path}`;
+}
+async function profileUrl(path) {
+  const base = await resolveServiceBase({ serviceName: PROFILE_SERVICE_NAME, fallbackUrl: PROFILE_URL });
+  return `${base}${path}`;
+}
 
 async function getJson(url) {
   const r = await fetch(url);
@@ -34,8 +46,8 @@ async function reqJson(method, url, body) {
 router.get('/', async (_req, res) => {
   try {
     const [idR, prR] = await Promise.all([
-      getJson(`${IDENTITY_URL}/identity/users`),
-      getJson(`${PROFILE_URL}/profile/users`),
+      getJson(await identityUrl('/identity/users')),
+      getJson(await profileUrl('/profile/users')),
     ]);
     if (!idR.ok) return res.status(502).json({ success: false, error: 'identity_upstream', detail: idR.json || idR.text });
     const identities = (idR.json && idR.json.data) || [];
@@ -65,7 +77,7 @@ router.get('/', async (_req, res) => {
 
 // PATCH /api/users/:zid — 走 profile-service
 router.patch('/:zid', async (req, res) => {
-  const r = await reqJson('PATCH', `${PROFILE_URL}/profile/users/${encodeURIComponent(req.params.zid)}`, req.body);
+  const r = await reqJson('PATCH', await profileUrl(`/profile/users/${encodeURIComponent(req.params.zid)}`), req.body);
   res.status(r.status).json(r.json || { success: false, error: 'upstream_error', detail: r.text });
 });
 
@@ -73,13 +85,13 @@ router.patch('/:zid', async (req, res) => {
 router.post('/batch-delete', async (req, res) => {
   const zids = Array.isArray(req.body && req.body.zids) ? req.body.zids : [];
   if (!zids.length) return res.status(400).json({ success: false, error: 'zids required' });
-  const idR = await reqJson('POST', `${IDENTITY_URL}/identity/users/batch-delete`, { zids });
+  const idR = await reqJson('POST', await identityUrl('/identity/users/batch-delete'), { zids });
   // profile 逐个删档 (identity 删成功的)
   const oks = ((idR.json && idR.json.results) || []).filter(x => x.ok).map(x => x.zid);
   const profDel = [];
   for (const zid of oks) {
     try {
-      const pr = await reqJson('DELETE', `${PROFILE_URL}/profile/users/${encodeURIComponent(zid)}`);
+      const pr = await reqJson('DELETE', await profileUrl(`/profile/users/${encodeURIComponent(zid)}`));
       profDel.push({ zid, ok: pr.ok });
     } catch (e) { profDel.push({ zid, ok: false, error: e.message }); }
   }
@@ -89,32 +101,32 @@ router.post('/batch-delete', async (req, res) => {
 // POST /api/users/:zid/password-reset — 走 identity
 router.post('/:zid/password-reset', async (req, res) => {
   const r = await reqJson('POST',
-    `${IDENTITY_URL}/identity/users/${encodeURIComponent(req.params.zid)}/password-reset`,
+    await identityUrl(`/identity/users/${encodeURIComponent(req.params.zid)}/password-reset`),
     req.body || {});
   res.status(r.status).json(r.json || { success: false, error: 'upstream_error', detail: r.text });
 });
 
 // GET /api/users/:zid/addresses — 走 profile
 router.get('/:zid/addresses', async (req, res) => {
-  const r = await getJson(`${PROFILE_URL}/profile/users/${encodeURIComponent(req.params.zid)}/addresses`);
+  const r = await getJson(await profileUrl(`/profile/users/${encodeURIComponent(req.params.zid)}/addresses`));
   res.status(r.status).json(r.json || { success: false, error: 'upstream_error', detail: r.text });
 });
 
 // GET /api/users/instances — 走 identity
 router.get('/instances', async (_req, res) => {
-  const r = await getJson(`${IDENTITY_URL}/identity/instances`);
+  const r = await getJson(await identityUrl('/identity/instances'));
   res.status(r.status).json(r.json || { success: false, error: 'upstream_error', detail: r.text });
 });
 
 // GET /api/users/stats — 走 identity
 router.get('/stats', async (_req, res) => {
-  const r = await getJson(`${IDENTITY_URL}/identity/stats`);
+  const r = await getJson(await identityUrl('/identity/stats'));
   res.status(r.status).json(r.json || { success: false, error: 'upstream_error', detail: r.text });
 });
 
 // GET /api/users/source-meta — 走 identity
 router.get('/source-meta', async (_req, res) => {
-  const r = await getJson(`${IDENTITY_URL}/identity/source-meta`);
+  const r = await getJson(await identityUrl('/identity/source-meta'));
   res.status(r.status).json(r.json || { success: false, error: 'upstream_error', detail: r.text });
 });
 

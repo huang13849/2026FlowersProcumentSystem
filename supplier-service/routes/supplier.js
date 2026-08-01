@@ -3,19 +3,23 @@ const { Supplier } = require('../models/Supplier');
 const { fromReq } = require('../services/supplierService');
 const { filterMongoIdsByTags } = require('../services/supplyChainPg');
 const axios = require('axios');
+const { resolveServiceBase } = require('../services/nacosResolver');
 
 // ── product-api-service HTTP client ────────────────────────
 const PRODUCT_API_URL = (process.env.PRODUCT_SVC_URL || 'http://product-api-service.supply-chain.svc.cluster.local:3000').replace(/\/+$/, '');
+const PRODUCT_SERVICE_NAME = process.env.PRODUCT_SERVICE_NAME || 'k8s.supply-chain.product-api-service';
 
 
 // ── PG tags enrichment ────────────────────────────────────
 const PG_GW = process.env.PG_GATEWAY_URL || 'http://api-gateway:3007';
+const PG_GATEWAY_SERVICE_NAME = process.env.PG_GATEWAY_SERVICE_NAME || 'k8s.supply-chain.api-gateway';
 const PG_KEY = process.env.PG_API_KEY || (function(){throw new Error('PG_API_KEY env required')}());
 async function fetchPgSupplierMeta(mongoIds) {
   if (!mongoIds || !mongoIds.length) return {};
   try {
     const sql = "SELECT mongo_id, tags, source_project, attributes FROM public.suppliers WHERE mongo_id = ANY($1::text[])";
-    const resp = await axios.post(`${PG_GW}/api/pg/supply_chain/query`,
+    const gatewayBase = await resolveServiceBase({ serviceName: PG_GATEWAY_SERVICE_NAME, fallbackUrl: PG_GW });
+    const resp = await axios.post(`${gatewayBase}/api/pg/supply_chain/query`,
       { sql, params: [mongoIds] }, { headers: { 'x-api-key': PG_KEY }, timeout: 5000 });
     const map = {};
     (resp.data.data || []).forEach(r => { map[r.mongo_id] = r; });
@@ -135,7 +139,8 @@ router.post('/import', async (req, res) => {
 // ── Product shop names (通过 product-api-service) ──
 router.get('/shop-names', async (req, res) => {
   try {
-    const resp = await axios.get(`${PRODUCT_API_URL}/api/products/meta/sellers`, { timeout: 10000 });
+    const productBase = await resolveServiceBase({ serviceName: PRODUCT_SERVICE_NAME, fallbackUrl: PRODUCT_API_URL });
+    const resp = await axios.get(`${productBase}/api/products/meta/sellers`, { timeout: 10000 });
     const names = Array.isArray(resp.data) ? resp.data : [];
     res.json(names.filter(Boolean));
   } catch (err) {
@@ -148,7 +153,8 @@ router.get('/product-stats', async (req, res) => {
   try {
     const params = {};
     if (req.query.names) params.names = req.query.names;
-    const resp = await axios.get(`${PRODUCT_API_URL}/api/products/meta/seller-stats`, { params, timeout: 10000 });
+    const productBase = await resolveServiceBase({ serviceName: PRODUCT_SERVICE_NAME, fallbackUrl: PRODUCT_API_URL });
+    const resp = await axios.get(`${productBase}/api/products/meta/seller-stats`, { params, timeout: 10000 });
     res.json(resp.data || {});
   } catch (err) {
     res.status(500).json({ error: `[product-api] ${err.message}` });

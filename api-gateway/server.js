@@ -10,6 +10,9 @@
  * 
  * 端口: 3007
  */
+const { setupSkyWalking } = require('./skywalking');
+setupSkyWalking();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -173,7 +176,11 @@ const PORT = process.env.PORT || 3007;
 async function start() {
   try {
     const { connectAll } = require('./services/connections');
-    const results = await connectAll();
+    // 5s hard timeout: 不阻塞 app.listen
+    const results = await Promise.race([
+      connectAll(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('connectAll timeout 5s')), 5000)),
+    ]).catch(e => ({ error: e.message }));
     console.log('📦 Database connections:');
     if (results.mongodb) console.log('  ✅ MongoDB connected');
     if (results.mongodbError) console.log('  ⚠️  MongoDB: ' + results.mongodbError);

@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const { Pool } = require('pg');
+const { resolveServiceBase } = require('./nacosResolver');
 
 async function axiosWithRetry(config, retries = 2) {
   for (let i = 0; i <= retries; i++) {
@@ -524,7 +525,7 @@ app.get('/api/orders/stats/shop-name', async (req, res) => {
 app.get('/api/products/search', async (req, res) => {
   try {
     const { keyword = '', page = 1, limit = 20 } = req.query;
-    const productServiceUrl = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3001';
+    const productServiceUrl = await resolveServiceBase({ serviceName: process.env.PRODUCT_SERVICE_NAME || 'k8s.supply-chain.product-api-service', fallbackUrl: process.env.PRODUCT_SERVICE_URL || 'http://product-api-service.supply-chain.svc.cluster.local:3000' });
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (keyword) params.set('search', keyword);
     const url = `${productServiceUrl}/api/products?${params.toString()}`;

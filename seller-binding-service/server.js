@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { Pool } = require('pg');
+const { resolveServiceBase } = require('./nacosResolver');
 
 const PORT = process.env.PORT || 3013;
 
@@ -244,7 +245,7 @@ app.post('/api/seller/seed/peony', async (req, res) => {
 // ── Backfill: link existing products by phone ──
 app.post('/api/seller/backfill/products', async (req, res) => {
   const { phone } = req.query;
-  const PRODUCT_SVC = process.env.PRODUCT_SVC_URL || 'http://product-service.supply-chain.svc.cluster.local:3000';
+  const PRODUCT_SVC = await resolveServiceBase({ serviceName: process.env.PRODUCT_SERVICE_NAME || 'k8s.supply-chain.product-api-service', fallbackUrl: process.env.PRODUCT_SVC_URL || 'http://product-api-service.supply-chain.svc.cluster.local:3000' });
   try {
     let bindings;
     if (phone) {

@@ -6,11 +6,14 @@
  * 环境变量：
  *   PRODUCT_API_URL   缺省 http://product-api-service.supply-chain.svc.cluster.local:3000
  */
+const { resolveServiceBase } = require('./nacosResolver');
 const DEFAULT_URL = 'http://product-api-service.supply-chain.svc.cluster.local:3000';
+const PRODUCT_API_SERVICE_NAME = process.env.PRODUCT_API_SERVICE_NAME || 'k8s.supply-chain.product-api-service';
 const BASE = (process.env.PRODUCT_API_URL || DEFAULT_URL).replace(/\/+$/, '');
 
 async function req(path, opts = {}) {
-  const url = BASE + path;
+  const base = await resolveServiceBase({ serviceName: PRODUCT_API_SERVICE_NAME, fallbackUrl: BASE });
+  const url = base + path;
   const init = { method: opts.method || 'GET', headers: { 'Content-Type': 'application/json' } };
   if (opts.body != null) init.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
   const controller = new AbortController();
