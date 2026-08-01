@@ -58,6 +58,11 @@ const COLUMNS = [
   { field: 'shippingFee',    label: '运费',     width: 60,  type: 'money',  editable: true },
   // 15b: 运费说明
   { field: 'shipping_description', label: '运费说明', width: 100, type: 'select', editable: true, options: [{value:'',label:'默认'},{value:'free_shipping',label:'包邮'},{value:'per_plant',label:'按颗计费'},{value:'per_kg',label:'按KG计费'}] },
+  // 15c-15f: 花卉价格实时同步 (4列)
+  { field: 'flower_price_sync_enabled', label: '同步', width: 55, type: 'flowerSyncSwitch', editable: false },
+  { field: 'flower_price_item_key',     label: '价格项',     width: 150, type: 'flowerSyncSelect', editable: false },
+  { field: 'sale_price_updated_at',     label: '同步时间', width: 130, type: 'flowerSyncTime',   editable: false },
+  { field: 'profit_margin',             label: '利润率',   width: 60,  type: 'flowerSyncMargin',  editable: false },
   // 16: 起订量
   { field: 'minOrder', label: '起订量', width: 55, type: 'number', editable: true },
   // 17: 成本价 = 结算价 + 运费（自动计算）
@@ -137,6 +142,106 @@ export default function ProductList() {
   const [showTagManager, setShowTagManager] = useState(false);
   const [showBatchTag, setShowBatchTag] = useState(false);
   const [batchTagPending, setBatchTagPending] = useState(new Set()); // 待打的标签(仅本轮选择)
+
+  // ── 价格同步操作 ───────────────────────────────────────────────
+  const SYNC_API_BASE = '/api/sync';
+  const refreshWatchlist = useCallback(async () => {
+    try {
+      setLoadingWatchlist(true);
+      const r = await fetch(SYNC_API_BASE + '/watchlist');
+      const j = await r.json();
+      if (j.code === 200) {
+        // 后端 flower_watchlist 表没有 item_key 列, 业务字段由前端按
+        // (sub_category|standard|level|origin) 拼接 (与 sync.js 解析方式一致)
+        const items = (j.items || []).map(w => ({
+          ...w,
+          item_key: [w.sub_category, w.flower_standard || '', w.flower_level || '', w.origin_province || ''].join('|'),
+          // 短标签, 去掉冗余的 "|A级" 后缀, 显示更紧凑
+          short_label: `${w.sub_category}${w.flower_standard ? '·' + w.flower_standard : ''}`,
+        }));
+        setWatchlist(items);
+      }
+    } catch (e) { console.warn('watchlist fetch failed', e); }
+    finally { setLoadingWatchlist(false); }
+  }, []);
+  useEffect(() => { refreshWatchlist(); }, [refreshWatchlist]);
+
+  const onSwitchSync = async (product) => {
+    const newVal = !product.flower_price_sync_enabled;
+    try {
+      if (newVal && !product.flower_price_item_key) {
+        alert('请先在 [价格同步] 列选择一个花卉价格项');
+        return;
+      }
+      const endpoint = newVal ? '/sync/bind' : '/sync/unbind';
+      const body = newVal
+        ? { productId: product.id, itemKey: product.flower_price_item_key }
+        : { productId: product.id };
+      const r = await fetch(SYNC_API_BASE + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json();
+      if (j.code !== 200) throw new Error(j.message || 'failed');
+      // 本地更新
+      setAllProducts(prev => prev.map(p =>
+        p.id === product.id ? { ...p, flower_price_sync_enabled: newVal } : p
+      ));
+    } catch (e) {
+      alert('切换失败: ' + e.message);
+    }
+  };
+
+  const onPickSync = async (product, itemKey) => {
+    try {
+      let r, j;
+      if (itemKey) {
+        r = await fetch(SYNC_API_BASE + '/bind', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: product.id, itemKey }),
+        });
+      } else {
+        r = await fetch(SYNC_API_BASE + '/unbind', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: product.id }),
+        });
+      }
+      j = await r.json();
+      if (j.code !== 200) throw new Error(j.message || 'failed');
+      setAllProducts(prev => prev.map(p =>
+        p.id === product.id
+          ? { ...p, flower_price_item_key: itemKey || null, flower_price_sync_enabled: !!itemKey }
+          : p
+      ));
+    } catch (e) {
+      alert('绑定失败: ' + e.message);
+    }
+  };
+
+  const onUnbindSync = async (product) => {
+    if (!confirm('确认解除价格同步绑定?')) return;
+    try {
+      const r = await fetch(SYNC_API_BASE + '/unbind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id }),
+      });
+      const j = await r.json();
+      if (j.code !== 200) throw new Error(j.message || 'failed');
+      setAllProducts(prev => prev.map(p =>
+        p.id === product.id
+          ? { ...p, flower_price_item_key: null, flower_price_sync_enabled: false, sale_price_updated_at: null }
+          : p
+      ));
+    } catch (e) {
+      alert('解除失败: ' + e.message);
+    }
+  };
+
+
   const applyBatchTags = async (mode /* 'add' | 'remove' */) => {
     if (!selected.size || batchTagPending.size === 0) return;
     const tags = [...batchTagPending];
@@ -158,6 +263,9 @@ export default function ProductList() {
     }
   };
   const [remoteTags, setRemoteTags] = useState([]);
+  // 花卉价格同步状态
+  const [watchlist, setWatchlist] = useState([]);
+  const [loadingWatchlist, setLoadingWatchlist] = useState(false);
   const [loadingTags, setLoadingTags] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   // 8色调色板 — 与 31002 供应商标签管理保持一致
@@ -1374,7 +1482,87 @@ const rt = remoteTags.find(r => r.name === v);
 
 
                     // ── Status column ──
-                    if (col.type === 'enum') {
+  
+                  if (col.type === 'flowerSyncSwitch') {
+                    const enabled = !!p.flower_price_sync_enabled;
+                    const hasKey  = !!p.flower_price_item_key;
+                    return (
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                        <button
+                          onClick={() => onSwitchSync(p)}
+                          title={enabled ? '点击关闭' : '点击开启'}
+                          style={{
+                            width: 36, height: 20, borderRadius: 999, border: 'none', cursor: 'pointer',
+                            background: enabled ? '#52c41a' : '#d9d9d9', position: 'relative', padding: 0,
+                            transition: 'background 0.2s',
+                          }}>
+                          <span style={{
+                            position:'absolute', top:2, left: enabled ? 18 : 2,
+                            width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          }}/>
+                        </button>
+                        {hasKey && enabled && (
+                          <span style={{ fontSize: 10, color: '#52c41a' }}>●</span>
+                        )}
+                      </div>
+                    );
+                  }
+                  if (col.type === 'flowerSyncSelect') {
+                    const cur = p.flower_price_item_key || '';
+                    return (
+                      <div style={{ display:'flex', alignItems:'center', gap: 3 }}>
+                        <select
+                          value={cur}
+                          onChange={(e) => onPickSync(p, e.target.value)}
+                          title={cur ? `当前: ${cur}` : '点击选择价格项'}
+                          style={{
+                            width: 118, padding: '1px 2px', fontSize: 11,
+                            border: '1px solid #d9d9d9', borderRadius: 3,
+                            background: cur ? '#f6ffed' : '#fff',
+                            maxWidth: 118,
+                          }}
+                          disabled={loadingWatchlist}>
+                          <option value="">未绑定</option>
+                          {watchlist.map(w => (
+                            <option key={w.item_key} value={w.item_key} title={w.item_key}>
+                              {w.short_label}
+                            </option>
+                          ))}
+                        </select>
+                        {cur && (
+                          <button
+                            onClick={() => onUnbindSync(p)}
+                            title="解除绑定"
+                            style={{ padding:'0 4px', fontSize: 10, border:'1px solid #ff7875', background:'#fff1f0', color:'#cf1322', borderRadius:3, cursor:'pointer', lineHeight: 1.2 }}>
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+                  if (col.type === 'flowerSyncTime') {
+                    const v = p.sale_price_updated_at;
+                    if (!v) return <span style={{ color:'#999', fontSize:11 }}>—</span>;
+                    const d = new Date(v);
+                    const pad = n => String(n).padStart(2,'0');
+                    const txt = `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                    return (
+                      <span style={{ fontSize:11, color:'#389e0d' }} title={v}>
+                        {txt}
+                      </span>
+                    );
+                  }
+                  if (col.type === 'flowerSyncMargin') {
+                    const m = p.profit_margin;
+                    if (m == null) return <span style={{ color:'#999', fontSize:11 }}>—</span>;
+                    return (
+                      <span style={{ fontSize:11, color:'#722ed1', fontWeight: 600 }}>
+                        {(Number(m) * 100).toFixed(1)}%
+                      </span>
+                    );
+                  }
+                  if (col.type === 'enum') {
                       if (isEditing) {
                         return (
                           <td key={ci} style={{ ...tdS, padding:0 }}>
