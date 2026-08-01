@@ -58,11 +58,9 @@ const COLUMNS = [
   { field: 'shippingFee',    label: '运费',     width: 60,  type: 'money',  editable: true },
   // 15b: 运费说明
   { field: 'shipping_description', label: '运费说明', width: 100, type: 'select', editable: true, options: [{value:'',label:'默认'},{value:'free_shipping',label:'包邮'},{value:'per_plant',label:'按颗计费'},{value:'per_kg',label:'按KG计费'}] },
-  // 15c-15f: 花卉价格实时同步 (4列)
-  { field: 'flower_price_sync_enabled', label: '同步', width: 55, type: 'flowerSyncSwitch', editable: false },
-  { field: 'flower_price_item_key',     label: '价格项',     width: 150, type: 'flowerSyncSelect', editable: false },
-  { field: 'sale_price_updated_at',     label: '同步时间', width: 130, type: 'flowerSyncTime',   editable: false },
-  { field: 'profit_margin',             label: '利润率',   width: 60,  type: 'flowerSyncMargin',  editable: false },
+  // 花卉价格实时同步 — 拆成两列: 同步按钮 / 价格项绑定
+  { field: 'flower_price_sync_enabled', label: '同步', width: 50, type: 'flowerSyncSwitch', editable: false },
+  { field: 'flower_price_item_key',     label: '价格项', width: 150, type: 'flowerSyncSelect', editable: false },
   // 16: 起订量
   { field: 'minOrder', label: '起订量', width: 55, type: 'number', editable: true },
   // 17: 成本价 = 结算价 + 运费（自动计算）
@@ -1539,27 +1537,6 @@ const rt = remoteTags.find(r => r.name === v);
                           </button>
                         )}
                       </div>
-                    );
-                  }
-                  if (col.type === 'flowerSyncTime') {
-                    const v = p.sale_price_updated_at;
-                    if (!v) return <span style={{ color:'#999', fontSize:11 }}>—</span>;
-                    const d = new Date(v);
-                    const pad = n => String(n).padStart(2,'0');
-                    const txt = `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-                    return (
-                      <span style={{ fontSize:11, color:'#389e0d' }} title={v}>
-                        {txt}
-                      </span>
-                    );
-                  }
-                  if (col.type === 'flowerSyncMargin') {
-                    const m = p.profit_margin;
-                    if (m == null) return <span style={{ color:'#999', fontSize:11 }}>—</span>;
-                    return (
-                      <span style={{ fontSize:11, color:'#722ed1', fontWeight: 600 }}>
-                        {(Number(m) * 100).toFixed(1)}%
-                      </span>
                     );
                   }
                   if (col.type === 'enum') {
