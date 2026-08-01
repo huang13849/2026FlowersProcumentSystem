@@ -58,6 +58,10 @@ const COLUMNS = [
   { field: 'shippingFee',    label: '运费',     width: 60,  type: 'money',  editable: true },
   // 15b: 运费说明
   { field: 'shipping_description', label: '运费说明', width: 100, type: 'select', editable: true, options: [{value:'',label:'默认'},{value:'free_shipping',label:'包邮'},{value:'per_plant',label:'按颗计费'},{value:'per_kg',label:'按KG计费'}] },
+  // 花卉价格实时同步 — 运费说明之后 (3列: 同步开关 / 价格项绑定 / 同步时间)
+  { field: 'flower_price_sync_enabled', label: '同步',     width: 55,  type: 'flowerSyncSwitch', editable: false },
+  { field: 'flower_price_item_key',     label: '价格项',   width: 150, type: 'flowerSyncSelect', editable: false },
+  { field: 'sale_price_updated_at',     label: '同步时间', width: 130, type: 'flowerSyncTime',   editable: false },
   // 16: 起订量
   { field: 'minOrder', label: '起订量', width: 55, type: 'number', editable: true },
   // 17: 成本价 = 结算价 + 运费（自动计算）
@@ -81,10 +85,6 @@ const COLUMNS = [
   { field: 'compare_img',  label: '规格对比', width: 56, type: 'gridImg', editable: false },
   { field: 'shipping_img', label: '发货与售后', width: 56, type: 'gridImg', editable: false },
   { field: 'after_img',    label: '售后', width: 56, type: 'gridImg', editable: false },
-  // 花卉价格实时同步 — 智能表格最后一列 (3列: 同步开关 / 价格项绑定 / 同步时间)
-  { field: 'flower_price_sync_enabled', label: '同步',     width: 55,  type: 'flowerSyncSwitch', editable: false },
-  { field: 'flower_price_item_key',     label: '价格项',   width: 150, type: 'flowerSyncSelect', editable: false },
-  { field: 'sale_price_updated_at',     label: '同步时间', width: 130, type: 'flowerSyncTime',   editable: false },
   { field: 'video',        label: '视频', width: 64, type: 'video', editable: false },
   // 29: 上架状态
   { field: 'isListed',     label: '状态', width: 60, type: 'enum', editable: true,
@@ -1485,23 +1485,41 @@ const rt = remoteTags.find(r => r.name === v);
                   if (col.type === 'flowerSyncSwitch') {
                     const enabled = !!p.flower_price_sync_enabled;
                     const hasKey  = !!p.flower_price_item_key;
+                    // 关闭状态: 只显示一个紧凑的 [同步] 按钮 (点击开启)
+                    if (!enabled) {
+                      return (
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          <button
+                            onClick={() => onSwitchSync(p)}
+                            title="点击开启价格同步"
+                            style={{
+                              padding: '2px 8px', fontSize: 11, cursor: 'pointer',
+                              border: '1px solid #d9d9d9', borderRadius: 3,
+                              background: '#fff', color: '#666',
+                            }}>
+                            同步
+                          </button>
+                        </div>
+                      );
+                    }
+                    // 开启状态: 显示 toggle (绿色, 可关闭)
                     return (
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
                         <button
                           onClick={() => onSwitchSync(p)}
-                          title={enabled ? '点击关闭' : '点击开启'}
+                          title="点击关闭"
                           style={{
-                            width: 36, height: 20, borderRadius: 999, border: 'none', cursor: 'pointer',
-                            background: enabled ? '#52c41a' : '#d9d9d9', position: 'relative', padding: 0,
+                            width: 32, height: 18, borderRadius: 999, border: 'none', cursor: 'pointer',
+                            background: '#52c41a', position: 'relative', padding: 0,
                             transition: 'background 0.2s',
                           }}>
                           <span style={{
-                            position:'absolute', top:2, left: enabled ? 18 : 2,
+                            position:'absolute', top:1, left: 16,
                             width: 16, height: 16, borderRadius: '50%', background: '#fff',
                             transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                           }}/>
                         </button>
-                        {hasKey && enabled && (
+                        {hasKey && (
                           <span style={{ fontSize: 10, color: '#52c41a' }}>●</span>
                         )}
                       </div>
@@ -1514,13 +1532,14 @@ const rt = remoteTags.find(r => r.name === v);
                         <select
                           value={cur}
                           onChange={(e) => onPickSync(p, e.target.value)}
-                          title={cur ? `当前: ${cur}` : '点击选择价格项'}
+                          title={!p.flower_price_sync_enabled ? '请先开启同步' : (cur ? `当前: ${cur}` : '点击选择价格项')}
                           style={{
                             width: 145, padding: '1px 4px', fontSize: 11,
                             border: '1px solid #d9d9d9', borderRadius: 3,
-                            background: cur ? '#f6ffed' : '#fff',
+                            background: !p.flower_price_sync_enabled ? '#f5f5f5' : (cur ? '#f6ffed' : '#fff'),
+                            cursor: !p.flower_price_sync_enabled ? 'not-allowed' : 'pointer',
                           }}
-                          disabled={loadingWatchlist}>
+                          disabled={loadingWatchlist || !p.flower_price_sync_enabled}>
                           <option value="">未绑定</option>
                           {watchlist.map(w => (
                             <option key={w.item_key} value={w.item_key} title={w.item_key}>
@@ -1540,6 +1559,9 @@ const rt = remoteTags.find(r => r.name === v);
                     );
                   }
                   if (col.type === 'flowerSyncTime') {
+                    if (!p.flower_price_sync_enabled) {
+                      return <span style={{ color:'#bbb', fontSize:11 }}>—</span>;
+                    }
                     const v = p.sale_price_updated_at;
                     if (!v) return <span style={{ color:'#999', fontSize:11 }}>—</span>;
                     const d = new Date(v);
