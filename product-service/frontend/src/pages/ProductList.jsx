@@ -169,7 +169,7 @@ export default function ProductList() {
     const newVal = !product.flower_price_sync_enabled;
     try {
       // newVal=true 但没 item_key → 调 /sync/bind 但不传 itemKey, 后端只 enable 不 bind
-      const endpoint = newVal ? '/sync/bind' : '/sync/unbind';
+      const endpoint = newVal ? '/bind' : '/unbind';
       const body = newVal
         ? { productId: product.id }  // 不传 itemKey = 仅开启同步
         : { productId: product.id };
