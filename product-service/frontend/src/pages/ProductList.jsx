@@ -1495,89 +1495,96 @@ const rt = remoteTags.find(r => r.name === v);
                     // 关闭状态: 只显示一个紧凑的 [同步] 按钮 (点击开启)
                     if (!enabled) {
                       return (
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center' }}>
-                          <button
-                            onClick={() => onSwitchSync(p)}
-                            title="点击开启价格同步"
-                            style={{
-                              padding: '2px 8px', fontSize: 11, cursor: 'pointer',
-                              border: '1px solid #d9d9d9', borderRadius: 3,
-                              background: '#fff', color: '#666',
-                            }}>
-                            同步
-                          </button>
-                        </div>
+                        <td key={ci} style={{ ...tdS, width:col.width, padding:2, textAlign:'center', verticalAlign:'middle' }}>
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            <button
+                              onClick={() => onSwitchSync(p)}
+                              title="点击开启价格同步"
+                              style={{
+                                padding: '2px 8px', fontSize: 11, cursor: 'pointer',
+                                border: '1px solid #d9d9d9', borderRadius: 3,
+                                background: '#fff', color: '#666',
+                              }}>
+                              同步
+                            </button>
+                          </div>
+                        </td>
                       );
                     }
                     // 开启状态: 显示 toggle (绿色, 可关闭)
                     return (
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-                        <button
-                          onClick={() => onSwitchSync(p)}
-                          title="点击关闭"
-                          style={{
-                            width: 32, height: 18, borderRadius: 999, border: 'none', cursor: 'pointer',
-                            background: '#52c41a', position: 'relative', padding: 0,
-                            transition: 'background 0.2s',
-                          }}>
-                          <span style={{
-                            position:'absolute', top:1, left: 16,
-                            width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                          }}/>
-                        </button>
-                        {hasKey && (
-                          <span style={{ fontSize: 10, color: '#52c41a' }}>●</span>
-                        )}
-                      </div>
+                      <td key={ci} style={{ ...tdS, width:col.width, padding:2, textAlign:'center', verticalAlign:'middle' }}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                          <button
+                            onClick={() => onSwitchSync(p)}
+                            title="点击关闭"
+                            style={{
+                              width: 32, height: 18, borderRadius: 999, border: 'none', cursor: 'pointer',
+                              background: '#52c41a', position: 'relative', padding: 0,
+                              transition: 'background 0.2s',
+                            }}>
+                            <span style={{
+                              position:'absolute', top:1, left: 16,
+                              width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                              transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                            }}/>
+                          </button>
+                          {hasKey && (
+                            <span style={{ fontSize: 10, color: '#52c41a' }}>●</span>
+                          )}
+                        </div>
+                      </td>
                     );
                   }
                   if (col.type === 'flowerSyncSelect') {
                     const cur = p.flower_price_item_key || '';
                     return (
-                      <div style={{ display:'flex', alignItems:'center', gap: 3 }}>
-                        <select
-                          value={cur}
-                          onChange={(e) => onPickSync(p, e.target.value)}
-                          title={!p.flower_price_sync_enabled ? '请先开启同步' : (cur ? `当前: ${cur}` : '点击选择价格项')}
-                          style={{
-                            width: 145, padding: '1px 4px', fontSize: 11,
-                            border: '1px solid #d9d9d9', borderRadius: 3,
-                            background: !p.flower_price_sync_enabled ? '#f5f5f5' : (cur ? '#f6ffed' : '#fff'),
-                            cursor: !p.flower_price_sync_enabled ? 'not-allowed' : 'pointer',
-                          }}
-                          disabled={loadingWatchlist || !p.flower_price_sync_enabled}>
-                          <option value="">未绑定</option>
-                          {watchlist.map(w => (
-                            <option key={w.item_key} value={w.item_key} title={w.item_key}>
-                              {w.short_label}
-                            </option>
-                          ))}
-                        </select>
-                        {cur && (
-                          <button
-                            onClick={() => onUnbindSync(p)}
-                            title="解除绑定"
-                            style={{ padding:'0 4px', fontSize: 10, border:'1px solid #ff7875', background:'#fff1f0', color:'#cf1322', borderRadius:3, cursor:'pointer', lineHeight: 1.2 }}>
-                            ✕
-                          </button>
-                        )}
-                      </div>
+                      <td key={ci} style={{ ...tdS, width:col.width, padding:2, textAlign:'left', verticalAlign:'middle' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap: 3 }}>
+                          <select
+                            value={cur}
+                            onChange={(e) => onPickSync(p, e.target.value)}
+                            title={!p.flower_price_sync_enabled ? '请先开启同步' : (cur ? `当前: ${cur}` : '点击选择价格项')}
+                            style={{
+                              width: 145, padding: '1px 4px', fontSize: 11,
+                              border: '1px solid #d9d9d9', borderRadius: 3,
+                              background: !p.flower_price_sync_enabled ? '#f5f5f5' : (cur ? '#f6ffed' : '#fff'),
+                              cursor: !p.flower_price_sync_enabled ? 'not-allowed' : 'pointer',
+                            }}
+                            disabled={loadingWatchlist || !p.flower_price_sync_enabled}>
+                            <option value="">未绑定</option>
+                            {watchlist.map(w => (
+                              <option key={w.item_key} value={w.item_key} title={w.item_key}>
+                                {w.short_label}
+                              </option>
+                            ))}
+                          </select>
+                          {cur && (
+                            <button
+                              onClick={() => onUnbindSync(p)}
+                              title="解除绑定"
+                              style={{ padding:'0 4px', fontSize: 10, border:'1px solid #ff7875', background:'#fff1f0', color:'#cf1322', borderRadius:3, cursor:'pointer', lineHeight: 1.2 }}>
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     );
                   }
+                  
                   if (col.type === 'flowerSyncTime') {
                     if (!p.flower_price_sync_enabled) {
-                      return <span style={{ color:'#bbb', fontSize:11 }}>—</span>;
+                      return <td key={ci} style={{ ...tdS, width:col.width, padding:2, textAlign:'center', verticalAlign:'middle', color:'#bbb', fontSize:11 }}>—</td>;
                     }
                     const v = p.sale_price_updated_at;
-                    if (!v) return <span style={{ color:'#999', fontSize:11 }}>—</span>;
+                    if (!v) return <td key={ci} style={{ ...tdS, width:col.width, padding:2, textAlign:'center', verticalAlign:'middle', color:'#999', fontSize:11 }}>—</td>;
                     const d = new Date(v);
                     const pad = n => String(n).padStart(2,'0');
                     const txt = `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
                     return (
-                      <span style={{ fontSize:11, color:'#389e0d' }} title={v}>
+                      <td key={ci} style={{ ...tdS, width:col.width, padding:2, textAlign:'center', verticalAlign:'middle', fontSize:11, color:'#389e0d' }} title={v}>
                         {txt}
-                      </span>
+                      </td>
                     );
                   }
                   if (col.type === 'enum') {
