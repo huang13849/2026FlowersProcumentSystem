@@ -58,10 +58,6 @@ const COLUMNS = [
   { field: 'shippingFee',    label: '运费',     width: 60,  type: 'money',  editable: true },
   // 15b: 运费说明
   { field: 'shipping_description', label: '运费说明', width: 100, type: 'select', editable: true, options: [{value:'',label:'默认'},{value:'free_shipping',label:'包邮'},{value:'per_plant',label:'按颗计费'},{value:'per_kg',label:'按KG计费'}] },
-  // 花卉价格实时同步 — 运费说明之后 (3列: 同步开关 / 价格项绑定 / 同步时间)
-  { field: 'flower_price_sync_enabled', label: '同步',     width: 55,  type: 'flowerSyncSwitch', editable: false },
-  { field: 'flower_price_item_key',     label: '价格项',   width: 150, type: 'flowerSyncSelect', editable: false },
-  { field: 'sale_price_updated_at',     label: '同步时间', width: 130, type: 'flowerSyncTime',   editable: false },
   // 16: 起订量
   { field: 'minOrder', label: '起订量', width: 55, type: 'number', editable: true },
   // 17: 成本价 = 结算价 + 运费（自动计算）
@@ -91,6 +87,10 @@ const COLUMNS = [
     options: [{v:true,l:'已上架'},{v:false,l:'未上架'}] },
   // 31: 包装说明
   { field: 'potColorNotes', label: '包装说明', width: 90, type: 'string', editable: true },
+  // 32-34: 花卉价格实时同步 (3列: 同步开关 / 价格项绑定 / 同步时间)
+  { field: 'flower_price_sync_enabled', label: '同步',     width: 55,  type: 'flowerSyncSwitch', editable: false },
+  { field: 'flower_price_item_key',     label: '价格项',   width: 150, type: 'flowerSyncSelect', editable: false },
+  { field: 'sale_price_updated_at',     label: '同步时间', width: 130, type: 'flowerSyncTime',   editable: false },
 ]
 
 // 场景标签词表（与首页成功案例场景对齐）
