@@ -168,19 +168,10 @@ export default function ProductList() {
   const onSwitchSync = async (product) => {
     const newVal = !product.flower_price_sync_enabled;
     try {
-      // newVal=true 但没 item_key → 让前端先打开开关, 等用户在 [价格项] 列下拉选择再 bind
-      // 后端 bind 必须有 itemKey, 所以纯开关开启不能调 bind, 只调本地状态
-      if (newVal && !product.flower_price_item_key) {
-        // 仅前端更新, 提示用户下一步选价格项
-        setAllProducts(prev => prev.map(p =>
-          p.id === product.id ? { ...p, flower_price_sync_enabled: true } : p
-        ));
-        alert('已开启同步, 请在 [价格项] 列选择花卉规格');
-        return;
-      }
+      // newVal=true 但没 item_key → 调 /sync/bind 但不传 itemKey, 后端只 enable 不 bind
       const endpoint = newVal ? '/sync/bind' : '/sync/unbind';
       const body = newVal
-        ? { productId: product.id, itemKey: product.flower_price_item_key }
+        ? { productId: product.id }  // 不传 itemKey = 仅开启同步
         : { productId: product.id };
       const r = await fetch(SYNC_API_BASE + endpoint, {
         method: 'POST',
@@ -189,9 +180,20 @@ export default function ProductList() {
       });
       const j = await r.json();
       if (j.code !== 200) throw new Error(j.message || 'failed');
+      // 用后端返回的真实 item_key 覆盖本地 (避免脏 state)
+      const returned = j.item || {};
       setAllProducts(prev => prev.map(p =>
-        p.id === product.id ? { ...p, flower_price_sync_enabled: newVal } : p
+        p.id === product.id
+          ? { ...p,
+              flower_price_sync_enabled: newVal,
+              flower_price_item_key: returned.flower_price_item_key !== undefined ? returned.flower_price_item_key : p.flower_price_item_key,
+            }
+          : p
       ));
+      if (newVal && !product.flower_price_item_key) {
+        // 开启但未绑定, 引导用户去下拉选价格项
+        setTimeout(() => alert('已开启同步, 请在 [价格项] 列选择花卉规格'), 50);
+      }
     } catch (e) {
       alert('切换失败: ' + e.message);
     }
