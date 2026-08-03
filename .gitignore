@@ -61,3 +61,6 @@ publish-service-data-k3s/
 **/*.myoverwrite.bak
 .k8s-archive/
 docker-compose.env
+
+# 老仓 publish-service 已冻结到独立仓 admin/publish-service, 本地保留只读备份
+publish-service.FROZEN.*
