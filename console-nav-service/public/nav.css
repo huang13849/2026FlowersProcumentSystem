@@ -1,4 +1,4 @@
-/* Console Nav v3 — 常驻头部,当前tab居中,鼠标左右滑其他tab逐个动画出现 */
+/* Console Nav v4 — 常驻头部,当前tab居中,多tab横向滑动 */
 :root{--gc-accent:linear-gradient(90deg,#c084fc,#f472b6,#60a5fa);--gc-glow:rgba(192,132,252,.6)}
 .gc-shell{position:fixed;top:0;left:0;right:0;z-index:99999;font-family:-apple-system,'SF Pro Text','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;height:56px}
 body.gc-has-shell{padding-top:56px !important}
@@ -9,11 +9,23 @@ body.gc-has-shell{padding-top:56px !important}
 @keyframes gcFlow{0%{background-position:0 0}100%{background-position:200% 0}}
 .gc-bar > *{position:relative;z-index:1}
 
-.gc-brand{padding:0 20px;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:.4px;background:linear-gradient(135deg,#c084fc,#f472b6,#60a5fa);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap;cursor:pointer;user-select:none}
+.gc-brand{padding:0 20px;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:.4px;background:linear-gradient(135deg,#c084fc,#f472b6,#60a5fa);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap;cursor:pointer;user-select:none;flex-shrink:0}
 .gc-brand::before{content:'⌘';font-size:18px;color:#c084fc;-webkit-text-fill-color:#c084fc;text-shadow:0 0 14px rgba(192,132,252,.7)}
 
-.gc-tabs{flex:1;display:flex;justify-content:center;align-items:center;gap:6px;position:relative;height:100%;padding:0 20px}
-.gc-tab{position:relative;display:flex;align-items:center;gap:7px;padding:9px 16px;font-size:13px;color:#c9ced8;text-decoration:none;border-radius:12px;white-space:nowrap;cursor:pointer;border:1px solid transparent;transition:color .18s,background .18s,border-color .18s,box-shadow .25s,transform .5s cubic-bezier(.16,1,.3,1) var(--gc-d,0s),opacity .45s ease var(--gc-d,0s),max-width .5s cubic-bezier(.16,1,.3,1) var(--gc-d,0s),padding .5s cubic-bezier(.16,1,.3,1) var(--gc-d,0s);}
+/* === 横向滑动容器 === */
+.gc-tabs-wrap{flex:1;display:flex;align-items:center;gap:4px;position:relative;height:100%;min-width:0;padding:0 4px}
+.gc-tabs{flex:1;display:flex;justify-content:flex-start;align-items:center;gap:6px;position:relative;height:100%;padding:0 12px;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+.gc-tabs::-webkit-scrollbar{height:4px}
+.gc-tabs::-webkit-scrollbar-track{background:transparent}
+.gc-tabs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px}
+.gc-tabs::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.35)}
+
+.gc-arrow{flex-shrink:0;width:28px;height:36px;border:none;background:rgba(255,255,255,.08);color:#c9ced8;font-size:18px;line-height:1;border-radius:8px;cursor:pointer;transition:background .2s,color .2s,opacity .2s;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none}
+.gc-shell.on .gc-arrow{opacity:.75;pointer-events:auto}
+.gc-arrow:hover{background:rgba(255,255,255,.16);color:#fff;opacity:1 !important}
+.gc-arrow:disabled{opacity:0 !important;pointer-events:none}
+
+.gc-tab{position:relative;display:flex;align-items:center;gap:7px;padding:9px 16px;font-size:13px;color:#c9ced8;text-decoration:none;border-radius:12px;white-space:nowrap;cursor:pointer;border:1px solid transparent;transition:color .18s,background .18s,border-color .18s,box-shadow .25s,transform .5s cubic-bezier(.16,1,.3,1) var(--gc-d,0s),opacity .45s ease var(--gc-d,0s),max-width .5s cubic-bezier(.16,1,.3,1) var(--gc-d,0s),padding .5s cubic-bezier(.16,1,.3,1) var(--gc-d,0s);scroll-snap-align:center;flex-shrink:0}
 .gc-tab .gc-ic{font-size:15px;filter:drop-shadow(0 0 4px var(--gc-glow))}
 .gc-tab .gc-dot{width:6px;height:6px;border-radius:50%;background:#52c41a;box-shadow:0 0 6px rgba(82,196,26,.7);animation:gcBlink 2.5s ease-in-out infinite}
 .gc-tab .gc-dot.down{background:#f5222d;box-shadow:0 0 6px rgba(245,34,45,.7)}
@@ -32,8 +44,8 @@ body.gc-has-shell{padding-top:56px !important}
 .gc-tab.active::after{content:'';position:absolute;left:14px;right:14px;bottom:-4px;height:2px;border-radius:2px;background:var(--gc-accent);box-shadow:0 0 14px var(--gc-glow),0 0 30px var(--gc-glow)}
 .gc-tab .gc-lbl{display:inline-block}
 
-.gc-actions{padding:0 20px;display:flex;align-items:center;gap:10px}
+.gc-actions{padding:0 20px;display:flex;align-items:center;gap:10px;flex-shrink:0}
 .gc-launch{background:linear-gradient(135deg,#722ed1,#eb2f96);color:#fff;border:none;padding:7px 16px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;box-shadow:0 4px 18px rgba(114,46,209,.4),inset 0 1px 0 rgba(255,255,255,.15);transition:transform .2s,box-shadow .2s}
 .gc-launch:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(235,47,150,.5)}
 
-@media(max-width:800px){.gc-bar{padding:0}.gc-brand span{display:none}.gc-tab{padding:8px 10px;font-size:12px}}
+@media(max-width:800px){.gc-bar{padding:0}.gc-brand span{display:none}.gc-tab{padding:8px 10px;font-size:12px}.gc-arrow{display:none}}

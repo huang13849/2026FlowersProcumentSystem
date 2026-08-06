@@ -16,6 +16,7 @@ const APPS = [
   { id:'maps',       name:'地图管理',      icon:'🗺️', href:'http://100.96.54.109:31307/', color:'#52c41a', gradient:'linear-gradient(135deg,#73d13d,#52c41a)' },
   { id:'metadata',   name:'数据目录',      icon:'📊', href:'http://100.96.54.109:8088/shrubs', color:'#faad14', gradient:'linear-gradient(135deg,#ffc53d,#faad14)' },
   { id:'publish',    name:'一件上架',      icon:'📤', href:'http://100.96.54.109:31005/', color:'#52c41a', gradient:'linear-gradient(135deg,#73d13d,#52c41a)' },
+  { id:'flower-price',name:'花价查询',     icon:'💐', href:'http://100.96.54.109:30252/', color:'#fa541c', gradient:'linear-gradient(135deg,#ff7a45,#fa541c)' },
   { id:'monitor',    name:'监控看板',      icon:'📈', href:'http://100.96.54.109:8088/monitor/', color:'#f5222d', gradient:'linear-gradient(135deg,#ff4d4f,#f5222d)' }
 ];
 
