@@ -14,6 +14,7 @@ import logRoutes from './routes/logs.js';
 import userRoutes from './routes/users.js';
 import tagRoutes from './routes/tags.js';
 import publishTaskRoutes from './routes/publishTasks.js';
+import syncRoutes from './routes/sync.js';
 
 
 const app = express();
@@ -51,6 +52,7 @@ app.use('/api/publish-tasks', publishTaskRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/sync', syncRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
