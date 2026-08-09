@@ -7,12 +7,16 @@ const FLOWER_SYNC_BASE_URL = (
   process.env.FLOWER_PRICE_SYNC_API_URL ||
   'http://flower-price-sync-api.supply-chain.svc.cluster.local:3053'
 ).replace(/\/$/, '');
+const FLOWER_PRICE_API_BASE_URL = (
+  process.env.FLOWER_PRICE_API_URL ||
+  'http://flower-price-api.supply-chain.svc.cluster.local:3051'
+).replace(/\/$/, '');
 
-async function proxy(req, res, path) {
+async function proxy(req, res, path, baseUrl = FLOWER_SYNC_BASE_URL) {
   try {
     const response = await axios({
       method: req.method,
-      url: `${FLOWER_SYNC_BASE_URL}${path}`,
+      url: `${baseUrl}${path}`,
       params: req.query,
       data: req.body,
       timeout: 30000,
@@ -28,7 +32,7 @@ async function proxy(req, res, path) {
   }
 }
 
-router.get('/watchlist', (req, res) => proxy(req, res, '/api/watchlist'));
+router.get('/watchlist', (req, res) => proxy(req, res, '/api/watchlist', FLOWER_PRICE_API_BASE_URL));
 router.get('/products', (req, res) => proxy(req, res, '/api/sync/products'));
 router.get('/log', (req, res) => proxy(req, res, '/api/sync/log'));
 router.post('/run', (req, res) => proxy(req, res, '/api/sync/run'));
