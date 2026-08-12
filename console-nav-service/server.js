@@ -10,6 +10,7 @@ const APPS = [
   { id:'suppliers',  name:'供应商管理',   icon:'🏭', href:'http://100.96.54.109:31002/', color:'#722ed1', gradient:'linear-gradient(135deg,#9254de,#722ed1)' },
   { id:'shops',      name:'店铺管理',      icon:'🏪', href:'http://100.96.54.109:31004/', color:'#1890ff', gradient:'linear-gradient(135deg,#40a9ff,#1890ff)' },
   { id:'orders',     name:'订单管理',      icon:'🛒', href:'http://100.96.54.109:31008/', color:'#fa8c16', gradient:'linear-gradient(135deg,#ffa940,#fa8c16)' },
+  { id:'priceapi',   name:'花价API',       icon:'💐', href:'http://100.96.54.109:30252/', color:'#f5222d', gradient:'linear-gradient(135deg,#ff4d4f,#f5222d)' },
   { id:'users',      name:'用户管理',      icon:'👥', href:'http://100.96.54.109:8088/users', color:'#13c2c2', gradient:'linear-gradient(135deg,#36cfc9,#13c2c2)' },
   { id:'tags',       name:'标签总控',      icon:'🏷️', href:'http://100.96.54.109:8088/tags-admin', color:'#eb2f96', gradient:'linear-gradient(135deg,#eb2f96,#722ed1)' },
   { id:'architect',  name:'架构设计',      icon:'🏗️', href:'http://100.76.15.64:31001/', color:'#fa8c16', gradient:'linear-gradient(135deg,#ffa940,#fa8c16)' },
@@ -55,4 +56,11 @@ app.get(['/','/console','/console/'], (req,res) => {
 
 app.get('/healthz', (req,res) => res.json({ ok:true, service:'console-nav', version:'1.0.0' }));
 
+<<<<<<< Updated upstream
 app.listen(PORT, () => console.log(`[console-nav] listening on ${PORT}`));
+=======
+app.listen(PORT, () => console.log(`[console-nav] listening on ${PORT}`));
+
+
+[Exit code: 0]
+>>>>>>> Stashed changes
