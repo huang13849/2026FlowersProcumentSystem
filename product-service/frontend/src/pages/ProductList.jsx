@@ -152,7 +152,8 @@ export default function ProductList() {
       if (j.code === 200) {
         // 后端 flower_watchlist 表没有 item_key 列, 业务字段由前端按
         // (sub_category|standard|level|origin) 拼接 (与 sync.js 解析方式一致)
-        const items = (j.items || []).map(w => {
+        const sourceItems = Array.isArray(j.items) ? j.items : (Array.isArray(j.data) ? j.data : []);
+        const items = sourceItems.map(w => {
           const origin = w.origin_province ?? w.province ?? '';
           const itemKey = [w.sub_category, w.flower_standard || '', w.flower_level || '', origin || ''].join('|');
           const shortLabel = [w.sub_category, w.flower_standard, w.flower_level, origin].filter(Boolean).join('·');

@@ -33,30 +33,35 @@ async function proxy(req, res, path, baseUrl = FLOWER_SYNC_BASE_URL) {
 }
 
 function normalizeWatchlistPayload(payload) {
-  if (!payload || !Array.isArray(payload.items)) return payload;
+  const sourceItems = Array.isArray(payload?.items)
+    ? payload.items
+    : (Array.isArray(payload?.data) ? payload.data : null);
+  if (!payload || !sourceItems) return payload;
+  const items = sourceItems.map((item) => {
+    const origin = item.origin_province ?? item.province ?? '';
+    const itemKey = [
+      item.sub_category,
+      item.flower_standard || '',
+      item.flower_level || '',
+      origin || '',
+    ].join('|');
+    const shortLabel = [
+      item.sub_category,
+      item.flower_standard,
+      item.flower_level,
+      origin,
+    ].filter(Boolean).join('·');
+    return {
+      ...item,
+      origin_province: origin,
+      item_key: item.item_key || itemKey,
+      short_label: item.short_label || shortLabel || itemKey,
+    };
+  });
   return {
     ...payload,
-    items: payload.items.map((item) => {
-      const origin = item.origin_province ?? item.province ?? '';
-      const itemKey = [
-        item.sub_category,
-        item.flower_standard || '',
-        item.flower_level || '',
-        origin || '',
-      ].join('|');
-      const shortLabel = [
-        item.sub_category,
-        item.flower_standard,
-        item.flower_level,
-        origin,
-      ].filter(Boolean).join('·');
-      return {
-        ...item,
-        origin_province: origin,
-        item_key: item.item_key || itemKey,
-        short_label: item.short_label || shortLabel || itemKey,
-      };
-    }),
+    items,
+    data: items,
   };
 }
 
