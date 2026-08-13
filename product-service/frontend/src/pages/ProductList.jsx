@@ -144,31 +144,56 @@ export default function ProductList() {
 
   // ── 价格同步操作 ───────────────────────────────────────────────
   const SYNC_API_BASE = '/api/sync';
+  const normalizeWatchItem = useCallback((w) => {
+    const origin = w.origin_province ?? w.province ?? '';
+    const itemKey = w.item_key || [w.sub_category, w.flower_standard || '', w.flower_level || '', origin || ''].join('|');
+    const shortLabel = w.short_label || [w.sub_category, w.flower_standard, w.flower_level, origin].filter(Boolean).join('·') || itemKey;
+    return {
+      ...w,
+      origin_province: origin,
+      item_key: itemKey,
+      short_label: shortLabel,
+    };
+  }, []);
+  const fetchSyncJson = useCallback(async (path, options = {}) => {
+    const response = await fetch(SYNC_API_BASE + path, {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...(options.headers || {}),
+      },
+    });
+    const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
+    if (!contentType.includes('application/json')) {
+      const preview = text.trim().replace(/\s+/g, ' ').slice(0, 120);
+      throw new Error(`同步接口返回非JSON(${response.status}), 请检查服务路由: ${preview || 'empty response'}`);
+    }
+    let payload;
+    try {
+      payload = JSON.parse(text);
+    } catch (error) {
+      throw new Error(`同步接口JSON解析失败(${response.status}): ${error.message}`);
+    }
+    if (!response.ok) {
+      throw new Error(payload.message || payload.error || `同步接口HTTP ${response.status}`);
+    }
+    return payload;
+  }, []);
   const refreshWatchlist = useCallback(async () => {
     try {
       setLoadingWatchlist(true);
-      const r = await fetch(SYNC_API_BASE + '/watchlist');
-      const j = await r.json();
+      const j = await fetchSyncJson('/watchlist');
       if (j.code === 200) {
         // 后端 flower_watchlist 表没有 item_key 列, 业务字段由前端按
         // (sub_category|standard|level|origin) 拼接 (与 sync.js 解析方式一致)
         const sourceItems = Array.isArray(j.items) ? j.items : (Array.isArray(j.data) ? j.data : []);
-        const items = sourceItems.map(w => {
-          const origin = w.origin_province ?? w.province ?? '';
-          const itemKey = [w.sub_category, w.flower_standard || '', w.flower_level || '', origin || ''].join('|');
-          const shortLabel = [w.sub_category, w.flower_standard, w.flower_level, origin].filter(Boolean).join('·');
-          return {
-            ...w,
-            origin_province: origin,
-            item_key: w.item_key || itemKey,
-            short_label: w.short_label || shortLabel || itemKey,
-          };
-        });
+        const items = sourceItems.map(normalizeWatchItem);
         setWatchlist(items);
       }
     } catch (e) { console.warn('watchlist fetch failed', e); }
     finally { setLoadingWatchlist(false); }
-  }, []);
+  }, [fetchSyncJson, normalizeWatchItem]);
   useEffect(() => { refreshWatchlist(); }, [refreshWatchlist]);
 
   const onSwitchSync = async (product) => {
@@ -179,12 +204,11 @@ export default function ProductList() {
       const body = newVal
         ? { productId: product.id }  // 不传 itemKey = 仅开启同步
         : { productId: product.id };
-      const r = await fetch(SYNC_API_BASE + endpoint, {
+      const j = await fetchSyncJson(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const j = await r.json();
       if (j.code !== 200) throw new Error(j.message || 'failed');
       // 用后端返回的真实 item_key 覆盖本地 (避免脏 state)
       const returned = j.item || {};
@@ -207,21 +231,20 @@ export default function ProductList() {
 
   const onPickSync = async (product, itemKey) => {
     try {
-      let r, j;
+      let j;
       if (itemKey) {
-        r = await fetch(SYNC_API_BASE + '/bind', {
+        j = await fetchSyncJson('/bind', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ productId: product.id, itemKey }),
         });
       } else {
-        r = await fetch(SYNC_API_BASE + '/unbind', {
+        j = await fetchSyncJson('/unbind', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ productId: product.id }),
         });
       }
-      j = await r.json();
       if (j.code !== 200) throw new Error(j.message || 'failed');
       setAllProducts(prev => prev.map(p =>
         p.id === product.id
@@ -236,12 +259,11 @@ export default function ProductList() {
   const onUnbindSync = async (product) => {
     if (!confirm('确认解除价格同步绑定?')) return;
     try {
-      const r = await fetch(SYNC_API_BASE + '/unbind', {
+      const j = await fetchSyncJson('/unbind', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: product.id }),
       });
-      const j = await r.json();
       if (j.code !== 200) throw new Error(j.message || 'failed');
       setAllProducts(prev => prev.map(p =>
         p.id === product.id
@@ -280,6 +302,23 @@ export default function ProductList() {
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
   const [loadingTags, setLoadingTags] = useState(false);
   const [newTagName, setNewTagName] = useState('');
+  const syncOptions = (() => {
+    const options = new Map();
+    watchlist.forEach((item) => {
+      if (item?.item_key) options.set(item.item_key, item);
+    });
+    allProducts.forEach((product) => {
+      const itemKey = product.flower_price_item_key;
+      if (itemKey && !options.has(itemKey)) {
+        options.set(itemKey, {
+          item_key: itemKey,
+          short_label: `已绑定: ${itemKey}`,
+          origin_province: '',
+        });
+      }
+    });
+    return Array.from(options.values());
+  })();
   // 8色调色板 — 与 31002 供应商标签管理保持一致
   const TAG_PALETTE = [
     { color:'#722ed1', bg:'#f9f0ff', border:'#d3adf7', label:'紫' },
@@ -1559,7 +1598,7 @@ const rt = remoteTags.find(r => r.name === v);
                             }}
                             disabled={loadingWatchlist || !p.flower_price_sync_enabled}>
                             <option value="">未绑定</option>
-                            {watchlist.map(w => (
+                            {syncOptions.map(w => (
                               <option key={w.item_key} value={w.item_key} title={w.item_key}>
                                 {w.short_label}
                               </option>

@@ -67,6 +67,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// Unknown API paths should stay JSON. Otherwise the SPA fallback returns HTML,
+// and frontend callers fail with confusing JSON parse errors.
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    code: 404,
+    message: `API route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile('index.html', { root: frontendDir });
