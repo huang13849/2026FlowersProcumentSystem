@@ -4,6 +4,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { connectDB } from './config/db.js';
 import authRoutes from './routes/auth.js';
@@ -19,6 +20,8 @@ import syncRoutes from './routes/sync.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -32,10 +35,15 @@ express.static.mime && express.static.mime.define && express.static.mime.define(
 
 app.use('/images', express.static(UPLOAD_DIR));
 
-// Frontend static files. Prefer the Vite build output in ../frontend/dist.
-// In k3s the process starts from /app/backend; an old backend/dist can exist in the image,
-// so preferring ./dist serves stale UI assets.
-const frontendDir = existsSync('../frontend/dist') ? '../frontend/dist' : './dist';
+// Frontend static files. Resolve from this server file instead of process cwd
+// so Docker/K3s startup directory changes do not hide the Vite build output.
+const frontendCandidates = [
+  path.resolve(__dirname, '../frontend/dist'),
+  path.resolve(process.cwd(), 'frontend/dist'),
+  path.resolve(__dirname, 'dist'),
+  path.resolve(process.cwd(), 'dist'),
+];
+const frontendDir = frontendCandidates.find((candidate) => existsSync(candidate)) || frontendCandidates[0];
 app.use(express.static(frontendDir, {
   setHeaders: (res, path) => {
     if (path.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
