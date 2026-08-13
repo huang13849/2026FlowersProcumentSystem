@@ -152,12 +152,17 @@ export default function ProductList() {
       if (j.code === 200) {
         // 后端 flower_watchlist 表没有 item_key 列, 业务字段由前端按
         // (sub_category|standard|level|origin) 拼接 (与 sync.js 解析方式一致)
-        const items = (j.items || []).map(w => ({
-          ...w,
-          item_key: [w.sub_category, w.flower_standard || '', w.flower_level || '', w.origin_province || ''].join('|'),
-          // 短标签, 去掉冗余的 "|A级" 后缀, 显示更紧凑
-          short_label: `${w.sub_category}${w.flower_standard ? '·' + w.flower_standard : ''}`,
-        }));
+        const items = (j.items || []).map(w => {
+          const origin = w.origin_province ?? w.province ?? '';
+          const itemKey = [w.sub_category, w.flower_standard || '', w.flower_level || '', origin || ''].join('|');
+          const shortLabel = [w.sub_category, w.flower_standard, w.flower_level, origin].filter(Boolean).join('·');
+          return {
+            ...w,
+            origin_province: origin,
+            item_key: w.item_key || itemKey,
+            short_label: w.short_label || shortLabel || itemKey,
+          };
+        });
         setWatchlist(items);
       }
     } catch (e) { console.warn('watchlist fetch failed', e); }

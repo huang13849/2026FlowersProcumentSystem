@@ -32,12 +32,56 @@ async function proxy(req, res, path, baseUrl = FLOWER_SYNC_BASE_URL) {
   }
 }
 
-router.get('/watchlist', (req, res) => proxy(req, res, '/api/watchlist', FLOWER_PRICE_API_BASE_URL));
+function normalizeWatchlistPayload(payload) {
+  if (!payload || !Array.isArray(payload.items)) return payload;
+  return {
+    ...payload,
+    items: payload.items.map((item) => {
+      const origin = item.origin_province ?? item.province ?? '';
+      const itemKey = [
+        item.sub_category,
+        item.flower_standard || '',
+        item.flower_level || '',
+        origin || '',
+      ].join('|');
+      const shortLabel = [
+        item.sub_category,
+        item.flower_standard,
+        item.flower_level,
+        origin,
+      ].filter(Boolean).join('·');
+      return {
+        ...item,
+        origin_province: origin,
+        item_key: item.item_key || itemKey,
+        short_label: item.short_label || shortLabel || itemKey,
+      };
+    }),
+  };
+}
+
+router.get('/watchlist', async (req, res) => {
+  try {
+    const response = await axios({
+      method: 'GET',
+      url: `${FLOWER_PRICE_API_BASE_URL}/api/watchlist`,
+      params: req.query,
+      timeout: 30000,
+      validateStatus: () => true,
+    });
+    res.status(response.status).json(normalizeWatchlistPayload(response.data));
+  } catch (error) {
+    const message = error.response?.data?.message || error.message || 'watchlist proxy failed';
+    res.status(502).json({ code: 502, message });
+  }
+});
 router.get('/products', (req, res) => proxy(req, res, '/api/sync/products'));
 router.get('/log', (req, res) => proxy(req, res, '/api/sync/log'));
 router.post('/run', (req, res) => proxy(req, res, '/api/sync/run'));
 router.post('/bind', (req, res) => proxy(req, res, '/api/sync/bind'));
 router.post('/unbind', (req, res) => proxy(req, res, '/api/sync/unbind'));
+router.post('/sync/bind', (req, res) => proxy(req, res, '/api/sync/bind'));
+router.post('/sync/unbind', (req, res) => proxy(req, res, '/api/sync/unbind'));
 router.post('/publish', (req, res) => proxy(req, res, '/api/sync/publish'));
 
 export default router;
