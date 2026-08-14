@@ -20,8 +20,12 @@ spec:
       image: 100.76.15.64:5001/jenkins/inbound-agent:3383.vc8881d4b_0e76-1-jdk25
       args: ['$(JENKINS_SECRET)', '$(JENKINS_NAME)']
       resources:
-        requests: { cpu: 200m; memory: 512Mi }
-        limits:   { cpu:   1;   memory: 2Gi   }
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
     - name: dind
       image: 100.76.15.64:5001/library/docker:27-dind
       securityContext:
@@ -30,8 +34,12 @@ spec:
         - name: DOCKER_TLS_CERTDIR
           value: ""
       resources:
-        requests: { cpu: 500m; memory: 1Gi }
-        limits:   { cpu: 2;    memory: 4Gi }
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "2"
+          memory: "4Gi"
 '''
     }
   }
@@ -94,18 +102,18 @@ spec:
               cp "$KCFG" ${WORKSPACE}/kubeconfig
               export KUBECONFIG=${WORKSPACE}/kubeconfig
               IMG=$(cat ${WORKSPACE}/last-img)
-              
+
               # install kubectl
               if ! command -v kubectl >/dev/null 2>&1; then
                 apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null
                 curl -sSLo /usr/local/bin/kubectl https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl
                 chmod +x /usr/local/bin/kubectl
               fi
-              
+
               sed -i "s|image:.*100.96.54.109:5001/supply-chain/order-service:.*|image: ${IMG}|" "${DEPLOY_FILE}"
               echo ">> patched deployment:"
               grep -E "image:" "${DEPLOY_FILE}"
-              
+
               kubectl apply -f "${DEPLOY_FILE}"
               kubectl -n ${K8S_NS} rollout status deploy/${IMAGE_NAME} --timeout=180s
             '''
