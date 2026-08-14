@@ -239,6 +239,92 @@ function ProductPicker({ visible, onCancel, onConfirm, existingProducts }) {
 
 
 // 订单标签编辑器（对接统一标签池 scope=order）
+function ProductPicker({ visible, onCancel, onConfirm, existingProducts }) {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [keyword, setKeyword] = useState('');
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState([]);
+
+  useEffect(() => {
+    if (visible) {
+      const existing = [];
+      const ids = Array.isArray(existingProducts.ids) ? existingProducts.ids : [];
+      const titles = Array.isArray(existingProducts.titles) ? existingProducts.titles : [];
+      ids.forEach((id, i) => { existing.push({ id, title: titles[i] || id }); });
+      setSelected(existing);
+      fetchProducts(1);
+    }
+  }, [visible]);
+
+  const fetchProducts = useCallback(async (p = 1, kw = keyword) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), limit: '20' });
+      if (kw) params.set('keyword', kw);
+      const res = await fetch(`${API_BASE}/api/products/search?${params}`);
+      const json = await res.json();
+      setProducts(json.data || []);
+      setTotal(json.total || 0);
+      setPage(p);
+    } catch (e) { message.error('加载商品失败'); }
+    setLoading(false);
+  }, [keyword]);
+
+  const toggleProduct = (product) => {
+    const exists = selected.find(s => s.id === product._id);
+    if (exists) {
+      setSelected(selected.filter(s => s.id !== product._id));
+    } else {
+      setSelected([...selected, { id: product._id, title: product.title }]);
+    }
+  };
+
+  const isSelected = (productId) => selected.some(s => s.id === productId);
+
+  return (
+    <Modal title="选取购买产品（可多选）" open={visible} onCancel={onCancel}
+      onOk={() => onConfirm(selected)} okText="确认选取" cancelText="取消" width={750} destroyOnClose>
+      <div style={{ marginBottom: 12 }}>
+        <Search placeholder="搜索商品标题" onSearch={(v) => { setKeyword(v); fetchProducts(1, v); }} allowClear style={{ width: '100%' }} />
+      </div>
+      {selected.length > 0 && (
+        <div style={{ marginBottom: 10, padding: '8px 12px', background: '#fafafa', borderRadius: 6 }}>
+          <span style={{ color: '#666', marginRight: 8 }}>已选 {selected.length} 件：</span>
+          {selected.map(s => (
+            <Tag key={s.id} closable onClose={() => toggleProduct({ _id: s.id })} color="blue">{s.title}</Tag>
+          ))}
+        </div>
+      )}
+      <div style={{ maxHeight: 350, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: 6 }}>
+        {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>加载中...</div> :
+         products.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>无匹配商品</div> :
+         products.map(p => (
+           <div key={p._id} className={`product-picker-item ${isSelected(p._id) ? 'selected' : ''}`} onClick={() => toggleProduct(p)}>
+             {p.images && p.images[0] ? <img src={p.images[0]} alt="" /> : <div style={{width:40,height:40,background:'#f0f0f0',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🌸</div>}
+             <div style={{ flex: 1 }}>
+               <div style={{ fontWeight: 500 }}>{p.title}</div>
+               <div style={{ fontSize: 12, color: '#999' }}>{p.category || ''} {p.price ? `¥${p.price}` : ''}</div>
+             </div>
+             <input type="checkbox" checked={isSelected(p._id)} readOnly style={{ width: 18, height: 18, cursor: 'pointer' }} />
+           </div>
+         ))}
+        }
+      </div>
+      {total > 20 && <div style={{ marginTop: 8, textAlign: 'center' }}>
+        <Button size="small" disabled={page <= 1} onClick={() => fetchProducts(page - 1)}>上一页</Button>
+        <span style={{ margin: '0 8px', color: '#999' }}>{page} / {Math.ceil(total / 20)}</span>
+        <Button size="small" disabled={page >= Math.ceil(total / 20)} onClick={() => fetchProducts(page + 1)}>下一页</Button>
+      </div>}
+    </Modal>
+  );
+}
+
+
+// 订单标签编辑器（对接统一标签池 scope=order）
+
+
 function OrderTagCell({ value, onChange, tagPool = [] }) {
   const [open, setOpen] = React.useState(false);
   const [allTags, setAllTags] = React.useState([]);
@@ -680,7 +766,15 @@ const columns = [
         const colorMap = { '已支付': '#52c41a', '未支付': '#faad14' };
         return v ? <Tag color={colorMap[v] || 'default'}>{v}</Tag> : <span style={{color:'#bfbfbf'}}>—</span>;
       }
+    },    {
+      title: '操作',
+      width: 130,
+      fixed: 'right',
+      render: (_, record) => (
+        <a onClick={() => openProductPicker(record)} style={{ color: '#1677ff' }}>选商品</a>
+      ),
     },
+
   ];
 
   const mergedColumns = columns.map(col => {
@@ -899,7 +993,7 @@ const columns = [
         <Table columns={mergedColumns} dataSource={data} rowKey="id" loading={loading} rowClassName={(record, index) => { if (index === 0) return ''; const prev = data[index-1]; if (!prev) return ''; try { const m1 = dayjs(record.purchase_time).format('YYYY-MM'); const m2 = dayjs(prev.purchase_time).format('YYYY-MM'); return m1 !== m2 ? 'month-divider' : ''; } catch(_) { return ''; } }}
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
-          onChange={handleTableChange} scroll={{ x: 2670 }} size="middle" />
+          onChange={handleTableChange} scroll={{ x: 2830 }} size="middle" />
         <div style={{marginTop:16}}>        <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '10px 14px' }}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
             <Space wrap size="large">
