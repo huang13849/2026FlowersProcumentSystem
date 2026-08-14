@@ -1,0 +1,148 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'docker-build'
+      defaultContainer 'jnlp'
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: agent
+    ci-build: dind
+spec:
+  nodeSelector:
+    ci-build-enabled: "true"
+  securityContext:
+    runAsUser: 0
+  containers:
+    - name: jnlp
+      image: 100.76.15.64:5001/jenkins/inbound-agent:3383.vc8881d4b_0e76-1-jdk25
+      args: ['$(JENKINS_SECRET)', '$(JENKINS_NAME)']
+      resources:
+        requests: { cpu: 200m; memory: 512Mi }
+        limits:   { cpu:   1;   memory: 2Gi   }
+    - name: dind
+      image: 100.76.15.64:5001/library/docker:27-dind
+      securityContext:
+        privileged: true
+      env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
+      resources:
+        requests: { cpu: 500m; memory: 1Gi }
+        limits:   { cpu: 2;    memory: 4Gi }
+"""
+    }
+  }
+
+  environment {
+    REGISTRY    = '100.76.15.64:5001'
+    IMAGE_NS    = 'supply-chain'
+    IMAGE_NAME  = 'order-service'
+    K8S_NS      = 'supply-chain'
+    DEPLOY_FILE = 'k8s/supply-chain/deployment/deployment-order-service.yaml'
+  }
+
+  options {
+    timeout(time: 25, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+    disableConcurrentBuilds()
+  }
+
+  stages {
+    stage('checkout') {
+      steps {
+        container('jnlp') {
+          checkout scm
+          sh 'git rev-parse --short=8 HEAD > .git/short-sha'
+          sh 'cat .git/short-sha'
+        }
+      }
+    }
+
+    stage('build & push') {
+      steps {
+        container('dind') {
+          sh '''
+            set -euo pipefail
+            SHA=$(cat /home/jenkins/agent/workspace/${JOB_NAME}/.git/short-sha 2>/dev/null || cat .git/short-sha)
+            IMG="${REGISTRY}/${IMAGE_NS}/${IMAGE_NAME}:${SHA}"
+            echo ">> building $IMG"
+            docker buildx create --use --name local 2>/dev/null || docker buildx use local
+            docker buildx build \
+              --tag "$IMG" \
+              --load \
+              --progress=plain \
+              .
+            docker push "$IMG"
+            echo ">> pushed: $IMG"
+            echo "$IMG" > /home/jenkins/agent/workspace/${JOB_NAME}/last-img
+          '''
+        }
+      }
+    }
+
+    stage('deploy') {
+      steps {
+        container('dind') {
+          withCredentials([file(credentialsId: 'office-k3s-kubeconfig', variable: 'KCFG')]) {
+            sh '''
+              set -euo pipefail
+              cp "$KCFG" /home/jenkins/agent/workspace/${JOB_NAME}/kubeconfig
+              export KUBECONFIG=/home/jenkins/agent/workspace/${JOB_NAME}/kubeconfig
+              IMG=$(cat /home/jenkins/agent/workspace/${JOB_NAME}/last-img)
+              
+              # install kubectl in dind container
+              if ! command -v kubectl >/dev/null 2>&1; then
+                apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null
+                curl -sSLo /usr/local/bin/kubectl https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl
+                chmod +x /usr/local/bin/kubectl
+              fi
+              
+              # patch image tag in-place
+              sed -i "s|image:.*100.96.54.109:5001/supply-chain/order-service:.*|image: ${IMG}|" "${DEPLOY_FILE}"
+              echo ">> patched deployment:"
+              grep -E "image:" "${DEPLOY_FILE}"
+              
+              kubectl apply -f "${DEPLOY_FILE}"
+              kubectl -n ${K8S_NS} rollout status deploy/${IMAGE_NAME} --timeout=180s
+            '''
+          }
+        }
+      }
+    }
+
+    stage('smoke test') {
+      steps {
+        container('dind') {
+          withCredentials([file(credentialsId: 'office-k3s-kubeconfig', variable: 'KCFG')]) {
+            sh '''
+              set -euo pipefail
+              export KUBECONFIG="$KCFG"
+              IMG=$(cat /home/jenkins/agent/workspace/${JOB_NAME}/last-img)
+              echo ">> verifying endpoints..."
+              sleep 10
+              for u in \
+                http://100.96.54.109:31008/api/health \
+                http://100.96.54.109:31008/; do
+                code=$(curl -s -o /tmp/jenkins_order_body -w '%{http_code}' --max-time 20 "$u" || echo ERR)
+                echo "  $code $u"
+                [ "$code" = "200" ] || exit 30
+              done
+            '''
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "✅ build + push + deploy + smoke OK"
+    }
+    failure {
+      echo "❌ pipeline failed — check stage logs"
+    }
+  }
+}
