@@ -6,7 +6,7 @@ metadata:
   labels:
     app: product-service
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: product-service
@@ -16,10 +16,10 @@ spec:
         app: product-service
     spec:
       nodeSelector:
-        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+        kubernetes.io/hostname: xspt05
       containers:
       - name: product-service
-        image: 100.96.54.109:5001/supply-chain/product-service:latest
+        image: 100.76.15.64:5001/supply-chain/product-service:latest
         imagePullPolicy: Always
         command: ["sh", "-lc", "cd /app/backend && node server.js"]
         ports:
