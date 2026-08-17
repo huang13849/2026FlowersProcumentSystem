@@ -131,11 +131,11 @@ spec:
             echo "[2/3] UI title + js asset"
             html=$(curl -s --max-time 20 http://100.109.206.83:31001/)
             echo "$html" | grep -q '<title>商品管理系统</title>' || { echo "missing title"; exit 31; }
-            asset=$(echo "$html" | grep -oE '/assets/index-[A-Za-z0-9_.-]+\.js' | head -1)
+            asset=$(echo "$html" | grep -oE '/assets/index-[A-Za-z0-9_.-]+.js' | head -1)
             [ -n "$asset" ] || { echo "no js asset"; exit 32; }
             code=$(curl -s -o /tmp/jenkins_product_js -w '%{http_code}' --max-time 20 "http://100.109.206.83:31001$asset")
             [ "$code" = "200" ] || exit 33
-            grep -q 'computedCostPrice\|settlementPrice' /tmp/jenkins_product_js || { echo "no formula marker"; exit 34; }
+            if grep -q 'computedCostPrice' /tmp/jenkins_product_js || grep -q 'settlementPrice' /tmp/jenkins_product_js; then :; else { echo 'no new formula marker'; exit 34; }; fi
             echo "[3/3] DOMAIN-AGNOSTIC 容器内部直接访问 service cluster IP"
             IP=$(kubectl -n ${NAMESPACE} get svc product-service -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
             echo "product-service clusterIP=$IP"
