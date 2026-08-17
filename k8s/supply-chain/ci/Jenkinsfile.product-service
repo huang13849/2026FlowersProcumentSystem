@@ -149,6 +149,6 @@ spec:
   post {
     success { echo '✅ product-service pipeline SUCCEEDED' }
     failure { echo '❌ product-service pipeline FAILED' }
-    always  { echo "image=$(cat .image-url 2>/dev/null || echo n/a)" }
+    always  { sh '''cat .image-url 2>/dev/null || echo n/a''' }
   }
 }
