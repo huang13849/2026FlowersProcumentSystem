@@ -55,7 +55,6 @@ spec:
   options {
     timeout(time: 20, unit: 'MINUTES')
     disableConcurrentBuilds()
-    buildDiscarder(logRotator(numToKeep: 20))
   }
   environment {
     REGISTRY = '100.76.15.64:5001'
