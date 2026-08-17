@@ -1,24 +1,24 @@
 // ── product-service pipeline ──
-//   * build pod 强制落在 k3s node `xspt05` (Office WSL)
-//   * sidecar `dind` 提供 docker daemon (主机上不需要装 docker)
-//   * jnlp agent 跑 build / push / kubectl / smoke
-//   * SCM: Gitea  (100.76.15.64:13000, credentialId=gitea-token)
-//   * Deploy: in-cluster SA jenkins-build-agent (cluster-admin 级)
+//   * 复用常驻 Jenkins agent: k3s-build-agent (位于 k3s node xspt05, 已配 docker-in-docker sidecar)
+//   * SCM: Gitea (100.76.15.64:13000)
+//   * Build: docker build/push via DOCKER_HOST=tcp://localhost:2375
+//   * Deploy: in-cluster SA jenkins-build-agent (cluster-admin via jenkins-build-deployer)
+//   * Smoke: NodePort 31001
 
 pipeline {
-  agent {
-    // 复用常驻 Jenkins agent: k3s-build-agent (位于 k3s node `xspt05`, 已配 docker-in-docker sidecar)
-    label 'k3s-build'
-  }
+  agent { label 'k3s-build' }
+
   options {
     timeout(time: 20, unit: 'MINUTES')
     disableConcurrentBuilds()
   }
+
   environment {
-    REGISTRY = '100.76.15.64:5001'
+    REGISTRY  = '100.76.15.64:5001'
     NAMESPACE = 'supply-chain'
-    SERVICE   = 'product-service'
+    SERVICE  = 'product-service'
   }
+
   stages {
     stage('Checkout (Gitea)') {
       steps {
@@ -34,75 +34,84 @@ pipeline {
         sh 'git rev-parse HEAD && git log --oneline -3'
       }
     }
+
     stage('Build & Push Image') {
       steps {
         sh '''
-            set -euo pipefail
-            TAG="${SERVICE}-${BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
-            IMG="${REGISTRY}/supply-chain/${SERVICE}:${TAG}"
-            echo "[1/3] build $IMG"
-            docker version || true
-            docker build -t "$IMG" ./${SERVICE} | tail -30
-            echo "[2/3] push $IMG"
-            docker push "$IMG"
-            echo "[3/3] image info"
-            printf '%s' "$TAG" > .image-tag
-            printf '%s' "$IMG" > .image-url
-            cat .image-tag; cat .image-url
-          '''
-// (was inside container('jnlp'))
+          set -euo pipefail
+          TAG="${SERVICE}-${BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
+          IMG="${REGISTRY}/supply-chain/${SERVICE}:${TAG}"
+          echo "[1/3] build $IMG"
+          docker version || true
+          docker build -t "$IMG" ./${SERVICE} | tail -30
+          echo "[2/3] push $IMG"
+          docker push "$IMG"
+          echo "[3/3] image info"
+          printf '%s' "$TAG" > .image-tag
+          printf '%s' "$IMG" > .image-url
+          cat .image-tag; cat .image-url
+        '''
       }
     }
+
     stage('Deploy to k3s (xspt05)') {
       steps {
         sh '''
-            set -euo pipefail
-            IMG=$(cat .image-url)
-            TAG=$(cat .image-tag)
-            echo "[1/3] kubectl set image deploy/${SERVICE} -> $IMG"
-            kubectl -n ${NAMESPACE} set image deploy/${SERVICE} ${SERVICE}="$IMG"
-            echo "[2/3] rollout status"
-            kubectl -n ${NAMESPACE} rollout status deploy/${SERVICE} --timeout=240s
-            echo "[3/3] final container image"
-            kubectl -n ${NAMESPACE} get deploy ${SERVICE} -o jsonpath='{.spec.template.spec.containers[0].image}{\"\\n\"}'
-          '''
-// (was inside container('jnlp'))
+          set -euo pipefail
+          IMG=$(cat .image-url)
+          TAG=$(cat .image-tag)
+          echo "[1/3] set image deploy/${SERVICE} -> $IMG"
+          kubectl -n ${NAMESPACE} set image deploy/${SERVICE} ${SERVICE}="$IMG"
+          echo "[2/3] rollout status"
+          kubectl -n ${NAMESPACE} rollout status deploy/${SERVICE} --timeout=240s
+          echo "[3/3] final container image"
+          kubectl -n ${NAMESPACE} get deploy ${SERVICE} -o jsonpath='{.spec.template.spec.containers[0].image}'
+          printf '\n'
+        '''
       }
     }
+
     stage('Smoke Test (31001)') {
       steps {
         sh '''
-            set -euo pipefail
-            sleep 5
-            echo "[1/3] API endpoints"
-            for u in \
-              http://100.109.206.83:31001/api/health \
-              http://100.109.206.83:31001/api/products?limit=1; do
-              code=$(curl -s -o /tmp/jenkins_product_body -w '%{http_code}' --max-time 20 "$u" || echo ERR)
-              echo "$code $u"
-              [ "$code" = "200" ] || exit 30
-            done
-            echo "[2/3] UI title + js asset"
-            html=$(curl -s --max-time 20 http://100.109.206.83:31001/)
-            echo "$html" | grep -q '<title>商品管理系统</title>' || { echo "missing title"; exit 31; }
-            asset=$(echo "$html" | grep -oE '/assets/index-[A-Za-z0-9_.-]+.js' | head -1)
-            [ -n "$asset" ] || { echo "no js asset"; exit 32; }
-            code=$(curl -s -o /tmp/jenkins_product_js -w '%{http_code}' --max-time 20 "http://100.109.206.83:31001$asset")
-            [ "$code" = "200" ] || exit 33
-            if grep -q 'computedCostPrice' /tmp/jenkins_product_js || grep -q 'settlementPrice' /tmp/jenkins_product_js; then :; else { echo 'no new formula marker'; exit 34; }; fi
-            echo "[3/3] DOMAIN-AGNOSTIC 容器内部直接访问 service cluster IP"
-            IP=$(kubectl -n ${NAMESPACE} get svc product-service -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
-            echo "product-service clusterIP=$IP"
-            [ -n "$IP" ] && curl -s -m 10 -o /dev/null -w "clusterIP direct: %{http_code}\\n" "http://${IP}:3000/api/health"
-            echo "smoke OK ✅"
-          '''
-// (was inside container('jnlp'))
+          set -euo pipefail
+          sleep 5
+          echo "[1/3] API endpoints"
+          for u in \
+            http://100.109.206.83:31001/api/health \
+            http://100.109.206.83:31001/api/products?limit=1; do
+            code=$(curl -s -o /tmp/jenkins_product_body -w '%{http_code}' --max-time 20 "$u" || echo ERR)
+            echo "$code $u"
+            [ "$code" = "200" ] || exit 30
+          done
+          echo "[2/3] UI title + js asset"
+          html=$(curl -s --max-time 20 http://100.109.206.83:31001/)
+          echo "$html" | grep -q '<title>商品管理系统</title>' || { echo "missing title"; exit 31; }
+          asset=$(echo "$html" | grep -oE '/assets/index-[A-Za-z0-9_.-]+.js' | head -1)
+          [ -n "$asset" ] || { echo "no js asset"; exit 32; }
+          echo "asset=$asset"
+          code=$(curl -s -o /tmp/jenkins_product_js -w '%{http_code}' --max-time 20 "http://100.109.206.83:31001$asset")
+          [ "$code" = "200" ] || exit 33
+          if grep -q 'computedCostPrice' /tmp/jenkins_product_js || grep -q 'settlementPrice' /tmp/jenkins_product_js; then
+            echo "marker ok"
+          else
+            echo "no new formula marker"
+            exit 34
+          fi
+          echo "[3/3] product-service clusterIP"
+          IP=$(kubectl -n ${NAMESPACE} get svc product-service -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo '')
+          if [ -n "$IP" ]; then
+            code=$(curl -s -m 10 -o /tmp/cb -w '%{http_code}' "http://${IP}:3000/api/health" || echo ERR)
+            echo "$code clusterIP direct"
+          fi
+          echo "smoke OK"
+        '''
       }
     }
   }
+
   post {
-    success { echo '✅ product-service pipeline SUCCEEDED' }
-    failure { echo '❌ product-service pipeline FAILED' }
-    always  { sh '''cat .image-url 2>/dev/null || echo n/a''' }
+    success { echo 'product-service pipeline SUCCEEDED' }
+    failure { echo 'product-service pipeline FAILED' }
   }
 }
