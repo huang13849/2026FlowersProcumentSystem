@@ -494,7 +494,7 @@ export default function ProductList() {
     const updateProduct = (p) => {
       if (p._id !== product._id) return p;
       const updated = { ...p, [field]: value };
-      if (field === 'settlementPrice' || field === 'shippingFee') {
+      if (field === 'settlementPrice' || field === 'shippingFee' || field === 'minOrder') {
         updated.costPrice = computedCostPrice(updated);
       }
       return updated;
@@ -511,7 +511,7 @@ export default function ProductList() {
           const cur = prev.find(p => p._id === product._id);
           if (!cur) return prev.map(p => p._id === product._id ? { ...p, [field]: value } : p);
           const payload = { ...cur, [field]: value };
-          if (field === 'settlementPrice' || field === 'shippingFee') {
+          if (field === 'settlementPrice' || field === 'shippingFee' || field === 'minOrder') {
             payload.costPrice = computedCostPrice(payload);
           }
           delete payload._id;
@@ -529,7 +529,7 @@ export default function ProductList() {
         });
       } else {
         const patch = { [field]: value };
-        if (field === 'settlementPrice' || field === 'shippingFee') {
+        if (field === 'settlementPrice' || field === 'shippingFee' || field === 'minOrder') {
           const currentProduct = allProducts.find(p => p._id === product._id);
           const updatedProduct = { ...currentProduct, [field]: value };
           patch.costPrice = computedCostPrice(updatedProduct);
@@ -549,11 +549,12 @@ export default function ProductList() {
   };
 
   // ── Helpers ──
-  // ── Compute costPrice from settlementPrice + shippingFee ──
+  // ── Compute costPrice = settlementPrice × minOrder + shippingFee ──
   const computedCostPrice = (p) => {
     const sp = Number(p.settlementPrice || 0);
+    const mo = Number(p.minOrder || 0);
     const sf = Number(p.shippingFee || 0);
-    return sp + sf;
+    return sp * mo + sf;
   };
 
   const profit = p => {

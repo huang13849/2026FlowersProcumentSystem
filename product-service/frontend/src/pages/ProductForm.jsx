@@ -112,8 +112,12 @@ export default function ProductForm() {
     detailFileRef.current.value = '';
   };
 
+  // 成本价 = 结算价 × 起订量 + 运费
   const computedCostPrice = () => {
-    return Number(form.settlementPrice || 0) + Number(form.shippingFee || 0);
+    const sp = Number(form.settlementPrice || 0);
+    const mo = Number(form.minOrder || 0);
+    const sf = Number(form.shippingFee || 0);
+    return sp * mo + sf;
   };
 
   const save = async () => {
