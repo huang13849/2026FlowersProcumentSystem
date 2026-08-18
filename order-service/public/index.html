@@ -516,9 +516,17 @@ const columns = [
       render: (val, record) => {
         const items = (record.synced_payload && Array.isArray(record.synced_payload.items)) ? record.synced_payload.items : [];
         const titles = Array.isArray(record.product_title) ? record.product_title : [];
-        if (items.length === 0 && titles.length === 0) return <span style={{color:'#bbb',fontSize:12}}>-</span>;
+        const empty = items.length === 0 && titles.length === 0;
+        const cellStyle = {display:'flex',flexDirection:'column',gap:4,maxHeight:100,overflowY:'auto',cursor:'pointer',padding:'2px 4px',borderRadius:4,transition:'background 0.15s'};
         return (
-          <div style={{display:'flex',flexDirection:'column',gap:4,maxHeight:100,overflowY:'auto'}}>
+          <div
+            onClick={() => openProductPicker(record)}
+            title="点击此处选取/编辑商品"
+            style={cellStyle}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f0f7ff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            {empty && <span style={{color:'#bfbfbf',fontSize:12}}>+ 点击此处选商品</span>}
             {items.length > 0 ? items.map((it, i) => (
               <div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12}}>
                 {it.image ? <img src={/^https?:/.test(it.image)?it.image:('http://100.96.54.109'+it.image)} style={{width:32,height:32,borderRadius:4,objectFit:'cover',flexShrink:0}} onError={(e)=>{e.target.style.display='none'}} /> : null}
@@ -679,13 +687,6 @@ const columns = [
         const colorMap = { '已支付': '#52c41a', '未支付': '#faad14' };
         return v ? <Tag color={colorMap[v] || 'default'}>{v}</Tag> : <span style={{color:'#bfbfbf'}}>—</span>;
       }
-    },    {
-      title: '操作',
-      width: 130,
-      fixed: 'right',
-      render: (_, record) => (
-        <a onClick={() => openProductPicker(record)} style={{ color: '#1677ff' }}>选商品</a>
-      ),
     },
 
   ];
@@ -906,7 +907,7 @@ const columns = [
         <Table columns={mergedColumns} dataSource={data} rowKey="id" loading={loading} rowClassName={(record, index) => { if (index === 0) return ''; const prev = data[index-1]; if (!prev) return ''; try { const m1 = dayjs(record.purchase_time).format('YYYY-MM'); const m2 = dayjs(prev.purchase_time).format('YYYY-MM'); return m1 !== m2 ? 'month-divider' : ''; } catch(_) { return ''; } }}
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
-          onChange={handleTableChange} scroll={{ x: 2830 }} size="middle" />
+          onChange={handleTableChange} scroll={{ x: 2670 }} size="middle" />
         <div style={{marginTop:16}}>        <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '10px 14px' }}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
             <Space wrap size="large">
