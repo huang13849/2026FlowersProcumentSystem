@@ -92,7 +92,7 @@ function MoneyEditableCell({ value, onChange }) {
   };
 
   if (editing) return (
-    <InputNumber ref={ref} value={val} min={0} precision={2} controls={false}
+    <InputNumber ref={ref} value={val} precision={2} controls={false}
       prefix="¥" style={{ width: '100%' }} size="small"
       onChange={v => setVal(v)} onPressEnter={confirm} onBlur={confirm}
       onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setVal(value != null ? Number(value) : 0); } }} />

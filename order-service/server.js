@@ -186,7 +186,10 @@ async function enrichCostProfit(rows) {
       for (const pid of r.product_id) { if (map.has(pid)) total += map.get(pid); }
       if (total > 0) {
         r.cost_amount = total.toFixed(2);
-        r.profit_amount = (Number(r.income_amount || r.product_subtotal || 0) - total).toFixed(2);
+        // 利润只在未手动填过 (=0) 时重算; 否则保留用户填的值
+        if (Number(r.profit_amount || 0) === 0) {
+          r.profit_amount = (Number(r.income_amount || r.product_subtotal || 0) - total).toFixed(2);
+        }
         r._cost_from_join = true;
       }
     }
