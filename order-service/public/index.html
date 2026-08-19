@@ -310,6 +310,9 @@ function App() {
   React.useEffect(() => { fetchTagPool(); }, []);
   const [stats, setStats] = useState([]);
   const [amountStats, setAmountStats] = useState({ total_income: 0, total_shipping: 0, total_coupon: 0, row_count: 0 });
+  const [monthlyStats, setMonthlyStats] = useState({ data: [], totals: { order_count: 0, total_income: 0, total_cost: 0, total_profit: 0, total_shipping: 0, total_coupon: 0, total_expense: 0 } });
+  const [monthlyYear, setMonthlyYear] = useState(String(new Date().getFullYear()));
+  const [mainTab, setMainTab] = useState('overview'); // 'overview' | 'monthly'
   const [region, setRegion] = useState('cn');
   const [shopName, setShopName] = useState('全部');
   const [shopStats, setShopStats] = useState([]);
@@ -388,8 +391,19 @@ function App() {
 
   const formatSyncTime = (val) => val ? dayjs(val).format('YYYY-MM-DD HH:mm:ss') : '-';
 
-  useEffect(() => { fetchData(); fetchStats(); fetchShopStats(); fetchAmountStats(); fetchSyncStatus(); fetchTagStats(); }, []);
+  const fetchMonthlyStats = useCallback(async (yearVal = monthlyYear) => {
+    try {
+      const params = new URLSearchParams();
+      if (yearVal) params.set('year', yearVal);
+      const res = await fetch(`${API_BASE}/api/orders/stats/monthly?${params}`);
+      const json = await res.json();
+      setMonthlyStats(json || { data: [], totals: {} });
+    } catch (e) { setMonthlyStats({ data: [], totals: {} }); }
+  }, [monthlyYear]);
+
+  useEffect(() => { fetchData(); fetchStats(); fetchShopStats(); fetchAmountStats(); fetchSyncStatus(); fetchTagStats(); fetchMonthlyStats(); }, []);
   useEffect(() => { fetchData(); }, [tagFilter]);
+  useEffect(() => { fetchMonthlyStats(); }, [monthlyYear]);
 
   const handleTableChange = (pag) => { fetchData(pag.current, pag.pageSize, search, businessType, region, shopName); };
   const onSearch = (val) => { setSearch(val); fetchData(1, 20, val, businessType, region, shopName); fetchAmountStats(val, businessType, region, shopName); };
@@ -879,6 +893,37 @@ const columns = [
       <div className="app-content">
 
 
+        <Card size="small" style={{marginBottom:12}} bodyStyle={{padding:'8px 14px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+            <span style={{color:'#1677ff',fontWeight:600,fontSize:14,marginRight:4}}>📊 统计模块</span>
+            <span
+              onClick={() => setMainTab('overview')}
+              style={{
+                cursor:'pointer',padding:'4px 14px',borderRadius:16,fontSize:13,
+                background: mainTab==='overview' ? '#1677ff' : '#fafafa',
+                color: mainTab==='overview' ? '#fff' : '#666',
+                border: '1px solid ' + (mainTab==='overview' ? '#1677ff' : '#eee'),
+                fontWeight: mainTab==='overview' ? 600 : 400
+              }}
+              title="查看总优惠 / 总金额等总览数据"
+            >总览</span>
+            <span
+              onClick={() => setMainTab('monthly')}
+              style={{
+                cursor:'pointer',padding:'4px 14px',borderRadius:16,fontSize:13,
+                background: mainTab==='monthly' ? '#1677ff' : '#fafafa',
+                color: mainTab==='monthly' ? '#fff' : '#666',
+                border: '1px solid ' + (mainTab==='monthly' ? '#1677ff' : '#eee'),
+                fontWeight: mainTab==='monthly' ? 600 : 400
+              }}
+              title="按月查看订单数 / 总价 / 成本 / 利润 / 运费 / 优惠"
+            >📅 按月统计</span>
+            <span style={{color:'#bbb',fontSize:12,marginLeft:'auto'}}>
+              {mainTab==='overview' ? '💡 点击"按月统计"切到月度视图' : '💡 月度视图'}
+            </span>
+          </div>
+        </Card>
+        {mainTab === 'overview' && (
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col span={6}>
             <Card size="small"><Statistic title="订单总数" value={stats.reduce((s,x)=>s + (x.count || 0),0)} /></Card>
@@ -889,10 +934,11 @@ const columns = [
           <Col span={6}>
             <Card size="small"><Statistic title="总运费" value={Number(amountStats.total_shipping || 0)} precision={2} prefix="¥" /></Card>
           </Col>
-          <Col span={6}>
-            <Card size="small"><Statistic title="总优惠" value={Number(amountStats.total_coupon || 0)} precision={2} prefix="¥" /></Card>
+          <Col span={6} onClick={() => setMainTab('monthly')} style={{cursor:'pointer'}} title="点击查看按月统计">
+            <Card size="small" hoverable><Statistic title="总优惠" value={Number(amountStats.total_coupon || 0)} precision={2} prefix="¥" /></Card>
           </Col>
         </Row>
+        )}
         <Card size="small" style={{marginBottom:12}} bodyStyle={{padding:'10px 14px'}}>
           <div style={{display:'flex',alignItems:'center',flexWrap:'wrap',gap:6}}>
             <span style={{color:'#722ed1',fontWeight:600,marginRight:8}}>🏷️ 标签筛选：</span>
@@ -913,6 +959,46 @@ const columns = [
             {!tagStats.length && <span style={{color:'#bbb',fontSize:12}}>暂无标签（请先在标签管理中新建）</span>}
           </div>
         </Card>
+        {mainTab === 'monthly' && (
+        <Card size="small" style={{marginBottom:12}} bodyStyle={{padding:'10px 14px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,marginBottom:10}}>
+            <Space size="middle">
+              <Button size="small" onClick={() => setMainTab('overview')} icon={<span>←</span>}>返回总览</Button>
+              <span style={{color:'#1677ff',fontWeight:600,fontSize:14}}>📅 按月统计</span>
+            </Space>
+            <Space>
+              <span style={{color:'#666'}}>5年份：</span>
+              <Select value={monthlyYear} onChange={(v) => setMonthlyYear(v)} style={{width:110}} size="small"
+                options={(() => {
+                  const now = new Date().getFullYear();
+                  const opts = []; for (let y=now; y>=now-4; y--) opts.push({value:String(y),label:String(y)}); return opts;
+                })()} />
+            </Space>
+          </div>
+          <Row gutter={8} style={{marginBottom:8}}>
+            <Col span={4}><Card size="small" bodyStyle={{padding:'8px 12px'}}><Statistic title="订单数" value={monthlyStats.totals.order_count || 0} valueStyle={{fontSize:18}} /></Card></Col>
+            <Col span={4}><Card size="small" bodyStyle={{padding:'8px 12px'}}><Statistic title="总价" value={Number(monthlyStats.totals.total_income || 0)} precision={2} prefix="¥" valueStyle={{color:'#3f8600',fontSize:18}} /></Card></Col>
+            <Col span={4}><Card size="small" bodyStyle={{padding:'8px 12px'}}><Statistic title="总成本" value={Number(monthlyStats.totals.total_cost || 0)} precision={2} prefix="¥" valueStyle={{fontSize:18}} /></Card></Col>
+            <Col span={4}><Card size="small" bodyStyle={{padding:'8px 12px'}}><Statistic title="总利润" value={Number(monthlyStats.totals.total_profit || 0)} precision={2} prefix="¥" valueStyle={{color:'#cf1322',fontSize:18}} /></Card></Col>
+            <Col span={4}><Card size="small" bodyStyle={{padding:'8px 12px'}}><Statistic title="总运费" value={Number(monthlyStats.totals.total_shipping || 0)} precision={2} prefix="¥" valueStyle={{fontSize:18}} /></Card></Col>
+            <Col span={4}><Card size="small" bodyStyle={{padding:'8px 12px'}}><Statistic title="总优惠" value={Number(monthlyStats.totals.total_coupon || 0)} precision={2} prefix="¥" valueStyle={{fontSize:18}} /></Card></Col>
+          </Row>
+          <Table size="small" pagination={false} dataSource={monthlyStats.data || []} rowKey="month"
+            columns={[
+              { title: '月份', dataIndex: 'month', key: 'month', width: 90 },
+              { title: '订单数', dataIndex: 'order_count', key: 'order_count', width: 90, align: 'right', render: v => <b>{v}</b> },
+              { title: '总价 (¥)', dataIndex: 'total_income', key: 'total_income', align: 'right', render: v => Number(v||0).toFixed(2) },
+              { title: '成本 (¥)', dataIndex: 'total_cost', key: 'total_cost', align: 'right', render: v => Number(v||0).toFixed(2) },
+              { title: '利润 (¥)', dataIndex: 'total_profit', key: 'total_profit', align: 'right', render: v => <span style={{color:(v||0)>=0?'#3f8600':'#cf1322',fontWeight:600}}>{Number(v||0).toFixed(2)}</span> },
+              { title: '运费 (¥)', dataIndex: 'total_shipping', key: 'total_shipping', align: 'right', render: v => Number(v||0).toFixed(2) },
+              { title: '优惠 (¥)', dataIndex: 'total_coupon', key: 'total_coupon', align: 'right', render: v => Number(v||0).toFixed(2) },
+              { title: '客单价 (¥)', key: 'avg_income', align: 'right', render: (_,r) => r.order_count ? <b>{Number(r.total_income/r.order_count).toFixed(2)}</b> : '-' },
+              { title: '单均利润 (¥)', key: 'avg_profit', align: 'right', render: (_,r) => r.order_count ? <span style={{color:(r.total_profit||0)>=0?'#3f8600':'#cf1322'}}>{Number(r.total_profit/r.order_count).toFixed(2)}</span> : '-' },
+            ]}
+          />
+        </Card>
+        )}
+
         <Table columns={mergedColumns} dataSource={data} rowKey="id" loading={loading} rowClassName={(record, index) => { if (index === 0) return ''; const prev = data[index-1]; if (!prev) return ''; try { const m1 = dayjs(record.purchase_time).format('YYYY-MM'); const m2 = dayjs(prev.purchase_time).format('YYYY-MM'); return m1 !== m2 ? 'month-divider' : ''; } catch(_) { return ''; } }}
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
