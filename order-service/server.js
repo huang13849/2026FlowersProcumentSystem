@@ -88,8 +88,17 @@ function autoDefaultTags(src = {}) {
   return inbound;
 }
 
+function toMoneyNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function computeProfitAmount(src = {}) {
+  return toMoneyNumber(src.income_amount) - toMoneyNumber(src.cost_amount) - toMoneyNumber(src.coupon_discount);
+}
+
 function pickOrderFields(src = {}) {
-  return {
+  const fields = {
     member_id: src.member_id || '',
     member_name: src.member_name || '',
     phone: src.phone || '',
@@ -122,6 +131,8 @@ function pickOrderFields(src = {}) {
     synced_at: src.synced_at || null,
     tags: autoDefaultTags(src),
   };
+  fields.profit_amount = computeProfitAmount(fields);
+  return fields;
 }
 
 
@@ -151,6 +162,7 @@ function normalizeOrder(o) {
   ['product_id', 'product_title'].forEach(k => {
     if (!o[k] || (typeof o[k] === 'object' && !Array.isArray(o[k]))) o[k] = [];
   });
+  o.profit_amount = computeProfitAmount(o).toFixed(2);
   return o;
 }
 
@@ -186,17 +198,24 @@ async function enrichCostProfit(rows) {
       for (const pid of r.product_id) { if (map.has(pid)) total += map.get(pid); }
       if (total > 0) {
         r.cost_amount = total.toFixed(2);
-        // 利润只在未手动填过 (=0) 时重算; 否则保留用户填的值
-        if (Number(r.profit_amount || 0) === 0) {
-          r.profit_amount = (Number(r.income_amount || r.product_subtotal || 0) - total).toFixed(2);
-        }
+        r.profit_amount = computeProfitAmount({ ...r, cost_amount: total }).toFixed(2);
         r._cost_from_join = true;
+      } else {
+        r.profit_amount = computeProfitAmount(r).toFixed(2);
       }
     }
   } catch (e) {
     console.warn('[enrichCostProfit] failed:', e.message);
   }
+  rows.forEach(row => {
+    row.profit_amount = computeProfitAmount(row).toFixed(2);
+  });
   return rows;
+}
+
+async function getOrderByIdDirect(id) {
+  const { rows } = await pgPool.query('SELECT * FROM purchase_orders WHERE id = $1 LIMIT 1', [id]);
+  return normalizeOrder(rows[0] || null);
 }
 
 async function queryOrders({ page = 1, limit = 20, search, business_type, region, shop_name, month, tag, dedupe = 'true', readFrom }) {
@@ -300,10 +319,9 @@ app.get('/api/orders/sync-status', async (req, res) => {
 
 app.get('/api/orders/:id', async (req, res) => {
   try {
-    const url = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}/${req.params.id}?readFrom=standby`;
-    const result = await axiosWithRetry({ url, method: 'get', headers, timeout: 15000 });
-    normalizeOrderList(result.data);
-    res.json(result.data);
+    const row = await getOrderByIdDirect(req.params.id);
+    if (!row) return res.status(404).json({ error: '订单不存在' });
+    res.json({ data: row });
   } catch (err) {
     res.status(err.response?.status || 500).json({ error: err.response?.data?.error || err.message });
   }
@@ -363,26 +381,43 @@ app.post('/api/orders/duplicate', async (req, res) => {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: '请提供ID数组' });
     const created = [];
+    const errors = [];
     for (const id of ids) {
       try {
-        const getUrl = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}/${id}?readFrom=standby`;
-        const getResult = await axiosWithRetry({ url: getUrl, method: 'get', headers, timeout: 15000 });
-        const orig = getResult.data?.data || getResult.data;
+        const orig = await getOrderByIdDirect(id);
         if (!orig) continue;
         const createUrl = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}`;
-        const createResult = await axiosWithRetry({ url: createUrl, method: 'post', data: pickOrderFields({ ...orig, purchase_time: new Date().toISOString(), payment_order_id: orig.payment_order_id ? `${orig.payment_order_id}-COPY` : '' }), headers, timeout: 15000 });
+        const duplicateFields = pickOrderFields({
+          ...orig,
+          purchase_time: new Date().toISOString(),
+          payment_order_id: orig.payment_order_id ? `${orig.payment_order_id}-COPY` : '',
+          source_table: null,
+          source_order_key: null,
+          source_order_id: null,
+          source_order_sn: null,
+          source_shop_id: null,
+          synced_at: null,
+          tags: Array.isArray(orig.tags) ? orig.tags : [],
+        });
+        const duplicateTags = duplicateFields.tags;
+        delete duplicateFields.tags;
+        const createResult = await axiosWithRetry({ url: createUrl, method: 'post', data: duplicateFields, headers, timeout: 15000 });
         const newId = createResult.data?.data?.id;
         const pid = Array.isArray(orig.product_id) ? orig.product_id : [];
         const ptitle = Array.isArray(orig.product_title) ? orig.product_title : [];
+        if (newId && duplicateTags.length > 0) {
+          await updateTagsField(newId, duplicateTags);
+        }
         if (newId && pid.length > 0) {
           await updateJsonbFields(newId, pid, ptitle);
         }
         created.push(newId);
       } catch (err) {
         console.error(`Duplicate id=${id} error:`, err.message);
+        errors.push({ id, error: err.response?.data?.error || err.message });
       }
     }
-    res.status(201).json({ duplicated: created.length, ids: created });
+    res.status(201).json({ duplicated: created.length, ids: created, errors });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -391,18 +426,22 @@ app.post('/api/orders/duplicate', async (req, res) => {
 app.put('/api/orders/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    const body = req.body;
+    const body = { ...req.body };
     // Handle tags jsonb directly (avoid gateway PG array serialisation issue)
     if ('tags' in body) {
       await updateTagsField(id, body.tags);
       delete body.tags;
       // If tags-only update, return early
       if (Object.keys(body).length === 0) {
-        const getUrl = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}/${id}?readFrom=standby`;
-        const getResult = await axiosWithRetry({ url: getUrl, method: 'get', headers, timeout: 15000 });
-        normalizeOrderList(getResult.data);
-        return res.json(getResult.data);
+        const row = await getOrderByIdDirect(id);
+        if (!row) return res.status(404).json({ error: '订单不存在' });
+        return res.json({ data: row });
       }
+    }
+    if (['income_amount', 'cost_amount', 'coupon_discount', 'profit_amount'].some(key => key in body)) {
+      const current = await getOrderByIdDirect(id);
+      if (!current) return res.status(404).json({ error: '订单不存在' });
+      body.profit_amount = computeProfitAmount({ ...current, ...body });
     }
     const hasJsonb = ('product_id' in body) || ('product_title' in body);
 
@@ -419,11 +458,9 @@ app.put('/api/orders/:id', async (req, res) => {
         await axiosWithRetry({ url, method: 'put', data: otherFields, headers, timeout: 15000 });
       }
 
-      // Fetch updated record from standby
-      const getUrl = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}/${id}?readFrom=standby`;
-      const getResult = await axiosWithRetry({ url: getUrl, method: 'get', headers, timeout: 15000 });
-      normalizeOrderList(getResult.data);
-      res.json(getResult.data);
+      const row = await getOrderByIdDirect(id);
+      if (!row) return res.status(404).json({ error: '订单不存在' });
+      res.json({ data: row });
     } else {
       const url = `${GATEWAY_URL}/api/pg/${DB_NAME}/${TABLE_NAME}/${id}`;
       const result = await axiosWithRetry({ url, method: 'put', data: { ...body, updated_at: new Date().toISOString() }, headers, timeout: 15000 });
@@ -506,7 +543,7 @@ app.get('/api/orders/stats/amount', async (req, res) => {
     if (tag && tag !== '全部') { params.push(tag); conditions.push(`tags @> to_jsonb(ARRAY[$${params.length}::text])`); }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await pgPool.query(
-      `SELECT COALESCE(SUM(income_amount),0)::float AS total_income, COALESCE(SUM(expense_amount),0)::float AS total_expense, COALESCE(SUM(shipping_fee),0)::float AS total_shipping, COALESCE(SUM(coupon_discount),0)::float AS total_coupon, COALESCE(SUM(profit_amount),0)::float AS total_profit, COUNT(*)::int AS row_count FROM purchase_orders ${where}`,
+      `SELECT COALESCE(SUM(income_amount),0)::float AS total_income, COALESCE(SUM(expense_amount),0)::float AS total_expense, COALESCE(SUM(shipping_fee),0)::float AS total_shipping, COALESCE(SUM(coupon_discount),0)::float AS total_coupon, COALESCE(SUM(COALESCE(income_amount,0) - COALESCE(cost_amount,0) - COALESCE(coupon_discount,0)),0)::float AS total_profit, COUNT(*)::int AS row_count FROM purchase_orders ${where}`,
       params
     );
     res.json({ data: rows[0] });

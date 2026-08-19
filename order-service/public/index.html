@@ -402,6 +402,7 @@ function App() {
       });
       message.success('已更新');
       fetchData(pagination.current);
+      fetchAmountStats(search, businessType, region, shopName, monthFilter);
     } catch (e) { message.error('更新失败'); }
   };
 
@@ -415,6 +416,7 @@ function App() {
         message.success('已新增空行');
         fetchData(1);
         fetchStats();
+        fetchAmountStats(search, businessType, region, shopName, monthFilter);
       } else {
         const d = await res.json();
         message.error(d.error || '新增失败');
@@ -431,10 +433,16 @@ function App() {
       });
       if (res.ok) {
         const d = await res.json();
-        message.success(`已复制 ${d.duplicated} 条记录`);
+        if (d.errors && d.errors.length) {
+          const firstError = d.errors[0]?.error || '未知错误';
+          message.warning(`已复制 ${d.duplicated} 条记录，${d.errors.length} 条失败：${firstError}`);
+        } else {
+          message.success(`已复制 ${d.duplicated} 条记录`);
+        }
         setSelectedRowKeys([]);
         fetchData(1);
         fetchStats();
+        fetchAmountStats(search, businessType, region, shopName, monthFilter);
       } else {
         const d = await res.json();
         message.error(d.error || '复制失败');
@@ -454,6 +462,7 @@ function App() {
         setSelectedRowKeys([]);
         fetchData(pagination.current);
         fetchStats();
+        fetchAmountStats(search, businessType, region, shopName, monthFilter);
       } else {
         const d = await res.json();
         message.error(d.error || '删除失败');
@@ -594,7 +603,7 @@ const columns = [
       title: '利润',
       dataIndex: 'profit_amount',
       width: 90,
-      editable: true,
+      editable: false,
       render: (val) => {
         const v = Number(val || 0);
         return <b style={{color: v >= 0 ? '#389e0d' : '#cf1322'}}>¥{v.toFixed(2)}</b>;
@@ -701,7 +710,7 @@ const columns = [
           return <EditableCell value={val} type="select" options={col.options} displayRender={origRender ? () => origRender(val, record) : null}
             onChange={v => updateCell(record.id, col.dataIndex, v)} />;
         }
-        if (['product_subtotal','shipping_fee','coupon_discount','cost_amount','income_amount','expense_amount','profit_amount'].includes(col.dataIndex)) {
+        if (['product_subtotal','shipping_fee','coupon_discount','cost_amount','income_amount','expense_amount'].includes(col.dataIndex)) {
           return <MoneyEditableCell value={val}
             onChange={v => updateCell(record.id, col.dataIndex, v)} />;
         }
