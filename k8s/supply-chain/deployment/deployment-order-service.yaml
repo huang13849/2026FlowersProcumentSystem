@@ -16,10 +16,10 @@ spec:
         app: order-service
     spec:
       nodeSelector:
-        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+        kubernetes.io/hostname: xspt05
       containers:
       - name: order-service
-        image: 100.96.54.109:5001/supply-chain/order-service:latest
+        image: 100.76.15.64:5001/supply-chain/order-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3008
