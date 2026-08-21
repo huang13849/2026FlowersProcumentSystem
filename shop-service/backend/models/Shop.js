@@ -16,8 +16,7 @@ async function ensureHuaxiangSchema() {
     try { await getPool().query(sql); } catch (e) { console.warn('[huaxiang schema]', e.message); }
   }
 }
-// 启动时同步迁移一次 (允许失败, 不阻断服务)
-ensureHuaxiangSchema().catch(e => console.warn('[huaxiang schema] init failed:', e.message));
+// 启动时同步迁移 (延迟到 Pool 创建后, 详见底部)
 
 let pool = null;
 function getPool() {
@@ -225,5 +224,10 @@ Shop.find = function(query = {}) {
   };
   return chainable;
 };
+
+// 延迟到下个事件循环 (此时 getPool 已被 require 过, Pool 已就绪)
+setImmediate(() => {
+  ensureHuaxiangSchema().catch(e => console.warn('[huaxiang schema] init failed:', e.message));
+});
 
 module.exports = { ShopSchema: {}, createShopModel: () => Shop, Shop };
