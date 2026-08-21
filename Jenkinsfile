@@ -1,34 +1,25 @@
-// Jenkinsfile for shop-management-service (v4 - 单层 ssh, 避免嵌套 heredoc Syntax error)
-// 流程: k3s-build-agent ssh ubuntu-master (跳板) -> wget build script -> ssh xspt05 -> 执行
+// Jenkinsfile for shop-management-service (v6 - 内联 build script, 避免 wget token URL 问题)
 pipeline {
   agent any
-
   environment {
     REGISTRY   = "100.76.15.64:5001"
     IMAGE_BASE = "${REGISTRY}/supply-chain/shop-management-service"
     SERVICE    = "shop-management-service"
     NAMESPACE  = "supply-chain"
     NODE_PORT  = "31004"
-
     JUMP_USER = "huangfra-ubun-master"
     JUMP_HOST = "100.96.54.109"
     BUILD_USER = "dell"
     BUILD_HOST = "100.113.60.71"
     BUILD_WORKDIR = "/home/dell/shop-management-service"
-
     GITEA_URL  = "http://admin:Hy%401987921@100.76.15.64:13000/admin/supply-chain-platform.git"
     GIT_BRANCH = "main"
-    SCRIPT_URL = "http://admin:Hy%401987921@100.76.15.64:13000/admin/supply-chain-platform/raw/branch/main/build_office2wsl.sh"
   }
 
   stages {
     stage('Checkout') {
-      steps {
-        checkout scm
-        sh 'git rev-parse --short HEAD > .git/HEAD_SHA'
-      }
+      steps { checkout scm; sh 'git rev-parse --short HEAD > .git/HEAD_SHA' }
     }
-
     stage('Build on office2-wsl') {
       steps {
         sh '''
@@ -36,11 +27,34 @@ pipeline {
           SHA=$(cat .git/HEAD_SHA)
           TAG="${SERVICE}-jenkins-$(date +%Y%m%d%H%M%S)-${SHA}"
           IMG="${IMAGE_BASE}:${TAG}"
-          echo "[1/5] jumpbox ${JUMP_USER}@${JUMP_HOST} -> build ${BUILD_USER}@${BUILD_HOST}"
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "wget -qO /tmp/build_office2wsl.sh ${SCRIPT_URL}"
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "scp -O -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/build_office2wsl.sh ${BUILD_USER}@${BUILD_HOST}:/tmp/build_office2wsl.sh"
+          echo "[1/5] jumpbox -> build ${BUILD_USER}@${BUILD_HOST}"
+
+          # 内联 build 脚本到 xspt05 (避免 wget URL token 404)
+          ssh -o StrictHostKeyChecking=no ${JUMP_USER}@${JUMP_HOST} "cat > /tmp/build_office2wsl.sh" <<'BUILDSCRIPT'
+#!/bin/bash
+set -euo pipefail
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+GITEA_URL="$1"
+REPO_DIR="$2"
+IMAGE="$3"
+cd "$REPO_DIR"
+if [ ! -d .git ]; then
+  git clone "$GITEA_URL" .
+fi
+git fetch origin
+git reset --hard origin/main
+git clean -fd
+cd .
+docker build --platform linux/amd64 -t "$IMAGE" .
+docker push "$IMAGE"
+echo "$IMAGE" | sed 's|.*:||' > /tmp/last_tag.txt
+echo "BUILD_OK image=$IMAGE"
+BUILDSCRIPT
+
+          ssh -o StrictHostKeyChecking=no ${JUMP_USER}@${JUMP_HOST} "chmod +x /tmp/build_office2wsl.sh"
+          ssh -o StrictHostKeyChecking=no ${JUMP_USER}@${JUMP_HOST} "scp -O -o StrictHostKeyChecking=no /tmp/build_office2wsl.sh ${BUILD_USER}@${BUILD_HOST}:/tmp/build_office2wsl.sh"
           echo "[2/5] ssh jumpbox -> ssh xspt05 -> execute build"
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${BUILD_USER}@${BUILD_HOST} 'GITEA_URL=${GITEA_URL} REPO_DIR=${BUILD_WORKDIR} IMAGE=${IMG} bash /tmp/build_office2wsl.sh'"
+          ssh -o StrictHostKeyChecking=no ${JUMP_USER}@${JUMP_HOST} "ssh -o StrictHostKeyChecking=no ${BUILD_USER}@${BUILD_HOST} 'GITEA_URL=${GITEA_URL} REPO_DIR=${BUILD_WORKDIR} IMAGE=${IMG} bash /tmp/build_office2wsl.sh'"
           echo "[3/5] deploy ${IMG} to k3s"
           kubectl -n ${NAMESPACE} set image deployment/${SERVICE} ${SERVICE}=${IMG}
           kubectl -n ${NAMESPACE} rollout status deployment/${SERVICE} --timeout=180s
@@ -48,7 +62,6 @@ pipeline {
         '''
       }
     }
-
     stage('Verify endpoints') {
       steps {
         sh '''
@@ -61,14 +74,12 @@ pipeline {
         '''
       }
     }
-
     stage('Verify deployed image') {
       steps {
         sh 'kubectl -n ${NAMESPACE} get deploy ${SERVICE} -o jsonpath=\'{.spec.template.spec.containers[0].image}{\\"\\\\n\\"}\''
       }
     }
   }
-
   post {
     success { echo "shop-management-service deployed OK from office2-wsl build" }
     failure { echo "shop-management-service build/deploy failed" }
