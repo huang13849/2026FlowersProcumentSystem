@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '../api'
 import { ImageCell, EditableCell, Th, tdStyle, btnStyle } from '../components/EditableTable'
 
@@ -7,28 +7,43 @@ const EMPTY_SHOP = {
   phone: '', contactName: '', date: '', idNumber: '',
   address: '', longitude: null, latitude: null,
   idCardImages: [], bankCardImages: [], qrCodeImages: [],
-  businessCategory: '',
-  huaxiangApiBase: 'http://adminapi.huaxianghuamu.cn/', huaxiangApiToken: '', huaxiangPlatformId: ''
+  businessCategory: '', tags: [],
+  huaxiangApiBase: 'http://adminapi.huaxianghuamu.cn/', huaxiangApiToken: '', huaxiangCookie: '', huaxiangPlatformId: ''
 }
 
 export default function ShopList() {
   const [shops, setShops] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [tagFilter, setTagFilter] = useState('')  // 当前按 tag 筛选
+  const [tagPool, setTagPool] = useState([])       // 全局 tag 池 [{name, count}]
+  const [selectedIds, setSelectedIds] = useState([]) // 选中的店铺 _id
+  const [showTagMgr, setShowTagMgr] = useState(false)
+  const [showBatchTag, setShowBatchTag] = useState(false)
   const [geocoding, setGeocoding] = useState({})
   const [editingAddr, setEditingAddr] = useState({})
 
-  useEffect(() => { loadShops() }, [])
+  useEffect(() => { loadShops(); loadTagPool() }, [])
 
   const loadShops = async () => {
     try {
       setLoading(true)
       const res = await api.get('/api/shops')
       setShops(res.data.shops || [])
+      setSelectedIds([]) // 刷新后清空选中
     } catch (e) {
       console.error('加载店铺失败', e)
       alert('加载店铺列表失败: ' + (e.response?.data?.error || e.message))
     } finally { setLoading(false) }
+  }
+
+  const loadTagPool = async () => {
+    try {
+      const res = await api.get('/api/shops/tags/pool')
+      setTagPool(res.data.data || [])
+    } catch (e) {
+      console.warn('加载标签池失败', e)
+    }
   }
 
   // ── Auto-save a single field ──
@@ -49,88 +64,113 @@ export default function ShopList() {
     try {
       const res = await api.post('/api/shops/geocode', { address: address.trim() })
       const { longitude, latitude } = res.data
-      setShops(prev => prev.map(s => s._id !== id ? s : { ...s, longitude, latitude }))
-      await api.put('/api/shops/' + id, { longitude, latitude })
+      await updateField(id, 'longitude', longitude)
+      await updateField(id, 'latitude', latitude)
     } catch (e) {
-      console.error('Geocode failed:', e)
       alert('地址解析失败: ' + (e.response?.data?.error || e.message))
     }
     setGeocoding(p => ({ ...p, [id]: false }))
   }
 
-  // ── 保存地址并触发经纬度解析 ──
   const saveAddress = async (id) => {
-    const addr = editingAddr[id]?.trim()
-    if (!addr) { alert('请输入地址'); return }
+    const addr = editingAddr[id]
+    if (addr === undefined) return
     await updateField(id, 'address', addr)
     setEditingAddr(p => { const n = { ...p }; delete n[id]; return n })
-    handleGeocode(id, addr)
   }
 
-  // ── Image paste: upload base64 to MinIO, then save URL ──
-  const handleImagePaste = async (shopId, field, base64, filename) => {
-    let uploadResult
-    try {
-      const res = await api.post('/api/upload/base64', { base64, name: filename, folder: 'shops' })
-      uploadResult = res.data
-    } catch (e) {
-      alert('图片上传失败: ' + (e.response?.data?.error || e.message))
-      return
-    }
-    const newImg = { url: uploadResult.url, key: uploadResult.key, name: uploadResult.name }
-    const updatedImages = [...((shops.find(s => s._id === shopId)?.[field]) || []), newImg]
-    setShops(prev => prev.map(s => s._id === shopId ? { ...s, [field]: updatedImages } : s))
-    try {
-      await api.put('/api/shops/' + shopId, { [field]: updatedImages })
-    } catch (e) {
-      console.error('保存图片失败', e)
-    }
-  }
-
-  // ── Remove image from array field ──
-  const removeImage = async (shopId, field, index) => {
-    const shop = shops.find(s => s._id === shopId)
-    if (!shop) return
-    const images = [...(shop[field] || [])]
-    images.splice(index, 1)
-    setShops(prev => prev.map(s => s._id === shopId ? { ...s, [field]: images } : s))
-    try {
-      await api.put('/api/shops/' + shopId, { [field]: images })
-    } catch (e) {
-      console.error('删除图片失败', e)
-    }
-  }
-
-  // ── Add new row ──
   const addRow = async () => {
     try {
       const res = await api.post('/api/shops', { ...EMPTY_SHOP })
-      setShops(prev => [...prev, res.data])
+      setShops(prev => [res.data, ...prev])
     } catch (e) {
       alert('新增失败: ' + (e.response?.data?.error || e.message))
     }
   }
 
-  // ── Delete row ──
+  // ── Delete single shop ──
   const deleteRow = async (id, shopName) => {
     if (!confirm('确认删除店铺「' + (shopName || '未命名') + '」？')) return
     try {
       await api.delete('/api/shops/' + id)
       setShops(prev => prev.filter(s => s._id !== id))
+      setSelectedIds(prev => prev.filter(x => x !== id))
     } catch (e) {
       alert('删除失败: ' + (e.response?.data?.error || e.message))
     }
   }
 
-  const filtered = search
-    ? shops.filter(s =>
-        (s.shopName || '').includes(search) ||
-        (s.contactName || '').includes(search) ||
-        (s.phone || '').includes(search) ||
-        (s.lakalaShopNo || '').includes(search) ||
-        (s.address || '').includes(search)
-      )
-    : shops
+  // ── Batch delete ──
+  const batchDelete = async () => {
+    if (!selectedIds.length) return alert('请先勾选要删除的店铺');
+    if (!confirm(`确认删除选中的 ${selectedIds.length} 家店铺？此操作不可恢复！`)) return
+    try {
+      const res = await api.post('/api/shops/batch-delete', { ids: selectedIds })
+      setShops(prev => prev.filter(s => !selectedIds.includes(s._id)))
+      setSelectedIds([])
+      alert(`已删除 ${res.data.deleted} 家店铺`);
+    } catch (e) {
+      alert('批量删除失败: ' + (e.response?.data?.error || e.message))
+    }
+  }
+
+  // ── Batch tag ──
+  const batchTag = async (tags, mode) => {
+    if (!selectedIds.length) return alert('请先勾选店铺');
+    if (!tags.length) return alert('请输入至少一个标签');
+    try {
+      const res = await api.post('/api/shops/batch-tags', { ids: selectedIds, tags, mode })
+      // 本地更新标签
+      setShops(prev => prev.map(s => {
+        if (!selectedIds.includes(s._id)) return s
+        let cur = Array.isArray(s.tags) ? [...s.tags] : [];
+        if (mode === 'set') cur = tags;
+        else if (mode === 'add') cur = Array.from(new Set([...cur, ...tags]));
+        else cur = cur.filter(t => !tags.includes(t));
+        return { ...s, tags: cur };
+      }));
+      loadTagPool();
+      setShowBatchTag(false);
+      setSelectedIds([]);
+      alert(`已${mode === 'add' ? '添加' : mode === 'remove' ? '移除' : '设置'}标签: 影响了 ${res.data.updated} 家店铺`);
+    } catch (e) {
+      alert('批量打标签失败: ' + (e.response?.data?.error || e.message))
+    }
+  }
+
+  // ── 切换选中 ──
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+  const toggleSelectAll = () => {
+    const visibleIds = filtered.map(s => s._id);
+    if (selectedIds.length === visibleIds.length && visibleIds.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(visibleIds);
+    }
+  }
+
+  // ── Filter ──
+  const filtered = (() => {
+    let list = shops;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(s =>
+        (s.shopName || '').toLowerCase().includes(q) ||
+        (s.contactName || '').toLowerCase().includes(q) ||
+        (s.phone || '').includes(q) ||
+        (s.lakalaShopNo || '').includes(q) ||
+        (s.address || '').toLowerCase().includes(q)
+      );
+    }
+    if (tagFilter) {
+      list = list.filter(s => Array.isArray(s.tags) && s.tags.includes(tagFilter));
+    }
+    return list;
+  })();
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every(s => selectedIds.includes(s._id));
 
   return (
     <div style={{ padding: 20, maxWidth: '100vw', overflowX: 'auto' }}>
@@ -145,21 +185,49 @@ export default function ShopList() {
             placeholder="🔍 搜索店铺/联系人/手机/地址..."
             style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d0d0d0', fontSize: 13, width: 260, outline: 'none' }} />
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <span style={{ fontSize: 12, color: '#666', alignSelf: 'center' }}>共 {filtered.length} 条</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: '#666' }}>共 {filtered.length} 条{selectedIds.length > 0 ? `, 已选 ${selectedIds.length}` : ''}</span>
+          {selectedIds.length > 0 && (
+            <>
+              <button onClick={() => setShowBatchTag(true)} style={{ ...btnStyle.primary, background: '#722ed1', borderColor: '#722ed1' }}>🏷️ 批量打标签 ({selectedIds.length})</button>
+              <button onClick={batchDelete} style={{ ...btnStyle.danger, background: '#cf1322', borderColor: '#cf1322', color: '#fff' }}>🗑 批量删除 ({selectedIds.length})</button>
+              <button onClick={() => setSelectedIds([])} style={btnStyle.secondary}>取消选择</button>
+            </>
+          )}
+          <button onClick={() => setShowTagMgr(true)} style={{ ...btnStyle.secondary, background: '#f9f0ff', color: '#722ed1', borderColor: '#d3adf7' }}>🏷️ 标签管理</button>
           <button onClick={loadShops} style={btnStyle.secondary}>🔄 刷新</button>
           <button onClick={addRow} style={btnStyle.primary}>＋ 新增店铺</button>
         </div>
       </div>
+
+      {/* Tag filter chips */}
+      {tagPool.length > 0 && (
+        <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fafafa', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: '#666', fontWeight: 600 }}>🏷️ 标签筛选：</span>
+          <span onClick={() => setTagFilter('')}
+            style={{ cursor: 'pointer', padding: '2px 10px', borderRadius: 12, fontSize: 12, background: tagFilter === '' ? '#722ed1' : '#fff', color: tagFilter === '' ? '#fff' : '#722ed1', border: '1px solid #d3adf7', fontWeight: tagFilter === '' ? 600 : 400 }}>
+            全部
+          </span>
+          {tagPool.map(t => (
+            <span key={t.name} onClick={() => setTagFilter(tagFilter === t.name ? '' : t.name)}
+              style={{ cursor: 'pointer', padding: '2px 10px', borderRadius: 12, fontSize: 12, background: tagFilter === t.name ? '#722ed1' : '#fff', color: tagFilter === t.name ? '#fff' : '#722ed1', border: '1px solid #d3adf7', fontWeight: tagFilter === t.name ? 600 : 400 }}>
+              {t.name} <span style={{ color: tagFilter === t.name ? 'rgba(255,255,255,0.85)' : '#999', marginLeft: 4 }}>({t.count})</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Table */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>加载中...</div>
       ) : (
         <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 8 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 2200 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 2300 }}>
             <thead>
               <tr style={{ background: '#f5f3ff' }}>
+                <Th style={{ width: 30 }}>
+                  <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} />
+                </Th>
                 <Th style={{ width: 30 }}>#</Th>
                 <Th>店铺名称</Th>
                 <Th>拉卡拉店铺号</Th>
@@ -175,18 +243,22 @@ export default function ShopList() {
                 <Th style={{ minWidth: 160 }}>银行卡正反面</Th>
                 <Th style={{ minWidth: 160 }}>线下收款码</Th>
                 <Th>经营类目</Th>
-                <Th style={{ minWidth: 240 }}>花像花木 同步设置 (API / Token / 平台ID)</Th>
+                <Th style={{ minWidth: 180 }}>标签</Th>
+                <Th style={{ minWidth: 280 }}>平台同步设置 (API / Token / Cookie / 平台ID)</Th>
                 <Th style={{ width: 50 }}>操作</Th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={17} style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+                <tr><td colSpan={20} style={{ textAlign: 'center', padding: 40, color: '#999' }}>
                   暂无数据，点击「＋ 新增店铺」添加
                 </td></tr>
               ) : (
                 filtered.map((shop, idx) => (
-                  <tr key={shop._id} style={{ borderBottom: '1px solid #eee' }}>
+                  <tr key={shop._id} style={{ borderBottom: '1px solid #eee', background: selectedIds.includes(shop._id) ? '#f0f5ff' : 'transparent' }}>
+                    <td style={{ ...tdStyle, textAlign: 'center' }}>
+                      <input type="checkbox" checked={selectedIds.includes(shop._id)} onChange={() => toggleSelect(shop._id)} />
+                    </td>
                     <td style={{ ...tdStyle, textAlign: 'center' }}>{idx + 1}</td>
                     <td style={tdStyle}>
                       <EditableCell value={shop.shopName} onChange={v => updateField(shop._id, 'shopName', v)} placeholder="输入店铺名称" />
@@ -215,7 +287,6 @@ export default function ShopList() {
                     <td style={tdStyle}>
                       <EditableCell value={shop.idNumber} onChange={v => updateField(shop._id, 'idNumber', v)} placeholder="身份证号" />
                     </td>
-                    {/* 地址列：输入 + 保存 + 经纬度解析展示 */}
                     <td style={{ ...tdStyle, minWidth: 220 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -236,8 +307,7 @@ export default function ShopList() {
                                 padding: '2px 8px', border: '1px solid #7c5cfc',
                                 background: '#7c5cfc', color: '#fff', borderRadius: 4,
                                 cursor: 'pointer', fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap'
-                              }}
-                            >💾</button>
+                              }}>💾</button>
                           )}
                           {editingAddr[shop._id] !== undefined && (
                             <button
@@ -246,11 +316,9 @@ export default function ShopList() {
                                 padding: '2px 6px', border: '1px solid #ccc',
                                 background: '#f5f5f5', color: '#666', borderRadius: 4,
                                 cursor: 'pointer', fontSize: 10
-                              }}
-                            >✕</button>
+                              }}>✕</button>
                           )}
                         </div>
-                        {/* 经纬度展示 */}
                         {geocoding[shop._id] ? (
                           <span style={{ fontSize: 10, color: '#ef6c00', padding: '2px 4px' }}>解析中...</span>
                         ) : shop.longitude != null && shop.latitude != null ? (
@@ -299,6 +367,17 @@ export default function ShopList() {
                       <EditableCell value={shop.businessCategory} onChange={v => updateField(shop._id, 'businessCategory', v)} placeholder="经营类目" />
                     </td>
                     <td style={tdStyle}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, maxWidth: 180 }}>
+                        {(shop.tags || []).map(t => (
+                          <span key={t} onClick={() => setTagFilter(t)} title="点击筛选此标签"
+                            style={{ cursor: 'pointer', padding: '1px 6px', borderRadius: 8, fontSize: 10, background: '#f9f0ff', color: '#722ed1', border: '1px solid #d3adf7' }}>
+                            {t}
+                          </span>
+                        ))}
+                        {(shop.tags || []).length === 0 && <span style={{ fontSize: 10, color: '#ccc' }}>—</span>}
+                      </div>
+                    </td>
+                    <td style={tdStyle}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>API</span>
@@ -309,10 +388,20 @@ export default function ShopList() {
                           <input type="password" value={shop.huaxiangApiToken || ''}
                             onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, huaxiangApiToken: e.target.value } : s))}
                             onBlur={e => updateField(shop._id, 'huaxiangApiToken', e.target.value)}
-                            placeholder="admin 页面 cookie ajaxtoken"
+                            placeholder="admin cookie ajaxtoken 值"
                             autoComplete="off"
                             style={{ flex: 1, padding: '3px 6px', border: '1px solid #ffd591', borderRadius: 4, fontSize: 12, fontFamily: 'monospace', background: shop.huaxiangApiToken ? '#fffbe6' : '#fff', outline: 'none' }} />
-                          {shop.huaxiangApiToken ? <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>✓已配</span> : <span style={{ fontSize: 10, color: '#999' }}>未配</span>}
+                          {shop.huaxiangApiToken ? <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>✓</span> : null}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>Cookie</span>
+                          <input type="password" value={shop.huaxiangCookie || ''}
+                            onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, huaxiangCookie: e.target.value } : s))}
+                            onBlur={e => updateField(shop._id, 'huaxiangCookie', e.target.value)}
+                            placeholder="完整 Cookie (jaxtoken=...; Admin-Token=...)"
+                            autoComplete="off"
+                            style={{ flex: 1, padding: '3px 6px', border: '1px solid #ffd591', borderRadius: 4, fontSize: 12, fontFamily: 'monospace', background: shop.huaxiangCookie ? '#fffbe6' : '#fff', outline: 'none' }} />
+                          {shop.huaxiangCookie ? <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>✓</span> : null}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>平台ID</span>
@@ -330,6 +419,127 @@ export default function ShopList() {
           </table>
         </div>
       )}
+
+      {/* 标签管理 Modal */}
+      {showTagMgr && <TagMgrModal tagPool={tagPool} onClose={() => setShowTagMgr(false)} onRefresh={() => { loadTagPool(); loadShops(); }} />}
+
+      {/* 批量打标签 Modal */}
+      {showBatchTag && <BatchTagModal count={selectedIds.length} onClose={() => setShowBatchTag(false)} onApply={batchTag} />}
     </div>
-  )
+  );
+
+  // ── 图片粘贴处理 (保留原逻辑) ──
+  async function handleImagePaste(shopId, field, base64, name) {
+    setShops(prev => prev.map(s => s._id === shopId ? { ...s, [field]: [...(s[field] || []), { key: 'paste', url: base64, name }] } : s));
+    try {
+      await api.put('/api/shops/' + shopId, { [field]: [...(shops.find(s => s._id === shopId)?.[field] || []), { key: 'paste', url: base64, name }] });
+    } catch (e) { alert('图片保存失败: ' + (e.response?.data?.error || e.message)); }
+  }
+
+  function removeImage(shopId, field, idx) {
+    setShops(prev => prev.map(s => {
+      if (s._id !== shopId) return s;
+      const arr = [...(s[field] || [])];
+      arr.splice(idx, 1);
+      return { ...s, [field]: arr };
+    }));
+    api.put('/api/shops/' + shopId, { [field]: (shops.find(s => s._id === shopId)?.[field] || []).filter((_, i) => i !== idx) }).catch(() => {});
+  }
+}
+
+// ============ 标签管理 Modal ============
+function TagMgrModal({ tagPool, onClose, onRefresh }) {
+  const [newTag, setNewTag] = useState('');
+  const addTag = async () => {
+    const t = newTag.trim();
+    if (!t) return;
+    // 加到第一家店铺的 tags (tag pool 本身是聚合, 没有独立存储)
+    const allShopsRes = await api.get('/api/shops?limit=1000');
+    const firstShop = (allShopsRes.data.shops || [])[0];
+    if (!firstShop) { alert('请先创建店铺'); return; }
+    const cur = firstShop.tags || [];
+    if (cur.includes(t)) { alert('标签已存在'); return; }
+    try {
+      await api.put('/api/shops/' + firstShop._id + '/tags', { tags: [...cur, t] });
+      setNewTag('');
+      onRefresh();
+    } catch (e) { alert('添加标签失败: ' + (e.response?.data?.error || e.message)); }
+  };
+  const delTag = async (name) => {
+    if (!confirm('从所有店铺上移除标签「' + name + '」？')) return;
+    // 从所有店铺移除
+    try {
+      const res = await api.get('/api/shops?limit=1000');
+      const ids = (res.data.shops || []).filter(s => (s.tags || []).includes(name)).map(s => s._id);
+      if (!ids.length) return;
+      await api.post('/api/shops/batch-tags', { ids, tags: [name], mode: 'remove' });
+      onRefresh();
+    } catch (e) { alert('删除失败: ' + (e.response?.data?.error || e.message)); }
+  };
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 8, padding: 20, width: 480, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ margin: '0 0 12px' }}>🏷️ 标签管理</h3>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+          <input value={newTag} onChange={e => setNewTag(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addTag()}
+            placeholder="输入新标签名, Enter 添加"
+            style={{ flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid #d0d0d0', fontSize: 13 }} />
+          <button onClick={addTag} style={{ ...btnStyle.primary, padding: '6px 14px' }}>+ 添加</button>
+        </div>
+        <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>现有标签 ({tagPool.length})：</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+          {tagPool.length === 0 ? <span style={{ fontSize: 12, color: '#ccc' }}>暂无标签</span> :
+            tagPool.map(t => (
+              <span key={t.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 14, background: '#f9f0ff', border: '1px solid #d3adf7', fontSize: 12 }}>
+                <span style={{ color: '#722ed1', fontWeight: 500 }}>{t.name}</span>
+                <span style={{ color: '#999', fontSize: 10 }}>×{t.count}</span>
+                <button onClick={() => delTag(t.name)} title="从所有店铺移除"
+                  style={{ border: 'none', background: 'rgba(0,0,0,0.06)', color: '#666', borderRadius: '50%', width: 18, height: 18, cursor: 'pointer', fontSize: 12, lineHeight: '18px', padding: 0 }}>×</button>
+              </span>
+            ))}
+        </div>
+        <div style={{ marginTop: 16, textAlign: 'right' }}>
+          <button onClick={onClose} style={btnStyle.secondary}>关闭</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============ 批量打标签 Modal ============
+function BatchTagModal({ count, onClose, onApply }) {
+  const [tagsInput, setTagsInput] = useState('');
+  const [mode, setMode] = useState('add');
+  const apply = () => {
+    const tags = tagsInput.split(/[,，\s]+/).filter(Boolean);
+    if (!tags.length) return alert('请输入至少一个标签');
+    onApply(tags, mode);
+  };
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 8, padding: 20, width: 460, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ margin: '0 0 12px' }}>🏷️ 批量打标签 · {count} 家店铺</h3>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>操作：</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <label style={{ fontSize: 13, cursor: 'pointer' }}><input type="radio" checked={mode === 'add'} onChange={() => setMode('add')} /> ➕ 追加</label>
+            <label style={{ fontSize: 13, cursor: 'pointer' }}><input type="radio" checked={mode === 'remove'} onChange={() => setMode('remove')} /> ➖ 移除</label>
+            <label style={{ fontSize: 13, cursor: 'pointer' }}><input type="radio" checked={mode === 'set'} onChange={() => setMode('set')} /> 🔄 覆盖</label>
+          </div>
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>标签（逗号/空格/换行分隔）：</div>
+          <textarea value={tagsInput} onChange={e => setTagsInput(e.target.value)}
+            placeholder="例如：VIP, 自营, 北方"
+            rows={3}
+            style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #d0d0d0', fontSize: 13, resize: 'vertical' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={btnStyle.secondary}>取消</button>
+          <button onClick={apply} style={{ ...btnStyle.primary, background: '#722ed1', borderColor: '#722ed1' }}>应用 ({count})</button>
+        </div>
+      </div>
+    </div>
+  );
 }

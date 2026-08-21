@@ -1,6 +1,6 @@
 // routes/shops.js - PG mode (uses Shop model directly, no mongoose connection)
 const router = require('express').Router();
-const { Shop } = require('../models/Shop');
+const { Shop, pgQuery } = require('../models/Shop');
 const dns = require('dns');
 const https = require('https');
 
@@ -16,7 +16,16 @@ router.get('/', async (req, res) => {
         { phone: search },
       ];
     }
-    const data = await Shop.find(query, { sort: { sortOrder: 1 } });
+    // tags 过滤 (publish-service 用 ?tags=代运营 查花像花木代运营店铺)
+    // 多个 tag 用英文逗号分隔, 语义: 店铺包含任一指定 tag 即命中
+    const tagsRaw = req.query.tags;
+    let data = await Shop.find(query, { sort: { sortOrder: 1 } });
+    if (tagsRaw) {
+      const wanted = String(tagsRaw).split(',').map(s => s.trim()).filter(Boolean);
+      if (wanted.length) {
+        data = data.filter(s => Array.isArray(s.tags) && s.tags.some(t => wanted.includes(t)));
+      }
+    }
     res.json({ shops: data, total: data.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -89,6 +98,59 @@ router.delete('/:id', async (req, res) => {
   try {
     await Shop.findByIdAndDelete(req.params.id);
     res.json({ message: '已删除' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Batch delete shops ──
+router.post('/batch-delete', async (req, res) => {
+  try {
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: '请提供 ids[] 数组' });
+    const r = await Shop.batchDelete(ids);
+    res.json({ success: true, ...r });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Set tags on a single shop (replace all) ──
+router.put('/:id/tags', async (req, res) => {
+  try {
+    const { tags } = req.body || {};
+    if (!Array.isArray(tags)) return res.status(400).json({ error: 'tags 必须是数组' });
+    const r = await Shop.setTags(req.params.id, tags);
+    if (!r) return res.status(404).json({ error: '店铺不存在' });
+    res.json({ success: true, shop: r });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Batch apply tags (add / remove / set) ──
+router.post('/batch-tags', async (req, res) => {
+  try {
+    const { ids, tags, mode = 'add' } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: '请提供 ids[] 数组' });
+    if (!Array.isArray(tags) || !tags.length) return res.status(400).json({ error: '请提供 tags[] 数组' });
+    const r = await Shop.batchSetTags(ids, tags, mode);
+    res.json({ success: true, ...r });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Tag pool (all unique tags across all shops) ──
+router.get('/tags/pool', async (req, res) => {
+  try {
+    const r = await pgQuery(
+      `SELECT tag, COUNT(*)::int AS count FROM (
+         SELECT jsonb_array_elements_text(COALESCE(tags, '[]'::jsonb)) AS tag FROM shops
+       ) t WHERE tag <> '' GROUP BY tag ORDER BY count DESC, tag ASC`
+    );
+    res.json({ data: (r.data || r.rows || []).map(x => ({ name: x.tag, count: x.count })) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Publish credentials (publish-service 调用) ──
+// 返回所有 huaxiang 平台凭证 (api_base / token / cookie / platformId), publish-service 用 platformId 匹配
+router.get('/publish/huaxiang-credentials', async (req, res) => {
+  try {
+    const creds = await Shop.listHuaxiangCredentials();
+    res.json({ data: creds });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

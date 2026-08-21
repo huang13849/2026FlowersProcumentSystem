@@ -11,6 +11,9 @@ async function ensureHuaxiangSchema() {
     "ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_api_base TEXT DEFAULT 'http://adminapi.huaxianghuamu.cn/'",
     'ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_api_token TEXT',
     'ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_platform_id TEXT',
+    'ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_cookie TEXT',
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb",
+    "CREATE INDEX IF NOT EXISTS idx_shops_tags ON shops USING gin (tags jsonb_path_ops)",
   ];
   for (const sql of alters) {
     try { await getPool().query(sql); } catch (e) { console.warn('[huaxiang schema]', e.message); }
@@ -66,7 +69,9 @@ function toApi(row) {
     // 花像花木外部订单同步 (admin 页面 → purchase_orders)
     huaxiangApiBase: row.huaxiang_api_base || 'http://adminapi.huaxianghuamu.cn/',
     huaxiangApiToken: row.huaxiang_api_token || '',
+    huaxiangCookie: row.huaxiang_cookie || '',
     huaxiangPlatformId: row.huaxiang_platform_id || '',
+    tags: Array.isArray(row.tags) ? row.tags : (typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : []),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     async save() {
@@ -111,7 +116,7 @@ const Shop = {
   async findByIdAndUpdate(id, update, opts = {}) {
     const sets = ['updated_at = NOW()'];
     const vals = [];
-    const fieldMap = { shopName:'shop_name', lakalaShopNo:'lakala_shop_no', terminalNo:'terminal_no', wechatMerchantNo:'wechat_merchant_no', alipayMerchantNo:'alipay_merchant_no', phone:'phone', contactName:'contact_name', date:'date', idNumber:'id_number', idCardImages:'id_card_images', bankCardImages:'bank_card_images', qrCodeImages:'qr_code_images', businessCategory:'business_category', sortOrder:'sort_order', address:'address', longitude:'longitude', latitude:'latitude', supplierId:'supplier_id', huaxiangApiBase:'huaxiang_api_base', huaxiangApiToken:'huaxiang_api_token', huaxiangPlatformId:'huaxiang_platform_id' };
+    const fieldMap = { shopName:'shop_name', lakalaShopNo:'lakala_shop_no', terminalNo:'terminal_no', wechatMerchantNo:'wechat_merchant_no', alipayMerchantNo:'alipay_merchant_no', phone:'phone', contactName:'contact_name', date:'date', idNumber:'id_number', idCardImages:'id_card_images', bankCardImages:'bank_card_images', qrCodeImages:'qr_code_images', businessCategory:'business_category', sortOrder:'sort_order', address:'address', longitude:'longitude', latitude:'latitude', supplierId:'supplier_id', huaxiangApiBase:'huaxiang_api_base', huaxiangApiToken:'huaxiang_api_token', huaxiangCookie:'huaxiang_cookie', huaxiangPlatformId:'huaxiang_platform_id', tags:'tags' };
     for (const [k, v] of Object.entries(update)) {
       if (fieldMap[k] !== undefined) {
         const val = (typeof v === 'object' && !Array.isArray(v)) ? JSON.stringify(v) : (Array.isArray(v) ? JSON.stringify(v) : v);
@@ -140,9 +145,9 @@ const Shop = {
   async create(data) {
     const mongoId = data._id || crypto.randomBytes(12).toString('hex');
     const r = await pgQuery(
-      `INSERT INTO ${TABLE} (mongo_id, shop_name, lakala_shop_no, terminal_no, wechat_merchant_no, alipay_merchant_no, phone, contact_name, date, id_number, id_card_images, bank_card_images, qr_code_images, business_category, sort_order, address, longitude, latitude, supplier_id, huaxiang_api_base, huaxiang_api_token, huaxiang_platform_id)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *`,
-      [mongoId, data.shopName||'', data.lakalaShopNo||'', data.terminalNo||'', data.wechatMerchantNo||'', data.alipayMerchantNo||'', data.phone||'', data.contactName||'', data.date||'', data.idNumber||'', JSON.stringify(data.idCardImages||[]), JSON.stringify(data.bankCardImages||[]), JSON.stringify(data.qrCodeImages||[]), data.businessCategory||'', data.sortOrder||0, data.address||'', data.longitude||null, data.latitude||null, data.supplierId||null, data.huaxiangApiBase||'http://adminapi.huaxianghuamu.cn/', data.huaxiangApiToken||'', data.huaxiangPlatformId||'']
+      `INSERT INTO ${TABLE} (mongo_id, shop_name, lakala_shop_no, terminal_no, wechat_merchant_no, alipay_merchant_no, phone, contact_name, date, id_number, id_card_images, bank_card_images, qr_code_images, business_category, sort_order, address, longitude, latitude, supplier_id, huaxiang_api_base, huaxiang_api_token, huaxiang_cookie, huaxiang_platform_id, tags)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
+      [mongoId, data.shopName||'', data.lakalaShopNo||'', data.terminalNo||'', data.wechatMerchantNo||'', data.alipayMerchantNo||'', data.phone||'', data.contactName||'', data.date||'', data.idNumber||'', JSON.stringify(data.idCardImages||[]), JSON.stringify(data.bankCardImages||[]), JSON.stringify(data.qrCodeImages||[]), data.businessCategory||'', data.sortOrder||0, data.address||'', data.longitude||null, data.latitude||null, data.supplierId||null, data.huaxiangApiBase||'http://adminapi.huaxianghuamu.cn/', data.huaxiangApiToken||'', data.huaxiangCookie||'', data.huaxiangPlatformId||'', JSON.stringify(data.tags||[])]
     );
     const rows = r.data || r.rows || [];
     return toApi(rows[0]);
@@ -211,6 +216,78 @@ const Shop = {
     });
     return { shop: created, action: 'created' };
   },
+
+  // ── Tag operations ──
+  async setTags(id, tags) {
+    const arr = Array.isArray(tags) ? tags : [];
+    const num = isNumId(id);
+    const r = await pgQuery(
+      `UPDATE ${TABLE} SET tags = $1::jsonb, updated_at = NOW() WHERE mongo_id = $2${num ? ' OR id = $2::bigint' : ''} RETURNING *`,
+      [JSON.stringify(arr), id]);
+    const rows = r.data || r.rows || [];
+    return rows[0] ? toApi(rows[0]) : null;
+  },
+
+  async batchSetTags(ids, tags, mode = 'add') {
+    if (!Array.isArray(ids) || !ids.length) return { updated: 0 };
+    const tagArr = Array.isArray(tags) ? tags : [];
+    const numIds = ids.filter(isNumId);
+    const strIds = ids.filter(id => !isNumId(id));
+    let r;
+    if (mode === 'set') {
+      r = await pgQuery(
+        `UPDATE ${TABLE} SET tags = $1::jsonb, updated_at = NOW()
+          WHERE (mongo_id = ANY($2::text[]) OR id = ANY($3::bigint[]))
+          RETURNING id`,
+        [JSON.stringify(tagArr), strIds, numIds]);
+    } else if (mode === 'add') {
+      r = await pgQuery(
+        `UPDATE ${TABLE} SET tags = (COALESCE(tags, '[]'::jsonb) || $1::jsonb), updated_at = NOW()
+          WHERE (mongo_id = ANY($2::text[]) OR id = ANY($3::bigint[]))
+          RETURNING id`,
+        [JSON.stringify(tagArr), strIds, numIds]);
+    } else {
+      r = await pgQuery(
+        `UPDATE ${TABLE} SET tags = (COALESCE(tags, '[]'::jsonb) - $1::text[]), updated_at = NOW()
+          WHERE (mongo_id = ANY($2::text[]) OR id = ANY($3::bigint[]))
+          RETURNING id`,
+        [tagArr, strIds, numIds]);
+    }
+    const rows = r.data || r.rows || [];
+    return { updated: rows.length };
+  },
+
+  async batchDelete(ids) {
+    if (!Array.isArray(ids) || !ids.length) return { deleted: 0 };
+    const numIds = ids.filter(isNumId);
+    const strIds = ids.filter(id => !isNumId(id));
+    const r = await pgQuery(
+      `DELETE FROM ${TABLE}
+        WHERE (mongo_id = ANY($1::text[]) OR id = ANY($2::bigint[]))
+        RETURNING id`,
+      [strIds, numIds]);
+    const rows = r.data || r.rows || [];
+    return { deleted: rows.length, ids: rows.map(rr => String(rr.id)) };
+  },
+
+  // ── Publish credentials (read-only) ──
+  // 公开给同集群内的 publish-service 调用: 列出所有 huaxiang 平台凭证
+  async listHuaxiangCredentials() {
+    const r = await pgQuery(
+      `SELECT id, mongo_id, shop_name, huaxiang_api_base, huaxiang_api_token, huaxiang_cookie, huaxiang_platform_id
+         FROM ${TABLE}
+        WHERE huaxiang_platform_id IS NOT NULL AND huaxiang_platform_id <> ''
+        ORDER BY shop_name`);
+    const rows = r.data || r.rows || [];
+    return rows.map(row => ({
+      shopId: row.mongo_id || String(row.id),
+      shopName: row.shop_name,
+      platformId: row.huaxiang_platform_id,
+      apiBase: row.huaxiang_api_base || 'http://adminapi.huaxianghuamu.cn/',
+      token: row.huaxiang_api_token || '',
+      cookie: row.huaxiang_cookie || '',
+    }));
+  },
 };
 
 // Chainable .find().sort()
@@ -230,4 +307,4 @@ setImmediate(() => {
   ensureHuaxiangSchema().catch(e => console.warn('[huaxiang schema] init failed:', e.message));
 });
 
-module.exports = { ShopSchema: {}, createShopModel: () => Shop, Shop };
+module.exports = { ShopSchema: {}, createShopModel: () => Shop, Shop, pgQuery };
