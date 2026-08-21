@@ -639,7 +639,7 @@ async function fetchHuaxiangShop(shopId) {
   if (!shopId) return null;
   const num = /^[0-9]+$/.test(String(shopId));
   const r = await pgPool.query(
-    `SELECT id, mongo_id, shop_name, huaxiang_api_base, huaxiang_api_token, huaxiang_platform_id
+    `SELECT id, mongo_id, shop_name, api_base AS huaxiang_api_base, token_enc AS huaxiang_api_token, huaxiang_platform_id
        FROM shops
       WHERE (mongo_id = $1${num ? ' OR id = $1::bigint' : ''})
       LIMIT 1`,
@@ -764,8 +764,8 @@ function mapHuaxiangRow(row, shopName) {
 app.get('/api/orders/huaxiang/shops', async (req, res) => {
   try {
     const { rows } = await pgPool.query(
-      `SELECT id, mongo_id, shop_name, huaxiang_api_base, huaxiang_platform_id,
-              (huaxiang_api_token IS NOT NULL AND huaxiang_api_token <> '') AS has_token
+      `SELECT id, mongo_id, shop_name, platform, api_base AS huaxiang_api_base, huaxiang_platform_id,
+              (token_enc IS NOT NULL AND token_enc <> '') AS has_token
          FROM shops
         WHERE huaxiang_platform_id IS NOT NULL AND huaxiang_platform_id <> ''
         ORDER BY shop_name ASC`
