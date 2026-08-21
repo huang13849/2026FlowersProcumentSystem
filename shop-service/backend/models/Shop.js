@@ -4,6 +4,21 @@ const { Pool } = require('pg');
 const crypto = require('crypto');
 
 const TABLE = 'shops';
+
+// 自动迁移: 花像花木外部订单同步需要的 3 个列
+async function ensureHuaxiangSchema() {
+  const alters = [
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_api_base TEXT DEFAULT 'http://adminapi.huaxianghuamu.cn/'",
+    'ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_api_token TEXT',
+    'ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_platform_id TEXT',
+  ];
+  for (const sql of alters) {
+    try { await getPool().query(sql); } catch (e) { console.warn('[huaxiang schema]', e.message); }
+  }
+}
+// 启动时同步迁移一次 (允许失败, 不阻断服务)
+ensureHuaxiangSchema().catch(e => console.warn('[huaxiang schema] init failed:', e.message));
+
 let pool = null;
 function getPool() {
   if (pool) return pool;
@@ -13,30 +28,14 @@ function getPool() {
     user:     process.env.PG_USER || 'postgres',
     password: process.env.PG_PASSWORD,
     database: process.env.PG_DATABASE || 'supply_chain',
-    max: 5,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
-    query_timeout: 5000,
+    max: 5, idleTimeoutMillis: 30000,
   });
   pool.on('error', (e) => console.error('[shop-pg] pool error:', e.message));
   return pool;
 }
 async function pgQuery(sql, params = []) {
-  const startedAt = Date.now();
-  console.log('[shop-pg] query start:', sql.replace(/\s+/g, ' ').trim().slice(0, 180));
   const r = await getPool().query(sql, params);
-  console.log('[shop-pg] query ok:', Date.now() - startedAt + 'ms');
   return { data: r.rows, rows: r.rows };
-}
-
-function normalizeWriteValue(key, value) {
-  if (value === undefined) return undefined;
-  if (key === 'isDefault') return Boolean(value);
-  if (key === 'productCategory') return value === null || value === '' ? null : Number(value);
-  if (key === 'uniformPostage') return (value === null || value === undefined || value === '' || Number.isNaN(value)) ? 0 : Number(value);
-  if (typeof value === 'object' && !Array.isArray(value)) return JSON.stringify(value);
-  if (Array.isArray(value)) return JSON.stringify(value);
-  return value;
 }
 // Only append `OR id = $N::bigint` when id is all-digits, else mongo ObjectId
 // (24 hex chars) would blow up the bigint cast.
@@ -65,24 +64,10 @@ function toApi(row) {
     longitude: row.longitude,
     latitude: row.latitude,
     supplierId: row.supplier_id != null ? Number(row.supplier_id) : null,
-    platform: row.platform || '',
-    displayName: row.display_name || '',
-    status: row.status || '',
-    isDefault: !!row.is_default,
-    username: row.username || '',
-    apiBase: row.api_base || '',
-    tokenEnc: row.token_enc || '',
-    cookieEnc: row.cookie_enc || '',
-    appKeyEnc: row.app_key_enc || '',
-    appSecretEnc: row.app_secret_enc || '',
-    freightMode: row.freight_mode || '',
-    freightTemplateId: row.freight_template_id || '',
-    uniformPostage: row.uniform_postage != null ? String(row.uniform_postage) : '',
-    afterSaleAddressId: row.after_sale_address_id || '',
-    productCategory: row.product_category != null ? Number(row.product_category) : null,
-    notes: row.notes || '',
-    extraConfig: row.extra_config || {},
-    deletedAt: row.deleted_at,
+    // 花像花木外部订单同步 (admin 页面 → purchase_orders)
+    huaxiangApiBase: row.huaxiang_api_base || 'http://adminapi.huaxianghuamu.cn/',
+    huaxiangApiToken: row.huaxiang_api_token || '',
+    huaxiangPlatformId: row.huaxiang_platform_id || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     async save() {
@@ -98,10 +83,6 @@ const Shop = {
   async find(query = {}, opts = {}) {
     const where = [];
     const vals = [];
-    if (query.platform) {
-      vals.push(String(query.platform));
-      where.push(`platform = $${vals.length}`);
-    }
     if (query.$or) {
       const ors = query.$or.map(c => {
         const k = Object.keys(c)[0];
@@ -131,10 +112,10 @@ const Shop = {
   async findByIdAndUpdate(id, update, opts = {}) {
     const sets = ['updated_at = NOW()'];
     const vals = [];
-    const fieldMap = { shopName:'shop_name', lakalaShopNo:'lakala_shop_no', terminalNo:'terminal_no', wechatMerchantNo:'wechat_merchant_no', alipayMerchantNo:'alipay_merchant_no', phone:'phone', contactName:'contact_name', date:'date', idNumber:'id_number', idCardImages:'id_card_images', bankCardImages:'bank_card_images', qrCodeImages:'qr_code_images', businessCategory:'business_category', sortOrder:'sort_order', address:'address', longitude:'longitude', latitude:'latitude', supplierId:'supplier_id', platform:'platform', displayName:'display_name', status:'status', isDefault:'is_default', username:'username', apiBase:'api_base', token:'token_enc', tokenEnc:'token_enc', cookie:'cookie_enc', cookieEnc:'cookie_enc', appKey:'app_key_enc', appKeyEnc:'app_key_enc', appSecret:'app_secret_enc', appSecretEnc:'app_secret_enc', freightMode:'freight_mode', freightTemplateId:'freight_template_id', uniformPostage:'uniform_postage', afterSaleAddressId:'after_sale_address_id', productCategory:'product_category', notes:'notes', extraConfig:'extra_config', deletedAt:'deleted_at' };
+    const fieldMap = { shopName:'shop_name', lakalaShopNo:'lakala_shop_no', terminalNo:'terminal_no', wechatMerchantNo:'wechat_merchant_no', alipayMerchantNo:'alipay_merchant_no', phone:'phone', contactName:'contact_name', date:'date', idNumber:'id_number', idCardImages:'id_card_images', bankCardImages:'bank_card_images', qrCodeImages:'qr_code_images', businessCategory:'business_category', sortOrder:'sort_order', address:'address', longitude:'longitude', latitude:'latitude', supplierId:'supplier_id', huaxiangApiBase:'huaxiang_api_base', huaxiangApiToken:'huaxiang_api_token', huaxiangPlatformId:'huaxiang_platform_id' };
     for (const [k, v] of Object.entries(update)) {
       if (fieldMap[k] !== undefined) {
-        const val = normalizeWriteValue(k, v);
+        const val = (typeof v === 'object' && !Array.isArray(v)) ? JSON.stringify(v) : (Array.isArray(v) ? JSON.stringify(v) : v);
         vals.push(val);
         sets.push(`${fieldMap[k]} = $${vals.length}`);
       }
@@ -160,55 +141,9 @@ const Shop = {
   async create(data) {
     const mongoId = data._id || crypto.randomBytes(12).toString('hex');
     const r = await pgQuery(
-      `INSERT INTO ${TABLE} (
-        mongo_id, shop_name, lakala_shop_no, terminal_no, wechat_merchant_no, alipay_merchant_no,
-        phone, contact_name, date, id_number, id_card_images, bank_card_images, qr_code_images,
-        business_category, sort_order, address, longitude, latitude, supplier_id, platform,
-        display_name, status, is_default, username, api_base, token_enc, cookie_enc, app_key_enc,
-        app_secret_enc, freight_mode, freight_template_id, uniform_postage, after_sale_address_id,
-        product_category, notes, extra_config
-      ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-        $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36
-      ) RETURNING *`,
-      [
-        mongoId,
-        data.shopName || '',
-        data.lakalaShopNo || '',
-        data.terminalNo || '',
-        data.wechatMerchantNo || '',
-        data.alipayMerchantNo || '',
-        data.phone || '',
-        data.contactName || '',
-        data.date || '',
-        data.idNumber || '',
-        JSON.stringify(data.idCardImages || []),
-        JSON.stringify(data.bankCardImages || []),
-        JSON.stringify(data.qrCodeImages || []),
-        data.businessCategory || '',
-        data.sortOrder || 0,
-        data.address || '',
-        data.longitude || null,
-        data.latitude || null,
-        data.supplierId || null,
-        data.platform || 'legacy',
-        data.displayName || '',
-        data.status || 'active',
-        Boolean(data.isDefault),
-        data.username || '',
-        data.apiBase || '',
-        data.token || data.tokenEnc || '',
-        data.cookie || data.cookieEnc || '',
-        data.appKey || data.appKeyEnc || '',
-        data.appSecret || data.appSecretEnc || '',
-        data.freightMode || 'uniform',
-        data.freightTemplateId || '',
-        normalizeWriteValue('uniformPostage', data.uniformPostage),
-        data.afterSaleAddressId || '',
-        normalizeWriteValue('productCategory', data.productCategory),
-        data.notes || '',
-        JSON.stringify(data.extraConfig || {}),
-      ]
+      `INSERT INTO ${TABLE} (mongo_id, shop_name, lakala_shop_no, terminal_no, wechat_merchant_no, alipay_merchant_no, phone, contact_name, date, id_number, id_card_images, bank_card_images, qr_code_images, business_category, sort_order, address, longitude, latitude, supplier_id, huaxiang_api_base, huaxiang_api_token, huaxiang_platform_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *`,
+      [mongoId, data.shopName||'', data.lakalaShopNo||'', data.terminalNo||'', data.wechatMerchantNo||'', data.alipayMerchantNo||'', data.phone||'', data.contactName||'', data.date||'', data.idNumber||'', JSON.stringify(data.idCardImages||[]), JSON.stringify(data.bankCardImages||[]), JSON.stringify(data.qrCodeImages||[]), data.businessCategory||'', data.sortOrder||0, data.address||'', data.longitude||null, data.latitude||null, data.supplierId||null, data.huaxiangApiBase||'http://adminapi.huaxianghuamu.cn/', data.huaxiangApiToken||'', data.huaxiangPlatformId||'']
     );
     const rows = r.data || r.rows || [];
     return toApi(rows[0]);

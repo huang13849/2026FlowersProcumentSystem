@@ -312,7 +312,7 @@ function App() {
   const [amountStats, setAmountStats] = useState({ total_income: 0, total_shipping: 0, total_coupon: 0, row_count: 0 });
   const [monthlyStats, setMonthlyStats] = useState({ data: [], totals: { order_count: 0, total_income: 0, total_cost: 0, total_profit: 0, total_shipping: 0, total_coupon: 0, total_expense: 0 } });
   const [monthlyYear, setMonthlyYear] = useState(String(new Date().getFullYear()));
-  const [mainTab, setMainTab] = useState('overview'); // 'overview' | 'monthly'
+  const [mainTab, setMainTab] = useState('overview'); // 'overview' | 'monthly' | 'huaxiang'
   const [region, setRegion] = useState('cn');
   const [shopName, setShopName] = useState('全部');
   const [shopStats, setShopStats] = useState([]);
@@ -918,8 +918,21 @@ const columns = [
               }}
               title="按月查看订单数 / 总价 / 成本 / 利润 / 运费 / 优惠"
             >📅 按月统计</span>
+            <span
+              onClick={() => setMainTab('huaxiang')}
+              style={{
+                cursor:'pointer',padding:'4px 14px',borderRadius:16,fontSize:13,
+                background: mainTab==='huaxiang' ? '#722ed1' : '#fafafa',
+                color: mainTab==='huaxiang' ? '#fff' : '#666',
+                border: '1px solid ' + (mainTab==='huaxiang' ? '#722ed1' : '#eee'),
+                fontWeight: mainTab==='huaxiang' ? 600 : 400
+              }}
+              title="按花像花木 admin 页面筛选器,从上游接口拉订单同步到本地 (Token 在店铺管理里配)"
+            >🌐 外部订单同步</span>
             <span style={{color:'#bbb',fontSize:12,marginLeft:'auto'}}>
-              {mainTab==='overview' ? '💡 点击"按月统计"切到月度视图' : '💡 月度视图'}
+              {mainTab==='overview' ? '💡 点击"按月统计"切到月度视图 / "外部订单同步"拉花像花木' :
+               mainTab==='monthly' ? '💡 月度视图 · 切到"外部订单同步"拉花像花木订单' :
+               '💡 外部订单同步 · 从 admin.huaxianghuamu.cn 拉订单'}
             </span>
           </div>
         </Card>
@@ -998,6 +1011,8 @@ const columns = [
           />
         </Card>
         )}
+
+        {mainTab === 'huaxiang' && <HuaxiangSyncTab apiBase={API_BASE} onBack={() => setMainTab('overview')} />}
 
         <Table columns={mergedColumns} dataSource={data} rowKey="id" loading={loading} rowClassName={(record, index) => { if (index === 0) return ''; const prev = data[index-1]; if (!prev) return ''; try { const m1 = dayjs(record.purchase_time).format('YYYY-MM'); const m2 = dayjs(prev.purchase_time).format('YYYY-MM'); return m1 !== m2 ? 'month-divider' : ''; } catch(_) { return ''; } }}
           rowSelection={rowSelection}
@@ -1169,6 +1184,314 @@ function OrderBatchTagModal({ ids, tagPool, onClose, onSaved }) {
   );
 }
 
+
+// ============ 🌐 外部订单同步 (花像花木 admin) ============
+function HuaxiangSyncTab({ apiBase, onBack }) {
+  const [shops, setShops] = React.useState([]);
+  const [shopId, setShopId] = React.useState('');
+  const [shopInfo, setShopInfo] = React.useState(null);
+  const [orderStatus, setOrderStatus] = React.useState('0');
+  const [paymentMethod, setPaymentMethod] = React.useState('0');
+  const [dateRange, setDateRange] = React.useState(() => {
+    const end = new Date();
+    const start = new Date(); start.setDate(start.getDate() - 29);
+    return [start, end];
+  });
+  const [productName, setProductName] = React.useState('');
+  const [keyword, setKeyword] = React.useState('');
+  const [searchStatus, setSearchStatus] = React.useState('');
+  const [sort, setSort] = React.useState(false);
+  const [previewRows, setPreviewRows] = React.useState([]);
+  const [previewTotal, setPreviewTotal] = React.useState(0);
+  const [previewPage, setPreviewPage] = React.useState(1);
+  const [previewPageSize, setPreviewPageSize] = React.useState(20);
+  const [previewBusy, setPreviewBusy] = React.useState(false);
+  const [syncBusy, setSyncBusy] = React.useState(false);
+  const [syncResult, setSyncResult] = React.useState(null);
+  const [errMsg, setErrMsg] = React.useState('');
+  const [lastSyncByShop, setLastSyncByShop] = React.useState({}); // shopId -> {scanned, inserted, updated, time}
+
+  const fmtDate = (d) => dayjs(d).format('YYYY-MM-DD');
+
+  const fetchShops = React.useCallback(async () => {
+    try {
+      const r = await fetch(`${apiBase}/api/orders/huaxiang/shops`);
+      const j = await r.json();
+      setShops(j.data || []);
+      if ((j.data || []).length && !shopId) setShopId(String(j.data[0].id));
+    } catch (e) { setErrMsg('加载店铺列表失败: ' + e.message); }
+  }, [apiBase, shopId]);
+
+  React.useEffect(() => { fetchShops(); }, []);
+
+  const selectedShop = shops.find(s => String(s.id) === String(shopId)) || null;
+
+  const buildFilters = () => {
+    const f = {
+      orderStatus: orderStatus,
+      paymentMethod,
+      sort,
+      productName: productName.trim(),
+      keyword: keyword.trim(),
+      searchStatus,
+    };
+    if (dateRange && dateRange[0]) f.startTime = fmtDate(dateRange[0]) + ' 00:00:00';
+    if (dateRange && dateRange[1]) f.endTime = fmtDate(dateRange[1]) + ' 23:59:59';
+    return f;
+  };
+
+  const fetchPreview = async (page = 1, pageSize = previewPageSize) => {
+    if (!shopId) return message.warning('请先选店铺');
+    const shop = selectedShop;
+    if (!shop || !shop.has_token) return message.warning('该店铺还没配 Token, 请先到店铺管理里填');
+    if (!shop.huaxiang_platform_id) return message.warning('该店铺还没配 平台ID, 请先到店铺管理里填');
+    setPreviewBusy(true);
+    setErrMsg('');
+    try {
+      const f = buildFilters();
+      const params = new URLSearchParams({ shopId, pageNumber: String(page), pageSize: String(pageSize) });
+      Object.entries(f).forEach(([k, v]) => { if (v !== '' && v !== false && v !== null && v !== undefined) params.set(k, v); });
+      const res = await fetch(`${apiBase}/api/orders/huaxiang/preview?${params.toString()}`);
+      const j = await res.json();
+      if (!res.ok || j.error) throw new Error(j.error || `HTTP ${res.status}`);
+      setPreviewRows(j.rows || []);
+      setPreviewTotal(j.total || 0);
+      setPreviewPage(page);
+      setPreviewPageSize(pageSize);
+      setShopInfo(j.shop || null);
+    } catch (e) {
+      setErrMsg(e.message);
+      setPreviewRows([]);
+      setPreviewTotal(0);
+      message.error('拉取预览失败: ' + e.message);
+    }
+    setPreviewBusy(false);
+  };
+
+  const runSync = async () => {
+    if (!shopId) return message.warning('请先选店铺');
+    if (!previewTotal && !previewRows.length) return message.warning('请先拉取预览, 确认筛选条件正确');
+    Modal.confirm({
+      title: '确认同步到本地 purchase_orders?',
+      content: <div>
+        <div style={{ marginBottom: 6 }}>店铺: <b>{selectedShop?.shop_name}</b> (platformId={selectedShop?.huaxiang_platform_id})</div>
+        <div style={{ marginBottom: 6 }}>筛选: 订单状态=<b>{orderStatus === '' ? '全部' : ORDER_STATUS_OPTIONS.find(o => o.value === orderStatus)?.label || orderStatus}</b>, 支付方式=<b>{paymentMethod === '0' ? '全部' : PAYMENT_METHOD_OPTIONS.find(o => o.value === paymentMethod)?.label || paymentMethod}</b></div>
+        <div style={{ marginBottom: 6 }}>日期: <b>{dateRange?.[0] ? fmtDate(dateRange[0]) : '不限'} ~ {dateRange?.[1] ? fmtDate(dateRange[1]) : '不限'}</b></div>
+        <div style={{ marginBottom: 6 }}>预览: 共 <b>{previewTotal}</b> 条, 当前页 <b>{previewRows.length}</b> 条</div>
+        <div style={{ color: '#888', fontSize: 12 }}>提示: 将分页拉上游接口(默认 50 条/页, 最多 30 页 = 1500 条),按 source_order_sn upsert 到 purchase_orders(source_table='huaxiang_porder'), 自动打"北京花卉订单"标签</div>
+      </div>,
+      okText: '开始同步', cancelText: '取消',
+      onOk: async () => {
+        setSyncBusy(true);
+        setErrMsg('');
+        try {
+          const body = buildFilters();
+          body.shopId = shopId;
+          body.pageSize = 50;
+          body.maxPages = 30;
+          const res = await fetch(`${apiBase}/api/orders/sync-huaxiang`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const j = await res.json();
+          if (!res.ok || j.error) throw new Error(j.error || `HTTP ${res.status}`);
+          setSyncResult(j);
+          setLastSyncByShop(prev => ({ ...prev, [shopId]: {
+            scanned: j.scanned, inserted: j.inserted, updated: j.updated, errors: j.errors,
+            time: new Date().toLocaleString('zh-CN'),
+          }}));
+          message.success(`同步完成 · 扫描 ${j.scanned} / 新增 ${j.inserted} / 更新 ${j.updated} / 失败 ${j.errors}`);
+        } catch (e) {
+          setErrMsg(e.message);
+          message.error('同步失败: ' + e.message);
+        }
+        setSyncBusy(false);
+      },
+    });
+  };
+
+  const ORDER_STATUS_OPTIONS = [
+    { value: '', label: '全部订单' },
+    { value: '0', label: '未确认' },
+    { value: '1', label: '已确认' },
+    { value: '2', label: '已完成' },
+    { value: '3', label: '已取消' },
+  ];
+  const PAYMENT_METHOD_OPTIONS = [
+    { value: '0', label: '全部' },
+    { value: '1', label: '微信收单' },
+    { value: '2', label: '银联收单' },
+    { value: '3', label: '线上支付' },
+    { value: '4', label: '线下支付' },
+  ];
+  const SEARCH_STATUS_OPTIONS = [
+    { value: '', label: '不搜' },
+    { value: '0', label: '订单号' },
+    { value: '1', label: '买家邀请码' },
+    { value: '2', label: '收货人手机号' },
+    { value: '3', label: '买家手机号' },
+    { value: '4', label: '订单ID' },
+    { value: '7', label: '收货人姓名' },
+    { value: '8', label: '外部平台单号' },
+    { value: '10', label: '源订单号' },
+  ];
+
+  const previewColumns = [
+    { title: '#', key: 'idx', width: 50, render: (_, r, i) => (previewPage - 1) * previewPageSize + i + 1 },
+    { title: '订单号', dataIndex: 'order_sn', width: 160, render: v => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> },
+    { title: '下单时间', dataIndex: 'purchase_time', width: 150, render: v => v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-' },
+    { title: '收货人', dataIndex: 'consignee', width: 100 },
+    { title: '手机', dataIndex: 'phone', width: 120 },
+    { title: '支付方式', dataIndex: 'paymentMethod', width: 100 },
+    { title: '实付金额', dataIndex: 'payAmount', width: 100, align: 'right', render: v => <b style={{ color: '#3f8600' }}>¥{Number(v||0).toFixed(2)}</b> },
+    { title: '运费', dataIndex: 'freight', width: 80, align: 'right', render: v => Number(v||0).toFixed(2) },
+    { title: '订单状态', dataIndex: 'orderStatus', width: 90 },
+    { title: '支付状态', dataIndex: 'paymentStatus', width: 90, render: v => {
+        const colorMap = { '已支付': '#52c41a', '未支付': '#faad14', '部分支付': '#faad14', '已退款': '#cf1322' };
+        return v ? <Tag color={colorMap[v] || 'default'}>{v}</Tag> : '-';
+      } },
+    { title: '配送状态', dataIndex: 'shippingStatus', width: 90 },
+    { title: '商品', dataIndex: 'productName', ellipsis: true },
+  ];
+
+  return (
+    <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '14px 18px' }}
+      title={<span><span style={{ color: '#722ed1', fontWeight: 600 }}>🌐 外部订单同步</span>
+        <span style={{ fontSize: 12, color: '#888', marginLeft: 12 }}>从 admin.huaxianghuamu.cn/#/statcenter/porder 拉订单 → purchase_orders</span>
+      </span>}
+      extra={<Space>
+        <Button size="small" onClick={() => onBack && onBack()}>← 返回总览</Button>
+      </Space>}>
+      {/* 1. 筛选器 — 一一对应源页面顶部 */}
+      <div style={{ background: '#f9f0ff', padding: 12, borderRadius: 6, marginBottom: 12 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 11, color: '#888' }}>店铺 (platformId)</div>
+            <Select value={shopId || undefined} onChange={setShopId} placeholder="选店铺 (店铺管理里配过 Token 的)"
+              style={{ width: 240 }} size="small" showSearch optionFilterProp="children">
+              {shops.map(s => (
+                <Select.Option key={s.id} value={String(s.id)}>
+                  <span style={{ fontWeight: 500 }}>{s.shop_name}</span>
+                  <span style={{ color: '#888', fontSize: 11, marginLeft: 6 }}>platformId={s.huaxiang_platform_id}{s.has_token ? ' ✓Token' : ' ⚠未配Token'}</span>
+                </Select.Option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#888' }}>订单状态</div>
+            <Select value={orderStatus} onChange={setOrderStatus} style={{ width: 130 }} size="small" options={ORDER_STATUS_OPTIONS} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#888' }}>支付方式</div>
+            <Select value={paymentMethod} onChange={setPaymentMethod} style={{ width: 130 }} size="small" options={PAYMENT_METHOD_OPTIONS} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#888' }}>日期范围</div>
+            <DatePicker.RangePicker
+              value={dateRange}
+              onChange={(v) => setDateRange(v || [])}
+              size="small"
+              format="YYYY-MM-DD"
+              presets={[
+                { label: '今天', value: [dayjs().startOf('day'), dayjs().endOf('day')] },
+                { label: '昨天', value: [dayjs().subtract(1,'day').startOf('day'), dayjs().subtract(1,'day').endOf('day')] },
+                { label: '近 7 天', value: [dayjs().subtract(6,'day').startOf('day'), dayjs().endOf('day')] },
+                { label: '近 30 天', value: [dayjs().subtract(29,'day').startOf('day'), dayjs().endOf('day')] },
+                { label: '本月', value: [dayjs().startOf('month'), dayjs().endOf('month')] },
+                { label: '上月', value: [dayjs().subtract(1,'month').startOf('month'), dayjs().subtract(1,'month').endOf('month')] },
+              ]}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#888' }}>商品名称</div>
+            <Input value={productName} onChange={e => setProductName(e.target.value)} placeholder="模糊匹配" size="small" style={{ width: 160 }} allowClear />
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, color: '#888' }}>关键词搜索类型</div>
+            <Select value={searchStatus} onChange={setSearchStatus} style={{ width: 160 }} size="small" options={SEARCH_STATUS_OPTIONS} />
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 11, color: '#888' }}>关键词</div>
+            <Input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="按上面类型搜" size="small" allowClear />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#888' }}>&nbsp;</div>
+            <Checkbox checked={sort} onChange={e => setSort(e.target.checked)}>付款时间倒序</Checkbox>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#888' }}>&nbsp;</div>
+            <Space>
+              <Button type="primary" size="small" loading={previewBusy} onClick={() => fetchPreview(1)} style={{ background: '#722ed1', borderColor: '#722ed1' }}>
+                🔍 拉取预览
+              </Button>
+              <Button type="primary" size="small" loading={syncBusy} onClick={runSync} disabled={!previewTotal}
+                style={{ background: '#52c41a', borderColor: '#52c41a' }}>
+                📥 同步到本地 ({previewTotal} 条)
+              </Button>
+            </Space>
+          </div>
+        </div>
+        {selectedShop && !selectedShop.has_token && (
+          <Alert type="warning" showIcon style={{ marginTop: 10 }}
+            message={`店铺「${selectedShop.shop_name}」还没配 Token`}
+            description="请到「店铺管理」(http://100.96.54.109:31004) 给这条记录填上 花像花木 Token + platformId,然后回这里刷新。Token 是 admin 页面 cookie 里的 ajaxtoken 值。"
+          />
+        )}
+      </div>
+
+      {/* 2. 预览 */}
+      {previewRows.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 6, color: '#666', fontSize: 12 }}>
+            预览: 共 <b>{previewTotal}</b> 条 · 当前第 {previewPage} 页 · 店铺 <b>{shopInfo?.shop_name}</b> (platformId={shopInfo?.huaxiang_platform_id})
+          </div>
+          <Table size="small" dataSource={previewRows} rowKey={(r, i) => (r.order_id || r.source_order_sn || '') + '_' + i}
+            columns={previewColumns}
+            pagination={{
+              current: previewPage, pageSize: previewPageSize, total: previewTotal, showSizeChanger: true,
+              onChange: (p, ps) => fetchPreview(p, ps),
+              showTotal: (t) => `共 ${t} 条`,
+            }}
+            scroll={{ x: 1200 }} />
+        </div>
+      )}
+
+      {/* 3. 最近同步结果 */}
+      {syncResult && (
+        <div style={{ background: '#f6ffed', border: '1px solid #b7eb8f', padding: 10, borderRadius: 6, marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, color: '#389e0d', marginBottom: 6 }}>✅ 上次同步结果</div>
+          <Space wrap>
+            <span>扫描: <b>{syncResult.scanned}</b></span>
+            <span>新增: <b style={{ color: '#3f8600' }}>{syncResult.inserted}</b></span>
+            <span>更新: <b style={{ color: '#1677ff' }}>{syncResult.updated}</b></span>
+            <span>失败: <b style={{ color: syncResult.errors ? '#cf1322' : '#999' }}>{syncResult.errors}</b></span>
+            <span>上游 total: <b>{syncResult.total}</b></span>
+            <span>店铺: <b>{syncResult.shop?.shop_name}</b></span>
+          </Space>
+          {syncResult.errorList && syncResult.errorList.length > 0 && (
+            <div style={{ marginTop: 8, fontSize: 12, color: '#cf1322' }}>
+              ⚠ 错误样例: {syncResult.errorList.map((e, i) => <div key={i}>· {e.message}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {errMsg && <Alert type="error" message={errMsg} showIcon style={{ marginBottom: 12 }} />}
+
+      {/* 4. 上次同步记录 */}
+      {Object.keys(lastSyncByShop).length > 0 && (
+        <div style={{ fontSize: 12, color: '#888' }}>
+          最近同步: {Object.entries(lastSyncByShop).map(([sid, v]) => {
+            const s = shops.find(x => String(x.id) === sid);
+            return <span key={sid} style={{ marginRight: 16 }}>{s?.shop_name || sid} · {v.time} · 新增{v.inserted}/更新{v.updated}</span>;
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>

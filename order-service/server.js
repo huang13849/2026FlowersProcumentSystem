@@ -561,6 +561,52 @@ app.get('/api/orders/stats/shop-name', async (req, res) => {
   }
 });
 
+// Monthly aggregate: 每月订单数 / 总价 / 总成本 / 总利润 / 总运费 / 总优惠 (可选 year/business_type/region/shop_name/tag 过滤)
+app.get('/api/orders/stats/monthly', async (req, res) => {
+  try {
+    const { year, business_type, region, shop_name, tag } = req.query;
+    const conditions = [`COALESCE(order_status,'') <> '关闭'`, `purchase_time IS NOT NULL`];
+    const params = [];
+    if (year && /^\d{4}$/.test(year)) {
+      params.push(parseInt(year, 10));
+      conditions.push(`EXTRACT(YEAR FROM purchase_time) = $${params.length}`);
+    }
+    if (business_type && business_type !== '全部') { params.push(business_type); conditions.push(`business_type = $${params.length}`); }
+    if (region && region !== 'all') { params.push(region); conditions.push(`region = $${params.length}`); }
+    if (shop_name && shop_name !== '全部') { params.push(shop_name); conditions.push(`shop_name = $${params.length}`); }
+    if (tag && tag !== '全部') { params.push(tag); conditions.push(`tags @> to_jsonb(ARRAY[$${params.length}::text])`); }
+    const where = `WHERE ${conditions.join(' AND ')}`;
+    const { rows } = await pgPool.query(
+      `SELECT TO_CHAR(purchase_time, 'YYYY-MM') AS month,
+              COUNT(*)::int AS order_count,
+              COALESCE(SUM(income_amount),0)::float AS total_income,
+              COALESCE(SUM(cost_amount),0)::float AS total_cost,
+              COALESCE(SUM(COALESCE(income_amount,0) - COALESCE(cost_amount,0) - COALESCE(coupon_discount,0)),0)::float AS total_profit,
+              COALESCE(SUM(shipping_fee),0)::float AS total_shipping,
+              COALESCE(SUM(coupon_discount),0)::float AS total_coupon,
+              COALESCE(SUM(expense_amount),0)::float AS total_expense
+         FROM purchase_orders ${where}
+         GROUP BY TO_CHAR(purchase_time, 'YYYY-MM')
+         ORDER BY month ASC`,
+      params
+    );
+    // 汇总
+    const totals = rows.reduce((acc, r) => {
+      acc.order_count += r.order_count;
+      acc.total_income += r.total_income;
+      acc.total_cost += r.total_cost;
+      acc.total_profit += r.total_profit;
+      acc.total_shipping += r.total_shipping;
+      acc.total_coupon += r.total_coupon;
+      acc.total_expense += r.total_expense;
+      return acc;
+    }, { order_count: 0, total_income: 0, total_cost: 0, total_profit: 0, total_shipping: 0, total_coupon: 0, total_expense: 0 });
+    res.json({ data: rows, totals, filters: { year, business_type, region, shop_name, tag } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Proxy: search products from product-service
 app.get('/api/products/search', async (req, res) => {
   try {
@@ -574,6 +620,326 @@ app.get('/api/products/search', async (req, res) => {
     res.json({ data: json.products || [], total: json.total || 0, page: json.page || 1 });
   } catch (err) {
     res.status(err.response?.status || 500).json({ error: err.response?.data?.error || err.message });
+  }
+});
+
+// ============== 外部订单同步 (花像花木 admin 页面 → purchase_orders) ==============
+// 源页面: https://admin.huaxianghuamu.cn/#/statcenter/porder
+// 源接口: http://adminapi.huaxianghuamu.cn/weidao/weidaoyun/admin/order/finds.jhtml?platformId=X
+// 鉴权: header `token` + query `token&stoken` (值是 admin 页面 cookie ajaxtoken)
+// 筛选条件 (顶部): 订单状态 orderStatus / 支付方式 paymentMethod / 日期范围 startTime-endTime
+//                  / 商品名称 productName / 关键词 keyword+searchStatus / 排序 sort / platformId
+// 同步策略: shops 表加 huaxiang_api_token / huaxiang_api_base / huaxiang_platform_id;
+//           用户在店铺管理里手动录入(尤其是"北京花卉");
+//           按 source_order_sn upsert 到 purchase_orders, source_table='huaxiang_porder'
+
+const HUAXIANG_SOURCE_TABLE = 'huaxiang_porder';
+
+async function fetchHuaxiangShop(shopId) {
+  if (!shopId) return null;
+  const num = /^[0-9]+$/.test(String(shopId));
+  const r = await pgPool.query(
+    `SELECT id, mongo_id, shop_name, huaxiang_api_base, huaxiang_api_token, huaxiang_platform_id
+       FROM shops
+      WHERE (mongo_id = $1${num ? ' OR id = $1::bigint' : ''})
+      LIMIT 1`,
+    [shopId]
+  );
+  return r.rows[0] || null;
+}
+
+async function callHuaxiangFinds(shop, filters, pageNumber = 1, pageSize = 50) {
+  if (!shop.huaxiang_api_token) throw new Error('店铺未配置 huaxiang_api_token');
+  if (!shop.huaxiang_platform_id) throw new Error('店铺未配置 huaxiang_platform_id (platformId)');
+  const base = (shop.huaxiang_api_base || 'http://adminapi.huaxianghuamu.cn/').replace(/\/$/, '') + '/';
+  const token = shop.huaxiang_api_token;
+  const url = `${base}weidao/weidaoyun/admin/order/finds.jhtml?platformId=${encodeURIComponent(shop.huaxiang_platform_id)}&token=${encodeURIComponent(token)}&stoken=${encodeURIComponent(token)}`;
+
+  // body: orderStatus / paymentMethod / startTime / endTime / productName / keyword / searchStatus / sort / pageNumber / pageSize
+  const body = {
+    pageNumber: String(pageNumber),
+    pageSize: String(pageSize),
+    paymentMethod: String(filters.paymentMethod || 0),
+    orderStatus: filters.orderStatus === '' || filters.orderStatus == null ? '' : String(filters.orderStatus),
+    needTotal: '1',
+    userPfid: String(shop.huaxiang_platform_id),
+  };
+  if (filters.sort) body.sort = '1';
+  if (filters.startTime) body.startTime = filters.startTime;
+  if (filters.endTime) body.endTime = filters.endTime;
+  if (filters.productName) body.productName = filters.productName;
+  if (filters.keyword) {
+    body.keyword = filters.keyword;
+    body.searchStatus = String(filters.searchStatus || 0);
+  } else if (filters.searchStatus !== '' && filters.searchStatus != null) {
+    body.searchStatus = String(filters.searchStatus);
+  }
+
+  const params = new URLSearchParams(body).toString();
+  const res = await axios({
+    method: 'POST',
+    url,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'token': token,
+      'Cookie': `ajaxtoken=${token}`,
+      'User-Agent': 'order-service/sync',
+    },
+    data: params,
+    timeout: 20000,
+    validateStatus: () => true,
+  });
+  if (res.status !== 200) {
+    throw new Error(`上游 HTTP ${res.status}: ${typeof res.data === 'string' ? res.data.slice(0,200) : ''}`);
+  }
+  return res.data || {};
+}
+
+// 把上游 row.order 拍平到 purchase_orders 字段
+function mapHuaxiangRow(row, shopName) {
+  const o = row.order || {};
+  // 时间优先用 createDate / paymentDate / create_date, fallback current
+  const purchaseTime = o.createDate || o.paymentDate || row.create_date || row.payment_date || new Date().toISOString();
+  // paymentMethod 是文字 (微信收单/银联收单/线上支付/线下支付)
+  const paymentChannel = o.paymentMethod || row.paymentMethodName || '';
+  // orderStatus / paymentStatus / shippingStatus 都是后端映射好的中文 ("未确认/已支付/已发货/...")
+  const orderStatus = row.orderStatus || '';
+  const payStatus = row.paymentStatus || '';
+  const shippingStatus = row.shippingStatus || '';
+  // orderId 在源里叫 id, sn 是订单号
+  const sourceOrderId = String(o.id || row.orderId || '');
+  const sourceOrderSn = String(o.sn || row.orderSn || sourceOrderId);
+  // 金额: payAmount(实付), freight(运费), settlementPrice(结算价), productQuantity(数量)
+  const income = Number(row.payAmount ?? o.realPrice ?? 0) || 0;
+  const shippingFee = Number(row.freight ?? o.freight ?? 0) || 0;
+  // 商品明细: 优先 row.productName (搜索列), 否则拼 order.products 名字
+  let productNames = [];
+  if (Array.isArray(o.products)) {
+    for (const p of o.products) {
+      const t = p.fullName || p.name || p.productName || '';
+      if (t) productNames.push(t);
+    }
+  }
+  if (!productNames.length && row.productName) productNames = [String(row.productName)];
+  return {
+    member_id: o.memberId || row.memberId || '',
+    member_name: row.nickname || o.nickname || '',
+    phone: o.phone || row.phone || '',
+    consignee: o.consignee || row.consignee || '',
+    delivery_address: o.address || row.address || '',
+    personal_tag: o.memo || row.memo || '',
+    purchase_time: purchaseTime,
+    income_amount: income,
+    expense_amount: 0,
+    product_subtotal: Math.max(income - shippingFee, 0),
+    shipping_fee: shippingFee,
+    coupon_discount: Number(row.couponDiscount ?? o.couponDiscount ?? 0) || 0,
+    cost_amount: Number(row.cost ?? o.cost ?? 0) || 0,
+    profit_amount: 0,
+    payment_channel: paymentChannel,
+    payment_order_id: o.paymentSn || row.paymentSn || sourceOrderSn,
+    business_type: paymentChannel || '外部订单',
+    region: 'cn',
+    source_table: HUAXIANG_SOURCE_TABLE,
+    source_order_key: sourceOrderId || sourceOrderSn,
+    source_order_id: sourceOrderId,
+    source_order_sn: sourceOrderSn,
+    source_shop_id: String(o.pfid || row.pfid || ''),
+    shop_name: shopName || row.platformName || '',
+    shop_phone: o.phone || '',
+    order_status: orderStatus,
+    shipping_status: shippingStatus,
+    pay_status: payStatus === '已支付' ? '已支付' : payStatus === '未支付' ? '未支付' : '',
+    tags: ['北京花卉订单'],
+    product_id: [],
+    product_title: productNames,
+    synced_payload: {
+      upstream: row,
+      fetched_at: new Date().toISOString(),
+    },
+    synced_at: new Date().toISOString(),
+  };
+}
+
+app.get('/api/orders/huaxiang/shops', async (req, res) => {
+  try {
+    const { rows } = await pgPool.query(
+      `SELECT id, mongo_id, shop_name, huaxiang_api_base, huaxiang_platform_id,
+              (huaxiang_api_token IS NOT NULL AND huaxiang_api_token <> '') AS has_token
+         FROM shops
+        WHERE huaxiang_platform_id IS NOT NULL AND huaxiang_platform_id <> ''
+        ORDER BY shop_name ASC`
+    );
+    res.json({ data: rows.map(r => ({ ...r, id: String(r.id), mongo_id: String(r.mongo_id) })) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/orders/huaxiang/preview', async (req, res) => {
+  try {
+    const { shopId, startTime, endTime, orderStatus = '', paymentMethod = '0', productName = '', keyword = '', searchStatus = '', sort = 'false', pageNumber = '1', pageSize = '20' } = req.query;
+    const shop = await fetchHuaxiangShop(shopId);
+    if (!shop) return res.status(404).json({ error: '店铺不存在' });
+    if (!shop.huaxiang_api_token) return res.status(400).json({ error: '该店铺未配置 huaxiang_api_token,请先在店铺管理录入' });
+    if (!shop.huaxiang_platform_id) return res.status(400).json({ error: '该店铺未配置 huaxiang_platform_id(花像花木 platformId),请先在店铺管理录入' });
+
+    const data = await callHuaxiangFinds(shop, {
+      startTime, endTime, orderStatus, paymentMethod,
+      productName, keyword, searchStatus, sort: sort === 'true' || sort === true || sort === '1',
+    }, parseInt(pageNumber,10) || 1, Math.min(parseInt(pageSize,10) || 20, 100));
+
+    if (data.code !== 200) {
+      return res.status(400).json({ error: data.status || data.msg || `上游 code=${data.code}` });
+    }
+    const rows = Array.isArray(data.data) ? data.data : [];
+    res.json({
+      code: 200,
+      total: data.count || rows.length,
+      page: parseInt(pageNumber,10) || 1,
+      pageSize: parseInt(pageSize,10) || 20,
+      rows: rows.map(r => ({
+        source_order_sn: r.order?.sn || r.orderSn || r.order?.id || '',
+        order_sn: r.order?.sn || r.orderSn || '',
+        order_id: r.order?.id,
+        purchase_time: r.order?.createDate || r.create_date || '',
+        consignee: r.order?.consignee || '',
+        phone: r.order?.phone || '',
+        paymentMethod: r.order?.paymentMethod || r.paymentMethodName || '',
+        payAmount: Number(r.payAmount || r.order?.realPrice || 0),
+        freight: Number(r.freight || r.order?.freight || 0),
+        orderStatus: r.orderStatus || '',
+        paymentStatus: r.paymentStatus || '',
+        shippingStatus: r.shippingStatus || '',
+        productName: r.productName || '',
+        address: r.order?.address || '',
+        platformName: r.platformName || shop.shop_name || '',
+        pfid: r.order?.pfid || '',
+      })),
+      shop: { id: String(shop.id), shop_name: shop.shop_name, huaxiang_platform_id: shop.huaxiang_platform_id },
+    });
+  } catch (err) {
+    console.error('huaxiang preview error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/orders/sync-huaxiang', async (req, res) => {
+  try {
+    const { shopId, startTime, endTime, orderStatus = '', paymentMethod = '0', productName = '', keyword = '', searchStatus = '', sort = false, maxPages = 30, pageSize = 50 } = req.body || {};
+    if (!shopId) return res.status(400).json({ error: 'shopId 必填' });
+    const shop = await fetchHuaxiangShop(shopId);
+    if (!shop) return res.status(404).json({ error: '店铺不存在' });
+    if (!shop.huaxiang_api_token) return res.status(400).json({ error: '该店铺未配置 huaxiang_api_token,请先在店铺管理录入' });
+    if (!shop.huaxiang_platform_id) return res.status(400).json({ error: '该店铺未配置 huaxiang_platform_id, 请先在店铺管理录入' });
+
+    const filters = { startTime, endTime, orderStatus, paymentMethod, productName, keyword, searchStatus, sort: !!sort };
+
+    let scanned = 0, inserted = 0, updated = 0, skipped = 0, errors = 0;
+    const errorList = [];
+    let lastTotal = 0;
+    const shopName = shop.shop_name || '';
+    const pagesLimit = Math.min(Math.max(parseInt(maxPages,10) || 30, 1), 200);
+    const ps = Math.min(Math.max(parseInt(pageSize,10) || 50, 1), 100);
+
+    for (let p = 1; p <= pagesLimit; p++) {
+      const data = await callHuaxiangFinds(shop, filters, p, ps);
+      if (data.code !== 200) {
+        errorList.push({ page: p, message: data.status || data.msg || `code=${data.code}` });
+        break;
+      }
+      const rows = Array.isArray(data.data) ? data.data : [];
+      lastTotal = data.count || lastTotal;
+      if (!rows.length) break;
+
+      for (const row of rows) {
+        scanned++;
+        try {
+          const mapped = mapHuaxiangRow(row, shopName);
+          if (!mapped.source_order_sn) { skipped++; continue; }
+
+          // upsert by (source_table, source_order_sn)
+          const { rows: exist } = await pgPool.query(
+            `SELECT id FROM purchase_orders WHERE source_table = $1 AND source_order_sn = $2 LIMIT 1`,
+            [HUAXIANG_SOURCE_TABLE, mapped.source_order_sn]
+          );
+          const jsonb = (v) => v == null ? null : JSON.stringify(v);
+          if (exist.length) {
+            const id = exist[0].id;
+            await pgPool.query(
+              `UPDATE purchase_orders SET
+                 source_order_key = $2, source_order_id = $3, source_shop_id = $4,
+                 shop_name = $5, shop_phone = $6, consignee = $7, order_status = $8,
+                 shipping_status = $9, pay_status = $10,
+                 purchase_time = COALESCE(NULLIF($11,'')::timestamptz, purchase_time),
+                 income_amount = $12, shipping_fee = $13, coupon_discount = $14,
+                 cost_amount = $15, payment_channel = $16, payment_order_id = $17,
+                 member_id = $18, member_name = $19, phone = $20, delivery_address = $21,
+                 product_subtotal = $22,
+                 synced_payload = $23::jsonb, synced_at = NOW(), updated_at = NOW()
+               WHERE id = $1`,
+              [
+                id, mapped.source_order_key, mapped.source_order_id, mapped.source_shop_id,
+                mapped.shop_name, mapped.shop_phone, mapped.consignee, mapped.order_status,
+                mapped.shipping_status, mapped.pay_status,
+                mapped.purchase_time, mapped.income_amount, mapped.shipping_fee, mapped.coupon_discount,
+                mapped.cost_amount, mapped.payment_channel, mapped.payment_order_id,
+                mapped.member_id, mapped.member_name, mapped.phone, mapped.delivery_address,
+                mapped.product_subtotal, jsonb(mapped.synced_payload),
+              ]
+            );
+            updated++;
+          } else {
+            const ins = await pgPool.query(
+              `INSERT INTO purchase_orders
+                 (member_id, member_name, phone, business_type, region, purchase_time,
+                  delivery_address, personal_tag, income_amount, expense_amount,
+                  payment_order_id, payment_channel, product_subtotal, shipping_fee,
+                  coupon_discount, cost_amount, profit_amount,
+                  source_table, source_order_key, source_order_id, source_order_sn,
+                  source_shop_id, shop_name, shop_phone, consignee,
+                  order_status, shipping_status, pay_status, synced_at,
+                  tags, synced_payload)
+               VALUES ($1,$2,$3,$4,$5,$6::timestamptz,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30::jsonb,$31::jsonb)
+               RETURNING id`,
+              [
+                mapped.member_id, mapped.member_name, mapped.phone, mapped.business_type, mapped.region, mapped.purchase_time,
+                mapped.delivery_address, mapped.personal_tag, mapped.income_amount, mapped.expense_amount,
+                mapped.payment_order_id, mapped.payment_channel, mapped.product_subtotal, mapped.shipping_fee,
+                mapped.coupon_discount, mapped.cost_amount, 0,
+                mapped.source_table, mapped.source_order_key, mapped.source_order_id, mapped.source_order_sn,
+                mapped.source_shop_id, mapped.shop_name, mapped.shop_phone, mapped.consignee,
+                mapped.order_status, mapped.shipping_status, mapped.pay_status, mapped.synced_at,
+                JSON.stringify(mapped.tags), JSON.stringify(mapped.synced_payload),
+              ]
+            );
+            const newId = ins.rows[0]?.id;
+            if (newId && Array.isArray(mapped.product_title) && mapped.product_title.length) {
+              await pgPool.query(
+                `UPDATE purchase_orders SET product_id = $1::jsonb, product_title = $2::jsonb WHERE id = $3`,
+                [JSON.stringify(mapped.product_id || []), JSON.stringify(mapped.product_title), newId]
+              );
+            }
+            inserted++;
+          }
+        } catch (e) {
+          errors++;
+          if (errorList.length < 5) errorList.push({ row: row?.order?.sn || row?.order?.id, message: e.message });
+        }
+      }
+      if (rows.length < ps) break; // last page
+    }
+
+    res.json({
+      success: true,
+      scanned, inserted, updated, skipped, errors,
+      total: lastTotal,
+      pages: pagesLimit,
+      shop: { id: String(shop.id), shop_name: shop.shop_name, huaxiang_platform_id: shop.huaxiang_platform_id },
+      filters,
+      errorList,
+    });
+  } catch (err) {
+    console.error('sync-huaxiang error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

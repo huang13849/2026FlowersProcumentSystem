@@ -7,7 +7,8 @@ const EMPTY_SHOP = {
   phone: '', contactName: '', date: '', idNumber: '',
   address: '', longitude: null, latitude: null,
   idCardImages: [], bankCardImages: [], qrCodeImages: [],
-  businessCategory: ''
+  businessCategory: '',
+  huaxiangApiBase: 'http://adminapi.huaxianghuamu.cn/', huaxiangApiToken: '', huaxiangPlatformId: ''
 }
 
 export default function ShopList() {
@@ -156,7 +157,7 @@ export default function ShopList() {
         <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>加载中...</div>
       ) : (
         <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 8 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1900 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 2200 }}>
             <thead>
               <tr style={{ background: '#f5f3ff' }}>
                 <Th style={{ width: 30 }}>#</Th>
@@ -174,12 +175,13 @@ export default function ShopList() {
                 <Th style={{ minWidth: 160 }}>银行卡正反面</Th>
                 <Th style={{ minWidth: 160 }}>线下收款码</Th>
                 <Th>经营类目</Th>
+                <Th style={{ minWidth: 240 }}>花像花木 同步设置 (API / Token / 平台ID)</Th>
                 <Th style={{ width: 50 }}>操作</Th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={16} style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+                <tr><td colSpan={17} style={{ textAlign: 'center', padding: 40, color: '#999' }}>
                   暂无数据，点击「＋ 新增店铺」添加
                 </td></tr>
               ) : (
@@ -295,6 +297,28 @@ export default function ShopList() {
                     </td>
                     <td style={tdStyle}>
                       <EditableCell value={shop.businessCategory} onChange={v => updateField(shop._id, 'businessCategory', v)} placeholder="经营类目" />
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>API</span>
+                          <EditableCell value={shop.huaxiangApiBase} onChange={v => updateField(shop._id, 'huaxiangApiBase', v)} placeholder="http://adminapi.huaxianghuamu.cn/" />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>Token</span>
+                          <input type="password" value={shop.huaxiangApiToken || ''}
+                            onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, huaxiangApiToken: e.target.value } : s))}
+                            onBlur={e => updateField(shop._id, 'huaxiangApiToken', e.target.value)}
+                            placeholder="admin 页面 cookie ajaxtoken"
+                            autoComplete="off"
+                            style={{ flex: 1, padding: '3px 6px', border: '1px solid #ffd591', borderRadius: 4, fontSize: 12, fontFamily: 'monospace', background: shop.huaxiangApiToken ? '#fffbe6' : '#fff', outline: 'none' }} />
+                          {shop.huaxiangApiToken ? <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>✓已配</span> : <span style={{ fontSize: 10, color: '#999' }}>未配</span>}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>平台ID</span>
+                          <EditableCell value={shop.huaxiangPlatformId} onChange={v => updateField(shop._id, 'huaxiangPlatformId', v)} placeholder="platformId (pfid)" />
+                        </div>
+                      </div>
                     </td>
                     <td style={tdStyle}>
                       <button onClick={() => deleteRow(shop._id, shop.shopName)} style={btnStyle.danger}>🗑</button>
