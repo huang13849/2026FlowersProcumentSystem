@@ -38,7 +38,7 @@ pipeline {
           IMG="${IMAGE_BASE}:${TAG}"
           echo "[1/5] jumpbox ${JUMP_USER}@${JUMP_HOST} -> build ${BUILD_USER}@${BUILD_HOST}"
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "wget -qO /tmp/build_office2wsl.sh ${SCRIPT_URL}"
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/build_office2wsl.sh ${BUILD_USER}@${BUILD_HOST}:/tmp/build_office2wsl.sh"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "scp -O -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/build_office2wsl.sh ${BUILD_USER}@${BUILD_HOST}:/tmp/build_office2wsl.sh"
           echo "[2/5] ssh jumpbox -> ssh xspt05 -> execute build"
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${BUILD_USER}@${BUILD_HOST} 'GITEA_URL=${GITEA_URL} REPO_DIR=${BUILD_WORKDIR} IMAGE=${IMG} bash /tmp/build_office2wsl.sh'"
           echo "[3/5] deploy ${IMG} to k3s"
