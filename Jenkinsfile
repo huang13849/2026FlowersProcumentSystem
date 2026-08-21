@@ -1,6 +1,6 @@
 // Jenkinsfile for shop-management-service
-// Build on office2-wsl (xspt05 100.113.60.71) where longhorn-office SC runs
-// Then push image to Mac Mini registry + kubectl rollout on k3s
+// Build on office2-wsl (xspt05 100.113.60.71) via ubuntu-master (100.96.54.109) as jumpbox.
+// Path: k3s-build-agent pod -> ssh ubuntu-master -> ssh xspt05 -> git clone + docker build + push -> kubectl rollout
 pipeline {
   agent any
 
@@ -11,8 +11,12 @@ pipeline {
     NAMESPACE  = "supply-chain"
     NODE_PORT  = "31004"
 
-    // Build happens on office2-wsl via ssh
-    BUILD_HOST = "dell@100.113.60.71"
+    // Jumpbox (k3s master where jenkins-agent key authorized)
+    JUMP_USER = "huangfra-ubun-master"
+    JUMP_HOST = "100.96.54.109"
+    // Build host (office2-wsl = xspt05 WSL2)
+    BUILD_USER = "dell"
+    BUILD_HOST = "100.113.60.71"
     BUILD_WORKDIR = "/home/dell/shop-management-service"
 
     GITEA_URL  = "http://100.76.15.64:13000/admin/supply-chain-platform.git"
@@ -35,25 +39,28 @@ pipeline {
           TAG="${SERVICE}-jenkins-$(date +%Y%m%d%H%M%S)-${SHA}"
           IMG="${IMAGE_BASE}:${TAG}"
 
-          echo "[1/5] ssh ${BUILD_HOST} build & push ${IMG}"
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${BUILD_HOST} "bash -s" <<REMOTE
+          echo "[1/5] jumpbox ${JUMP_USER}@${JUMP_HOST} -> build ${BUILD_USER}@${BUILD_HOST} (office2-wsl xspt05)"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "bash -s" <<REMOTE
             set -euo pipefail
-            export PATH="/usr/local/bin:/usr/bin:/bin:\\$PATH"
-            mkdir -p ${BUILD_WORKDIR}
-            cd ${BUILD_WORKDIR}
-            if [ ! -d .git ]; then
-              git clone ${GITEA_URL} .
-            fi
-            git fetch origin
-            git reset --hard origin/${GIT_BRANCH}
-            git clean -fd
-            cd shop-service
-            docker build --platform linux/amd64 -t ${IMG} .
-            docker push ${IMG}
-            echo ${TAG} > /tmp/last_tag.txt
+            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${BUILD_USER}@${BUILD_HOST} "bash -s" <<BUILDREMOTE
+              set -euo pipefail
+              export PATH="/usr/local/bin:/usr/bin:/bin:\\$PATH"
+              mkdir -p ${BUILD_WORKDIR}
+              cd ${BUILD_WORKDIR}
+              if [ ! -d .git ]; then
+                git clone ${GITEA_URL} .
+              fi
+              git fetch origin
+              git reset --hard origin/${GIT_BRANCH}
+              git clean -fd
+              cd shop-service
+              docker build --platform linux/amd64 -t ${IMG} .
+              docker push ${IMG}
+              echo ${TAG} > /tmp/last_tag.txt
+BUILDREMOTE
 REMOTE
 
-          LAST_TAG=\\$(ssh -o StrictHostKeyChecking=no ${BUILD_HOST} 'cat /tmp/last_tag.txt')
+          LAST_TAG=\\$(ssh -o StrictHostKeyChecking=no ${JUMP_USER}@${JUMP_HOST} "ssh -o StrictHostKeyChecking=no ${BUILD_USER}@${BUILD_HOST} 'cat /tmp/last_tag.txt'")
           IMG="${IMAGE_BASE}:${LAST_TAG}"
           echo "[2/5] deploy ${IMG} to k3s"
           kubectl -n ${NAMESPACE} set image deployment/${SERVICE} ${SERVICE}="${IMG}"
@@ -89,7 +96,7 @@ REMOTE
 
   post {
     success {
-      echo "shop-management-service deployed OK"
+      echo "shop-management-service deployed OK from office2-wsl build"
     }
     failure {
       echo "shop-management-service build/deploy failed"
