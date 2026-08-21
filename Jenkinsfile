@@ -1,6 +1,5 @@
-// Jenkinsfile for shop-management-service
-// Build on office2-wsl (xspt05 100.113.60.71) via ubuntu-master (100.96.54.109) as jumpbox.
-// Path: k3s-build-agent pod -> ssh ubuntu-master -> ssh xspt05 -> git clone + docker build + push -> kubectl rollout
+// Jenkinsfile for shop-management-service (v4 - 单层 ssh, 避免嵌套 heredoc Syntax error)
+// 流程: k3s-build-agent ssh ubuntu-master (跳板) -> wget build script -> ssh xspt05 -> 执行
 pipeline {
   agent any
 
@@ -11,16 +10,15 @@ pipeline {
     NAMESPACE  = "supply-chain"
     NODE_PORT  = "31004"
 
-    // Jumpbox (k3s master where jenkins-agent key authorized)
     JUMP_USER = "huangfra-ubun-master"
     JUMP_HOST = "100.96.54.109"
-    // Build host (office2-wsl = xspt05 WSL2)
     BUILD_USER = "dell"
     BUILD_HOST = "100.113.60.71"
     BUILD_WORKDIR = "/home/dell/shop-management-service"
 
     GITEA_URL  = "http://admin:Hy%401987921@100.76.15.64:13000/admin/supply-chain-platform.git"
     GIT_BRANCH = "main"
+    SCRIPT_URL = "http://admin:Hy%401987921@100.76.15.64:13000/admin/supply-chain-platform/raw/branch/main/build_office2wsl.sh"
   }
 
   stages {
@@ -38,34 +36,15 @@ pipeline {
           SHA=$(cat .git/HEAD_SHA)
           TAG="${SERVICE}-jenkins-$(date +%Y%m%d%H%M%S)-${SHA}"
           IMG="${IMAGE_BASE}:${TAG}"
-
-          echo "[1/5] jumpbox ${JUMP_USER}@${JUMP_HOST} -> build ${BUILD_USER}@${BUILD_HOST} (office2-wsl xspt05)"
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "bash -s" <<REMOTE
-            set -euo pipefail
-            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${BUILD_USER}@${BUILD_HOST} "bash -s" <<BUILDREMOTE
-              set -euo pipefail
-              export PATH="/usr/local/bin:/usr/bin:/bin:\\$PATH"
-              mkdir -p ${BUILD_WORKDIR}
-              cd ${BUILD_WORKDIR}
-              if [ ! -d .git ]; then
-                git clone ${GITEA_URL} .
-              fi
-              git fetch origin
-              git reset --hard origin/${GIT_BRANCH}
-              git clean -fd
-              cd shop-service
-              docker build --platform linux/amd64 -t ${IMG} .
-              docker push ${IMG}
-              echo ${TAG} > /tmp/last_tag.txt
-BUILDREMOTE
-REMOTE
-
-          LAST_TAG=\\$(ssh -o StrictHostKeyChecking=no ${JUMP_USER}@${JUMP_HOST} "ssh -o StrictHostKeyChecking=no ${BUILD_USER}@${BUILD_HOST} 'cat /tmp/last_tag.txt'")
-          IMG="${IMAGE_BASE}:${LAST_TAG}"
-          echo "[2/5] deploy ${IMG} to k3s"
-          kubectl -n ${NAMESPACE} set image deployment/${SERVICE} ${SERVICE}="${IMG}"
+          echo "[1/5] jumpbox ${JUMP_USER}@${JUMP_HOST} -> build ${BUILD_USER}@${BUILD_HOST}"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "wget -qO /tmp/build_office2wsl.sh ${SCRIPT_URL}"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/build_office2wsl.sh ${BUILD_USER}@${BUILD_HOST}:/tmp/build_office2wsl.sh"
+          echo "[2/5] ssh jumpbox -> ssh xspt05 -> execute build"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${JUMP_USER}@${JUMP_HOST} "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${BUILD_USER}@${BUILD_HOST} 'GITEA_URL=${GITEA_URL} REPO_DIR=${BUILD_WORKDIR} IMAGE=${IMG} bash /tmp/build_office2wsl.sh'"
+          echo "[3/5] deploy ${IMG} to k3s"
+          kubectl -n ${NAMESPACE} set image deployment/${SERVICE} ${SERVICE}=${IMG}
           kubectl -n ${NAMESPACE} rollout status deployment/${SERVICE} --timeout=180s
-          echo "TAG_FILE: ${LAST_TAG}" | tee /tmp/last_tag.txt
+          echo "TAG_FILE: ${TAG}" | tee /tmp/last_tag.txt
         '''
       }
     }
@@ -74,11 +53,7 @@ REMOTE
       steps {
         sh '''
           set -euo pipefail
-          for u in \\
-            http://127.0.0.1:${NODE_PORT}/ \\
-            http://127.0.0.1:${NODE_PORT}/api/health \\
-            http://127.0.0.1:${NODE_PORT}/api/shops \\
-            "http://127.0.0.1:${NODE_PORT}/api/shops?platform=huaxiang"; do
+          for u in http://127.0.0.1:${NODE_PORT}/ http://127.0.0.1:${NODE_PORT}/api/health http://127.0.0.1:${NODE_PORT}/api/shops "http://127.0.0.1:${NODE_PORT}/api/shops?platform=huaxiang"; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$u" || echo ERR)
             echo "$code $u"
             [ "$code" = "200" ] || exit 20
@@ -95,11 +70,7 @@ REMOTE
   }
 
   post {
-    success {
-      echo "shop-management-service deployed OK from office2-wsl build"
-    }
-    failure {
-      echo "shop-management-service build/deploy failed"
-    }
+    success { echo "shop-management-service deployed OK from office2-wsl build" }
+    failure { echo "shop-management-service build/deploy failed" }
   }
 }
