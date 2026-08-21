@@ -19,7 +19,7 @@ pipeline {
     BUILD_HOST = "100.113.60.71"
     BUILD_WORKDIR = "/home/dell/shop-management-service"
 
-    GITEA_URL  = "http://100.76.15.64:13000/admin/supply-chain-platform.git"
+    GITEA_URL  = "http://admin:Hy%401987921@100.76.15.64:13000/admin/supply-chain-platform.git"
     GIT_BRANCH = "main"
   }
 
