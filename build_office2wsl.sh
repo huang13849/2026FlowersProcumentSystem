@@ -22,5 +22,5 @@ docker build --platform linux/amd64 -t "$IMAGE" .
 docker push "$IMAGE"
 
 # write tag to a known file so caller can read it
-echo "$IMAGE" | sed 's|.*:||' > /tmp/last_build_tag.txt
+echo "$IMAGE" | sed 's|.*:||' > /tmp/last_tag.txt
 echo "BUILD_OK image=$IMAGE"
