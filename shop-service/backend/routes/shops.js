@@ -16,6 +16,8 @@ router.get('/', async (req, res) => {
         { phone: search },
       ];
     }
+    // platform 过滤 (publish-service 用 ?platform=huaxiang 查花乡花木店铺)
+    if (req.query.platform) query.platform = String(req.query.platform);
     // tags 过滤 (publish-service 用 ?tags=代运营 查花像花木代运营店铺)
     // 多个 tag 用英文逗号分隔, 语义: 店铺包含任一指定 tag 即命中
     const tagsRaw = req.query.tags;
@@ -63,6 +65,32 @@ router.delete('/link/supplier/:supplierId', async (req, res) => {
 });
 
 // ── Get one shop ──
+// ── Publish config (publish-service 31005 调用：拉单个店铺的花乡 token/cookie/freight) ──
+router.get('/:id/publish-config', async (req, res) => {
+  try {
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) return res.status(404).json({ error: '店铺不存在' });
+    res.json({
+      id: shop._id,
+      shopId: shop._id,
+      shopName: shop.shopName,
+      displayName: shop.shopName,
+      platform: shop.platform || '',
+      apiBase: shop.huaxiangApiBase || 'http://adminapi.huaxianghuamu.cn/',
+      token: shop.huaxiangApiToken || '',
+      cookie: shop.huaxiangCookie || '',
+      platformId: shop.huaxiangPlatformId || '',
+      freightMode: shop.freightMode || 'uniform',
+      freightTemplateId: shop.freightTemplateId || 216,
+      uniformPostage: shop.uniformPostage || 0,
+      // 元信息
+      tags: shop.tags || [],
+      phone: shop.phone || '',
+      contactName: shop.contactName || '',
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const shop = await Shop.findById(req.params.id);

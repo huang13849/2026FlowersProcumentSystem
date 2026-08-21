@@ -12,6 +12,16 @@ async function ensureHuaxiangSchema() {
     'ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_api_token TEXT',
     'ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_platform_id TEXT',
     'ALTER TABLE shops ADD COLUMN IF NOT EXISTS huaxiang_cookie TEXT',
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS platform TEXT DEFAULT ''",
+    "CREATE INDEX IF NOT EXISTS idx_shops_platform ON shops(platform) WHERE platform <> ''",
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS display_name TEXT DEFAULT ''",
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS username TEXT DEFAULT ''",
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE",
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'",
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS freight_mode TEXT DEFAULT 'uniform'",
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS freight_template_id INTEGER DEFAULT 216",
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS uniform_postage NUMERIC(10,2) DEFAULT 0",
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''",
     "ALTER TABLE shops ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb",
     "CREATE INDEX IF NOT EXISTS idx_shops_tags ON shops USING gin (tags jsonb_path_ops)",
   ];
@@ -71,6 +81,15 @@ function toApi(row) {
     huaxiangApiToken: row.huaxiang_api_token || '',
     huaxiangCookie: row.huaxiang_cookie || '',
     huaxiangPlatformId: row.huaxiang_platform_id || '',
+    platform: row.platform || '',
+    displayName: row.display_name || '',
+    username: row.username || '',
+    isDefault: !!row.is_default,
+    status: row.status || 'active',
+    freightMode: row.freight_mode || 'uniform',
+    freightTemplateId: row.freight_template_id || 216,
+    uniformPostage: Number(row.uniform_postage || 0),
+    notes: row.notes || '',
     tags: Array.isArray(row.tags) ? row.tags : (typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : []),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -97,6 +116,10 @@ const Shop = {
       });
       where.push(`(${ors.join(' OR ')})`);
     }
+    if (query.platform) {
+      vals.push(String(query.platform));
+      where.push(`platform = $${vals.length}`);
+    }
     let sql = `SELECT * FROM ${TABLE}`;
     if (where.length) sql += ' WHERE ' + where.join(' AND ');
     sql += ' ORDER BY updated_at DESC NULLS LAST, sort_order ASC';
@@ -116,7 +139,10 @@ const Shop = {
   async findByIdAndUpdate(id, update, opts = {}) {
     const sets = ['updated_at = NOW()'];
     const vals = [];
-    const fieldMap = { shopName:'shop_name', lakalaShopNo:'lakala_shop_no', terminalNo:'terminal_no', wechatMerchantNo:'wechat_merchant_no', alipayMerchantNo:'alipay_merchant_no', phone:'phone', contactName:'contact_name', date:'date', idNumber:'id_number', idCardImages:'id_card_images', bankCardImages:'bank_card_images', qrCodeImages:'qr_code_images', businessCategory:'business_category', sortOrder:'sort_order', address:'address', longitude:'longitude', latitude:'latitude', supplierId:'supplier_id', huaxiangApiBase:'huaxiang_api_base', huaxiangApiToken:'huaxiang_api_token', huaxiangCookie:'huaxiang_cookie', huaxiangPlatformId:'huaxiang_platform_id', tags:'tags' };
+    const fieldMap = { shopName:'shop_name', lakalaShopNo:'lakala_shop_no', terminalNo:'terminal_no', wechatMerchantNo:'wechat_merchant_no', alipayMerchantNo:'alipay_merchant_no', phone:'phone', contactName:'contact_name', date:'date', idNumber:'id_number', idCardImages:'id_card_images', bankCardImages:'bank_card_images', qrCodeImages:'qr_code_images', businessCategory:'business_category', sortOrder:'sort_order', address:'address', longitude:'longitude', latitude:'latitude', supplierId:'supplier_id', huaxiangApiBase:'huaxiang_api_base', huaxiangApiToken:'huaxiang_api_token', huaxiangCookie:'huaxiang_cookie', huaxiangPlatformId:'huaxiang_platform_id', tags:'tags', platform:'platform',
+   apiBase:'huaxiang_api_base', token:'huaxiang_api_token', cookie:'huaxiang_cookie',
+   displayName:'display_name', username:'username', isDefault:'is_default', status:'status', notes:'notes',
+   freightMode:'freight_mode', freightTemplateId:'freight_template_id', uniformPostage:'uniform_postage' };
     for (const [k, v] of Object.entries(update)) {
       if (fieldMap[k] !== undefined) {
         const val = (typeof v === 'object' && !Array.isArray(v)) ? JSON.stringify(v) : (Array.isArray(v) ? JSON.stringify(v) : v);
@@ -145,9 +171,11 @@ const Shop = {
   async create(data) {
     const mongoId = data._id || crypto.randomBytes(12).toString('hex');
     const r = await pgQuery(
-      `INSERT INTO ${TABLE} (mongo_id, shop_name, lakala_shop_no, terminal_no, wechat_merchant_no, alipay_merchant_no, phone, contact_name, date, id_number, id_card_images, bank_card_images, qr_code_images, business_category, sort_order, address, longitude, latitude, supplier_id, huaxiang_api_base, huaxiang_api_token, huaxiang_cookie, huaxiang_platform_id, tags)
+      `INSERT INTO ${TABLE} (mongo_id, shop_name, lakala_shop_no, terminal_no, wechat_merchant_no, alipay_merchant_no, phone, contact_name, date, id_number, id_card_images, bank_card_images, qr_code_images, business_category, sort_order, address, longitude, latitude, supplier_id, huaxiang_api_base, huaxiang_api_token, huaxiang_cookie, huaxiang_platform_id, tags, platform, display_name, username, is_default, status, freight_mode, freight_template_id, uniform_postage, notes)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
-      [mongoId, data.shopName||'', data.lakalaShopNo||'', data.terminalNo||'', data.wechatMerchantNo||'', data.alipayMerchantNo||'', data.phone||'', data.contactName||'', data.date||'', data.idNumber||'', JSON.stringify(data.idCardImages||[]), JSON.stringify(data.bankCardImages||[]), JSON.stringify(data.qrCodeImages||[]), data.businessCategory||'', data.sortOrder||0, data.address||'', data.longitude||null, data.latitude||null, data.supplierId||null, data.huaxiangApiBase||'http://adminapi.huaxianghuamu.cn/', data.huaxiangApiToken||'', data.huaxiangCookie||'', data.huaxiangPlatformId||'', JSON.stringify(data.tags||[])]
+      [mongoId, data.shopName||'', data.lakalaShopNo||'', data.terminalNo||'', data.wechatMerchantNo||'', data.alipayMerchantNo||'', data.phone||'', data.contactName||'', data.date||'', data.idNumber||'', JSON.stringify(data.idCardImages||[]), JSON.stringify(data.bankCardImages||[]), JSON.stringify(data.qrCodeImages||[]), data.businessCategory||'', data.sortOrder||0, data.address||'', data.longitude||null, data.latitude||null, data.supplierId||null, data.huaxiangApiBase||'http://adminapi.huaxianghuamu.cn/', data.huaxiangApiToken||'', data.huaxiangCookie||'', data.huaxiangPlatformId||'', JSON.stringify(data.tags||[]), data.platform||'',
+   data.displayName||'', data.username||'', data.isDefault===true, data.status||'active',
+   data.freightMode||'uniform', data.freightTemplateId||216, data.uniformPostage||0, data.notes||'']
     );
     const rows = r.data || r.rows || [];
     return toApi(rows[0]);

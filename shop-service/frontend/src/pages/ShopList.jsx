@@ -8,7 +8,8 @@ const EMPTY_SHOP = {
   address: '', longitude: null, latitude: null,
   idCardImages: [], bankCardImages: [], qrCodeImages: [],
   businessCategory: '', tags: [],
-  huaxiangApiBase: 'http://adminapi.huaxianghuamu.cn/', huaxiangApiToken: '', huaxiangCookie: '', huaxiangPlatformId: ''
+  huaxiangApiBase: 'http://adminapi.huaxianghuamu.cn/', huaxiangApiToken: '', huaxiangCookie: '', huaxiangPlatformId: '',
+  freightMode: 'uniform', freightTemplateId: 216, uniformPostage: 0
 }
 
 export default function ShopList() {
@@ -222,7 +223,7 @@ export default function ShopList() {
         <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>加载中...</div>
       ) : (
         <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 8 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 2300 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 2700 }}>
             <thead>
               <tr style={{ background: '#f5f3ff' }}>
                 <Th style={{ width: 30 }}>
@@ -243,14 +244,18 @@ export default function ShopList() {
                 <Th style={{ minWidth: 160 }}>银行卡正反面</Th>
                 <Th style={{ minWidth: 160 }}>线下收款码</Th>
                 <Th>经营类目</Th>
+                <Th style={{ minWidth: 110 }}>平台</Th>
                 <Th style={{ minWidth: 180 }}>标签</Th>
-                <Th style={{ minWidth: 280 }}>平台同步设置 (API / Token / Cookie / 平台ID)</Th>
-                <Th style={{ width: 50 }}>操作</Th>
+                <Th style={{ minWidth: 180 }}>Token</Th>
+                <Th style={{ minWidth: 220 }}>Cookie</Th>
+                <Th style={{ minWidth: 110 }}>平台ID</Th>
+                <Th style={{ minWidth: 200 }}>运费设置</Th>
+
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={20} style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+                <tr><td colSpan={23} style={{ textAlign: 'center', padding: 40, color: '#999' }}>
                   暂无数据，点击「＋ 新增店铺」添加
                 </td></tr>
               ) : (
@@ -367,6 +372,27 @@ export default function ShopList() {
                       <EditableCell value={shop.businessCategory} onChange={v => updateField(shop._id, 'businessCategory', v)} placeholder="经营类目" />
                     </td>
                     <td style={tdStyle}>
+                      <select
+                        value={shop.platform || ''}
+                        onChange={e => updateField(shop._id, 'platform', e.target.value)}
+                        style={{
+                          width: '100%', padding: '3px 6px', borderRadius: 4,
+                          border: shop.platform === 'huaxiang' ? '2px solid #52c41a' : '1px solid #d0c8f0',
+                          fontSize: 12, outline: 'none', cursor: 'pointer',
+                          background: shop.platform === 'huaxiang' ? '#f6ffed' : '#fff',
+                          fontWeight: shop.platform === 'huaxiang' ? 600 : 400
+                        }}
+                      >
+                        <option value="">— 无 —</option>
+                        <option value="huaxiang">🌿 花乡花木</option>
+                        <option value="wechat">📬 微信小店</option>
+                        <option value="douyin">🎵 抖音小店</option>
+                        <option value="xiaohongshu">📕 小红书</option>
+                        <option value="taobao">🛒 淘宝</option>
+                        <option value="jd">🏢 京东</option>
+                      </select>
+                    </td>
+                    <td style={tdStyle}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, maxWidth: 180 }}>
                         {(shop.tags || []).map(t => (
                           <span key={t} onClick={() => setTagFilter(t)} title="点击筛选此标签"
@@ -378,39 +404,48 @@ export default function ShopList() {
                       </div>
                     </td>
                     <td style={tdStyle}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>API</span>
-                          <EditableCell value={shop.huaxiangApiBase} onChange={v => updateField(shop._id, 'huaxiangApiBase', v)} placeholder="http://adminapi.huaxianghuamu.cn/" />
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>Token</span>
-                          <input type="password" value={shop.huaxiangApiToken || ''}
-                            onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, huaxiangApiToken: e.target.value } : s))}
-                            onBlur={e => updateField(shop._id, 'huaxiangApiToken', e.target.value)}
-                            placeholder="admin cookie ajaxtoken 值"
-                            autoComplete="off"
-                            style={{ flex: 1, padding: '3px 6px', border: '1px solid #ffd591', borderRadius: 4, fontSize: 12, fontFamily: 'monospace', background: shop.huaxiangApiToken ? '#fffbe6' : '#fff', outline: 'none' }} />
-                          {shop.huaxiangApiToken ? <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>✓</span> : null}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>Cookie</span>
-                          <input type="password" value={shop.huaxiangCookie || ''}
-                            onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, huaxiangCookie: e.target.value } : s))}
-                            onBlur={e => updateField(shop._id, 'huaxiangCookie', e.target.value)}
-                            placeholder="完整 Cookie (jaxtoken=...; Admin-Token=...)"
-                            autoComplete="off"
-                            style={{ flex: 1, padding: '3px 6px', border: '1px solid #ffd591', borderRadius: 4, fontSize: 12, fontFamily: 'monospace', background: shop.huaxiangCookie ? '#fffbe6' : '#fff', outline: 'none' }} />
-                          {shop.huaxiangCookie ? <span style={{ fontSize: 10, color: '#52c41a', fontWeight: 600 }}>✓</span> : null}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: 10, color: '#666', width: 48, flexShrink: 0 }}>平台ID</span>
-                          <EditableCell value={shop.huaxiangPlatformId} onChange={v => updateField(shop._id, 'huaxiangPlatformId', v)} placeholder="platformId (pfid)" />
-                        </div>
-                      </div>
+                      <input type="text" value={shop.huaxiangApiToken || ''}
+                        onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, huaxiangApiToken: e.target.value } : s))}
+                        onBlur={e => updateField(shop._id, 'huaxiangApiToken', e.target.value)}
+                        style={{ width: '100%', padding: '3px 6px', border: shop.huaxiangApiToken ? '1px solid #52c41a' : '1px solid #ffd591', borderRadius: 4, fontSize: 12, fontFamily: 'monospace', background: shop.huaxiangApiToken ? '#fffbe6' : '#fff', outline: 'none' }} />
                     </td>
                     <td style={tdStyle}>
-                      <button onClick={() => deleteRow(shop._id, shop.shopName)} style={btnStyle.danger}>🗑</button>
+                      <input type="text" value={shop.huaxiangCookie || ''}
+                        onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, huaxiangCookie: e.target.value } : s))}
+                        onBlur={e => updateField(shop._id, 'huaxiangCookie', e.target.value)}
+                        style={{ width: '100%', padding: '3px 6px', border: shop.huaxiangCookie ? '1px solid #52c41a' : '1px solid #ffd591', borderRadius: 4, fontSize: 12, fontFamily: 'monospace', background: shop.huaxiangCookie ? '#fffbe6' : '#fff', outline: 'none' }} />
+                    </td>
+                    <td style={tdStyle}>
+                      <EditableCell value={shop.huaxiangPlatformId} onChange={v => updateField(shop._id, 'huaxiangPlatformId', v)} />
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <select
+                          value={shop.freightMode || 'uniform'}
+                          onChange={e => updateField(shop._id, 'freightMode', e.target.value)}
+                          style={{ width: '100%', padding: '2px 4px', borderRadius: 3, border: '1px solid #d0c8f0', fontSize: 11, cursor: 'pointer', background: '#fff' }}
+                        >
+                          <option value="uniform">统一运费</option>
+                          <option value="template">运费模板</option>
+                        </select>
+                        {shop.freightMode === 'template' ? (
+                          <input
+                            type="number" min="1" step="1"
+                            value={shop.freightTemplateId ?? 216}
+                            onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, freightTemplateId: parseInt(e.target.value) || 0 } : s))}
+                            onBlur={e => updateField(shop._id, 'freightTemplateId', parseInt(e.target.value) || 0)}
+                            style={{ width: '100%', padding: '2px 4px', borderRadius: 3, border: '1px solid #ffd591', fontSize: 11, fontFamily: 'monospace', outline: 'none' }}
+                          />
+                        ) : (
+                          <input
+                            type="number" min="0" step="0.01"
+                            value={shop.uniformPostage ?? 0}
+                            onChange={e => setShops(prev => prev.map(s => s._id === shop._id ? { ...s, uniformPostage: parseFloat(e.target.value) || 0 } : s))}
+                            onBlur={e => updateField(shop._id, 'uniformPostage', parseFloat(e.target.value) || 0)}
+                            style={{ width: '100%', padding: '2px 4px', borderRadius: 3, border: '1px solid #ffd591', fontSize: 11, fontFamily: 'monospace', outline: 'none' }}
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
