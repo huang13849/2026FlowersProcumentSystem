@@ -21,6 +21,8 @@ pipeline {
     stage('Build on office2-wsl') {
       steps {
         sh """set -euo pipefail
+          export PATH="/usr/local/bin:/usr/bin:/bin:/snap/bin:$PATH"
+          which kubectl || echo "WARN kubectl not in PATH"
           SHA=\$(cat .git/HEAD_SHA)
           TAG=\${SERVICE}-jenkins-\$(date +%Y%m%d%H%M%S)-\${SHA}
           IMG=\${IMAGE_BASE}:\${TAG}
