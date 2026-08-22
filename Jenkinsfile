@@ -9,7 +9,7 @@ metadata:
 spec:
   nodeSelector:
     ci-build-enabled: "true"
-  serviceAccountName: jenkins-deployer
+  serviceAccountName: jenkins-agent
   containers:
   - name: jnlp
     image: 100.76.15.64:5001/jenkins/inbound-agent:latest-jdk17
