@@ -61,7 +61,7 @@ spec:
             [ ! -f Dockerfile ] && { echo "ERROR: Dockerfile not found in $(pwd)" >&2; ls -la; exit 11; }
             docker build --platform linux/amd64 -t "${IMG}" .
             docker push "${IMG}"
-            echo "${IMG}" > /tmp/last_img
+            echo "${IMG}" > /home/jenkins/agent/last_img
             echo "BUILD_OK image=${IMG}"
           '''
         }
