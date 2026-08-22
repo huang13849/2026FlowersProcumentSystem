@@ -39,7 +39,7 @@ spec:
     NODE_PORT = "31004"
     BUILD_PATH = "shop-service"
     SERVICE_HOST = "100.96.54.109"
-    GITEA_URL = "http://admin:***@1987921@100.76.15.64:13000/admin/supply-chain-platform.git"
+    GITEA_URL = "http://admin:038cfc283d4055cc5331ee04131cabef8c123be5@100.76.15.64:13000/admin/supply-chain-platform.git"
     REGISTRY_HOST = "100.76.15.64:5001"
     REGISTRY_NAMESPACE = "supply-chain"
   }
