@@ -19,6 +19,7 @@ spec:
       runAsUser: 0
   - name: dind
     image: docker:27-dind
+    args: ['--host=unix:///var/run/docker.sock', '--insecure-registry=100.76.15.64:5001', '--storage-driver=vfs']
     securityContext:
       privileged: true
     env:
