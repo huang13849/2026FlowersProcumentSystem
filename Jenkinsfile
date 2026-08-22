@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent { label 'k3s-build-agent' }
   environment {
     REGISTRY   = "100.76.15.64:5001"
     IMAGE_BASE = "${REGISTRY}/supply-chain/shop-management-service"
