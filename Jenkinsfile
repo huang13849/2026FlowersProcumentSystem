@@ -1,57 +1,73 @@
 pipeline {
-  agent { label 'k3s-build-agent' }
+  agent { label 'docker-build' }
   environment {
-    REGISTRY   = "100.76.15.64:5001"
-    IMAGE_BASE = "${REGISTRY}/supply-chain/shop-management-service"
     SERVICE    = "shop-management-service"
     NAMESPACE  = "supply-chain"
     NODE_PORT  = "31004"
-    JUMP_USER  = "huangfra-ubun-master"
-    JUMP_HOST  = "100.96.54.109"
-    BUILD_USER = "dell"
-    BUILD_HOST = "100.113.60.71"
-    BUILD_WORKDIR = "/home/dell/shop-management-service"
-    BUILD_PATH    = "shop-service"
-    SERVICE_HOST  = "100.96.54.109"
-    GITEA_URL  = "http://admin:Hy@1987921@100.76.15.64:13000/admin/supply-chain-platform.git"
-    GIT_BRANCH = "main"
+    IMAGE      = "100.76.15.64:5001/supply-chain/shop-management-service"
+    BUILD_PATH = "shop-service"
+    SERVICE_HOST = "100.96.54.109"
+    GITEA_URL  = "http://admin:***@1987921@100.76.15.64:13000/admin/supply-chain-platform.git"
+    REGISTRY_HOST = "100.76.15.64:5001"
+    REGISTRY_NAMESPACE = "supply-chain"
   }
   stages {
-    stage('Checkout') { steps { checkout scm; sh 'git rev-parse --short HEAD > .git/HEAD_SHA' } }
-    stage('Build on office2-wsl') {
+    stage('Checkout') {
       steps {
-        sh """set -euo pipefail
-          export PATH="/usr/local/bin:/usr/bin:/bin:/snap/bin:$PATH"
-          which kubectl || echo "WARN kubectl not in PATH"
-          SHA=\$(cat .git/HEAD_SHA)
-          TAG=\${SERVICE}-jenkins-\$(date +%Y%m%d%H%M%S)-\${SHA}
-          IMG=\${IMAGE_BASE}:\${TAG}
-          echo "[1/5] jumpbox -> build \${BUILD_USER}@\${BUILD_HOST} BUILD_PATH=\${BUILD_PATH}"
-          scp -O -o StrictHostKeyChecking=no ./build_office2wsl.sh \${JUMP_USER}@\${JUMP_HOST}:/tmp/build_office2wsl.sh
-          ssh -o StrictHostKeyChecking=no \${JUMP_USER}@\${JUMP_HOST} "scp -O -o StrictHostKeyChecking=no /tmp/build_office2wsl.sh \${BUILD_USER}@\${BUILD_HOST}:/tmp/build_office2wsl.sh"
-          echo "[2/5] ssh jumpbox -> ssh xspt05 -> execute build"
-          ssh -o StrictHostKeyChecking=no \${JUMP_USER}@\${JUMP_HOST} "ssh -o StrictHostKeyChecking=no \${BUILD_USER}@\${BUILD_HOST} 'GITEA_URL=\${GITEA_URL} REPO_DIR=\${BUILD_WORKDIR} BUILD_PATH=\${BUILD_PATH} IMAGE=\${IMG} bash /tmp/build_office2wsl.sh'"
-          echo "[3/5] deploy \${IMG} to k3s"
-          kubectl -n \${NAMESPACE} set image deployment/\${SERVICE} \${SERVICE}=\${IMG}
-          kubectl -n \${NAMESPACE} rollout status deployment/\${SERVICE} --timeout=180s
-          echo "TAG_FILE: \${TAG}" | tee /tmp/last_tag.txt
-        """
+        checkout scm
+        sh 'git rev-parse --short HEAD > .git/HEAD_SHA'
+      }
+    }
+    stage('Build & Push in dind (xspt05)') {
+      steps {
+        container('dind') {
+          sh '''
+            set -euo pipefail
+            SHA=$(cat .git/HEAD_SHA)
+            TAG="${SERVICE}-jenkins-$(date +%Y%m%d%H%M%S)-${SHA}"
+            IMG="${REGISTRY_HOST}/${REGISTRY_NAMESPACE}/${SERVICE}:${TAG}"
+            echo "[1/4] git clone in dind"
+            cd /home/jenkins/agent
+            if [ ! -d repo ]; then
+              git clone "${GITEA_URL}" repo
+            else
+              cd repo && git fetch origin && git reset --hard origin/main && cd ..
+            fi
+            cd repo
+            if [ -n "${BUILD_PATH}" ]; then cd "${BUILD_PATH}"; fi
+            if [ ! -f Dockerfile ]; then
+              echo "ERROR: Dockerfile not found in $(pwd)" >&2
+              ls -la
+              exit 11
+            fi
+            echo "[2/4] docker build (in dind container)"
+            docker build --platform linux/amd64 -t "${IMG}" .
+            echo "[3/4] docker push to ${REGISTRY_HOST}"
+            docker push "${IMG}"
+            echo "[4/4] kubectl rollout"
+            TAG="${TAG}" IMG="${IMG}" kubectl -n ${NAMESPACE} set image deployment/${SERVICE} ${SERVICE}="${IMG}"
+            TAG="${TAG}" IMG="${IMG}" kubectl -n ${NAMESPACE} rollout status deployment/${SERVICE} --timeout=180s
+            echo "${TAG}" | tee /tmp/last_tag.txt
+            echo "BUILD_OK image=${IMG}"
+          '''
+        }
       }
     }
     stage('Verify endpoints') {
       steps {
-        sh """set -euo pipefail
+        sh '''
+          set -euo pipefail
           for u in "/" "/api/health" "/api/shops" "/api/shops?platform=huaxiang"; do
-            code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "http://\${SERVICE_HOST}:\${NODE_PORT}\${u}" || echo ERR)
-            echo "\${code} http://\${SERVICE_HOST}:\${NODE_PORT}\${u}"
-            [ "\${code}" = "200" ] || exit 20
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "http://${SERVICE_HOST}:${NODE_PORT}${u}" || echo ERR)
+            echo "${code} http://${SERVICE_HOST}:${NODE_PORT}${u}"
+            [ "${code}" = "200" ] || exit 20
           done
-        """
+        '''
       }
     }
   }
   post {
-    success { echo "shop-management-service deployed OK from office2-wsl build" }
+    success { echo "shop-management-service deployed OK (dind on xspt05)" }
     failure { echo "shop-management-service build/deploy failed" }
   }
 }
