@@ -1,12 +1,14 @@
 #!/bin/bash
 # build_office2wsl.sh - Build script that runs on xspt05 (office2-wsl WSL2)
-# Usage: env GITEA_URL=... REPO_DIR=... IMAGE=... bash build_office2wsl.sh
+# Usage: env GITEA_URL=... REPO_DIR=... BUILD_PATH=... IMAGE=... bash build_office2wsl.sh
+# BUILD_PATH is the subdirectory inside the repo that contains Dockerfile
+#   e.g. "" (empty = repo root) or "shop-service"
 set -euo pipefail
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
-# 从 env vars 读 (不用 $1, $2, $3)
 GITEA_URL="${GITEA_URL:-}"
 REPO_DIR="${REPO_DIR:-}"
+BUILD_PATH="${BUILD_PATH:-}"  # 子目录 (相对 REPO_DIR); 空=仓库根目录
 IMAGE="${IMAGE:-}"
 
 if [ -z "$GITEA_URL" ] || [ -z "$REPO_DIR" ] || [ -z "$IMAGE" ]; then
@@ -22,7 +24,17 @@ git fetch origin
 git reset --hard origin/main
 git clean -fd
 
-cd .
+if [ -n "$BUILD_PATH" ]; then
+  cd "$BUILD_PATH"
+fi
+
+# 验证 Dockerfile 存在
+if [ ! -f Dockerfile ]; then
+  echo "ERROR: Dockerfile not found in $(pwd)" >&2
+  ls -la
+  exit 11
+fi
+
 docker build --platform linux/amd64 -t "$IMAGE" .
 docker push "$IMAGE"
 
