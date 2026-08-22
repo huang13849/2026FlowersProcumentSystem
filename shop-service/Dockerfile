@@ -1,11 +1,11 @@
-FROM 100.76.15.64:5001/library/node:20-alpine AS frontend-build
+FROM 100.76.15.64:5001/library/node:20-alpine-amd64 AS frontend-build
 WORKDIR /app
 COPY frontend/package*.json ./frontend/
 RUN cd frontend && npm ci && cd ..
 COPY frontend/ ./frontend/
 RUN cd frontend && npm run build
 
-FROM 100.76.15.64:5001/library/node:20-alpine
+FROM 100.76.15.64:5001/library/node:20-alpine-amd64
 WORKDIR /app
 COPY backend/package*.json ./
 RUN npm install --omit=dev && npm install minio@8.0.7 && npm cache clean --force
