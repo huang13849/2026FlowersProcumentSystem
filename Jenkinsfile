@@ -9,25 +9,24 @@ metadata:
 spec:
   nodeSelector:
     ci-build-enabled: "true"
+  serviceAccountName: jenkins-deployer
   containers:
   - name: jnlp
     image: 100.76.15.64:5001/jenkins/inbound-agent:latest-jdk17
     args: ['$(JENKINS_SECRET)', '$(JENKINS_NAME)']
     tty: true
-    securityContext:
-      privileged: true
-      runAsUser: 0
   - name: dind
-    image: docker:27-dind
+    image: 100.76.15.64:5001/library/docker:27-dind-amd64
     args: ['--host=unix:///var/run/docker.sock', '--insecure-registry=100.76.15.64:5001', '--storage-driver=vfs']
     securityContext:
       privileged: true
-    env:
-    - name: DOCKER_TLS_CERTDIR
-      value: ""
     volumeMounts:
     - name: docker-storage
       mountPath: /var/lib/docker
+  - name: kubectl
+    image: 100.76.15.64:5001/k8s/kubectl:latest
+    command: ['cat']
+    tty: true
   volumes:
   - name: docker-storage
     emptyDir: {}
@@ -62,10 +61,21 @@ spec:
             [ ! -f Dockerfile ] && { echo "ERROR: Dockerfile not found in $(pwd)" >&2; ls -la; exit 11; }
             docker build --platform linux/amd64 -t "${IMG}" .
             docker push "${IMG}"
+            echo "${IMG}" > /tmp/last_img
+            echo "BUILD_OK image=${IMG}"
+          '''
+        }
+      }
+    }
+    stage('Deploy via kubectl sidecar') {
+      steps {
+        container('kubectl') {
+          sh '''
+            set -euo pipefail
+            IMG=$(cat /tmp/last_img)
+            echo "Deploying ${IMG}"
             kubectl -n ${NAMESPACE} set image deployment/${SERVICE} ${SERVICE}="${IMG}"
             kubectl -n ${NAMESPACE} rollout status deployment/${SERVICE} --timeout=180s
-            echo "${TAG}" | tee /tmp/last_tag.txt
-            echo "BUILD_OK image=${IMG}"
           '''
         }
       }
@@ -84,7 +94,7 @@ spec:
     }
   }
   post {
-    success { echo "shop-management-service deployed OK (dind on k3s)" }
+    success { echo "shop-management-service deployed OK" }
     failure { echo "shop-management-service build/deploy failed" }
   }
 }
