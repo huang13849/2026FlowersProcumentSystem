@@ -1,24 +1,51 @@
 pipeline {
-  agent { label 'docker-build' }
+  agent {
+    kubernetes {
+      yaml '''apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: agent
+spec:
+  nodeSelector:
+    ci-build-enabled: "true"
+  containers:
+  - name: jnlp
+    image: 100.76.15.64:5001/jenkins/inbound-agent:latest-jdk17
+    args: ['$(JENKINS_SECRET)', '$(JENKINS_NAME)']
+    tty: true
+    securityContext:
+      privileged: true
+      runAsUser: 0
+  - name: dind
+    image: docker:27-dind
+    securityContext:
+      privileged: true
+    env:
+    - name: DOCKER_TLS_CERTDIR
+      value: ""
+    volumeMounts:
+    - name: docker-storage
+      mountPath: /var/lib/docker
+  volumes:
+  - name: docker-storage
+    emptyDir: {}
+'''
+    }
+  }
   environment {
-    SERVICE    = "shop-management-service"
-    NAMESPACE  = "supply-chain"
-    NODE_PORT  = "31004"
-    IMAGE      = "100.76.15.64:5001/supply-chain/shop-management-service"
+    SERVICE = "shop-management-service"
+    NAMESPACE = "supply-chain"
+    NODE_PORT = "31004"
     BUILD_PATH = "shop-service"
     SERVICE_HOST = "100.96.54.109"
-    GITEA_URL  = "http://admin:***@1987921@100.76.15.64:13000/admin/supply-chain-platform.git"
+    GITEA_URL = "http://admin:***@1987921@100.76.15.64:13000/admin/supply-chain-platform.git"
     REGISTRY_HOST = "100.76.15.64:5001"
     REGISTRY_NAMESPACE = "supply-chain"
   }
   stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-        sh 'git rev-parse --short HEAD > .git/HEAD_SHA'
-      }
-    }
-    stage('Build & Push in dind (xspt05)') {
+    stage('Checkout') { steps { checkout scm; sh 'git rev-parse --short HEAD > .git/HEAD_SHA' } }
+    stage('Build & Push in dind') {
       steps {
         container('dind') {
           sh '''
@@ -26,27 +53,16 @@ pipeline {
             SHA=$(cat .git/HEAD_SHA)
             TAG="${SERVICE}-jenkins-$(date +%Y%m%d%H%M%S)-${SHA}"
             IMG="${REGISTRY_HOST}/${REGISTRY_NAMESPACE}/${SERVICE}:${TAG}"
-            echo "[1/4] git clone in dind"
             cd /home/jenkins/agent
-            if [ ! -d repo ]; then
-              git clone "${GITEA_URL}" repo
-            else
-              cd repo && git fetch origin && git reset --hard origin/main && cd ..
-            fi
+            if [ ! -d repo ]; then git clone "${GITEA_URL}" repo
+            else cd repo && git fetch origin && git reset --hard origin/main && cd ..; fi
             cd repo
             if [ -n "${BUILD_PATH}" ]; then cd "${BUILD_PATH}"; fi
-            if [ ! -f Dockerfile ]; then
-              echo "ERROR: Dockerfile not found in $(pwd)" >&2
-              ls -la
-              exit 11
-            fi
-            echo "[2/4] docker build (in dind container)"
+            [ ! -f Dockerfile ] && { echo "ERROR: Dockerfile not found in $(pwd)" >&2; ls -la; exit 11; }
             docker build --platform linux/amd64 -t "${IMG}" .
-            echo "[3/4] docker push to ${REGISTRY_HOST}"
             docker push "${IMG}"
-            echo "[4/4] kubectl rollout"
-            TAG="${TAG}" IMG="${IMG}" kubectl -n ${NAMESPACE} set image deployment/${SERVICE} ${SERVICE}="${IMG}"
-            TAG="${TAG}" IMG="${IMG}" kubectl -n ${NAMESPACE} rollout status deployment/${SERVICE} --timeout=180s
+            kubectl -n ${NAMESPACE} set image deployment/${SERVICE} ${SERVICE}="${IMG}"
+            kubectl -n ${NAMESPACE} rollout status deployment/${SERVICE} --timeout=180s
             echo "${TAG}" | tee /tmp/last_tag.txt
             echo "BUILD_OK image=${IMG}"
           '''
@@ -67,7 +83,7 @@ pipeline {
     }
   }
   post {
-    success { echo "shop-management-service deployed OK (dind on xspt05)" }
+    success { echo "shop-management-service deployed OK (dind on k3s)" }
     failure { echo "shop-management-service build/deploy failed" }
   }
 }
