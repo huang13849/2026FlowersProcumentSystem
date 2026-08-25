@@ -691,39 +691,38 @@ async function callHuaxiangFinds(masterShop, targetPlatformId, filters, pageNumb
     : 'ajaxtoken=' + token;
   const url = `${base}weidao/weidaoyun/admin/order/findPlatformOrders.jhtml?platformId=${encodeURIComponent(targetPlatformId)}&token=${encodeURIComponent(token)}&stoken=${encodeURIComponent(token)}`;
 
-  // body: paymentMethod / orderStatus / pageNumber / pageSize / needTotal / shippingMethodName / startTime / endTime / productName / keyword / searchStatus / sort
+  // body: JSON 格式 (上游 huaxianghuamu.cn 只认 application/json,form-urlencoded 会 500)
   const body = {
-    pageNumber: String(pageNumber),
-    pageSize: String(pageSize),
-    paymentMethod: String(filters.paymentMethod || 0),
-    orderStatus: filters.orderStatus === '' || filters.orderStatus == null ? '' : String(filters.orderStatus),
-    needTotal: '1',
+    pageNumber: Number(pageNumber) || 1,
+    pageSize: Number(pageSize) || 50,
+    paymentMethod: Number(filters.paymentMethod || 0),
+    orderStatus: filters.orderStatus === '' || filters.orderStatus == null ? 0 : Number(filters.orderStatus),
+    needTotal: 1,
     shippingMethodName: filters.shippingMethodName || '',
   };
-  if (filters.sort) body.sort = '1';
+  if (filters.sort) body.sort = 1;
   if (filters.startTime) body.startTime = filters.startTime;
   if (filters.endTime) body.endTime = filters.endTime;
   if (filters.productName) body.productName = filters.productName;
   if (filters.keyword) {
     body.keyword = filters.keyword;
-    body.searchStatus = String(filters.searchStatus || 0);
+    body.searchStatus = Number(filters.searchStatus || 0);
   } else if (filters.searchStatus !== '' && filters.searchStatus != null) {
-    body.searchStatus = String(filters.searchStatus);
+    body.searchStatus = Number(filters.searchStatus);
   }
 
-  const params = new URLSearchParams(body).toString();
   const res = await axios({
     method: 'POST',
     url,
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'Content-Type': 'application/json;charset=UTF-8',
       'token': token,
       'Cookie': cookieExtra,
       'Origin': origin,
       'Referer': origin + '/',
       'User-Agent': 'order-service/sync',
     },
-    data: params,
+    data: body,  // axios 会自动 JSON.stringify + 设 content-type (但我们上面已显式设了)
     timeout: 20000,
     validateStatus: () => true,
   });
