@@ -256,8 +256,8 @@ async function queryOrders({ page = 1, limit = 20, search, business_type, region
     ? `SELECT COUNT(*)::int AS total FROM (SELECT DISTINCT ON (COALESCE(NULLIF(source_order_sn,''), 'id-'||id)) id FROM purchase_orders ${where} ORDER BY COALESCE(NULLIF(source_order_sn,''), 'id-'||id), id DESC) t`
     : `SELECT COUNT(*)::int AS total FROM purchase_orders ${where}`;
   const dataSql = useDedupe
-    ? `WITH deduped AS (SELECT DISTINCT ON (COALESCE(NULLIF(source_order_sn,''), 'id-'||id)) * FROM purchase_orders ${where} ORDER BY COALESCE(NULLIF(source_order_sn,''), 'id-'||id), id DESC) SELECT * FROM deduped ORDER BY (shop_name IS NULL OR shop_name = '') ASC, COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
-    : `SELECT * FROM purchase_orders ${where} ORDER BY (shop_name IS NULL OR shop_name = '') ASC, COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    ? `WITH deduped AS (SELECT DISTINCT ON (COALESCE(NULLIF(source_order_sn,''), 'id-'||id)) * FROM purchase_orders ${where} ORDER BY COALESCE(NULLIF(source_order_sn,''), 'id-'||id), id DESC) SELECT * FROM deduped ORDER BY (shop_name IS NULL OR shop_name = '') DESC, COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
+    : `SELECT * FROM purchase_orders ${where} ORDER BY (shop_name IS NULL OR shop_name = '') DESC, COALESCE(purchase_time, created_at) DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
   const countResult = await pgPool.query(countSql, params);
   const dataResult = await pgPool.query(dataSql, [...params, limitNum, offset]);
   const total = countResult.rows[0]?.total || 0;
