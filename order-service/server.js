@@ -667,11 +667,11 @@ async function fetchHuaxiangShop(shopId) {
 }
 
 async function fetchMasterShop() {
-  // 主账付账 (北京花卉) 的 token + cookie, 任意被监控店钣只配 platformId 即可
+  // 直接读 huaxiang_api_token (不再 alias 自 token_enc)
   const r = await pgPool.query(
     `SELECT id, shop_name,
             api_base AS huaxiang_api_base,
-            token_enc AS huaxiang_api_token,
+            huaxiang_api_token,
             huaxiang_cookie,
             huaxiang_platform_id
        FROM shops WHERE shop_name = '北京花卉' LIMIT 1`
