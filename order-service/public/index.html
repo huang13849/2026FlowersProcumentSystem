@@ -1037,7 +1037,7 @@ const columns = [
           rowSelection={rowSelection}
           pagination={{ ...pagination, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
           onChange={handleTableChange} scroll={{ x: 2670 }} size="middle" />
-        <div style={{marginTop:16}}>        <div style={{marginTop:8,color:'#999',fontSize:12}}>💡 订单由同步服务按 pfid→xx_platform.id 导入 | 可按店铺筛选 | 双击单元格编辑 | 支付/运费/优惠列可查看与编辑 | 点击购买产品区"+"选取商品(可多选) | 个人标签可添加多个 | 勾选记录后复制/删除</div>
+        <div style={{marginTop:16}}>        <div style={{marginTop:8,color:'#999',fontSize:12}}>💡 订单由同步服务按 pfid→xx_platform.id 导入 | 可按店铺筛选 | 双击单元格编辑 | 支付/运费/优惠列可查看与编辑 | 点击购买产品区「+」选取商品(可多选) | 个人标签可添加多个 | 勾选记录后复制/删除</div>
       </div>
       <ProductPicker visible={pickerVisible} onCancel={() => setPickerVisible(false)} onConfirm={handleProductConfirm} existingProducts={pickingExisting} />
       {showTagMgr && <OrderTagManagerModal tagPool={tagPool} onClose={() => setShowTagMgr(false)} onChanged={fetchTagPool} />}
