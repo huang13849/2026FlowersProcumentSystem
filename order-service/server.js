@@ -135,6 +135,20 @@ function pickOrderFields(src = {}) {
   return fields;
 }
 
+const ORDER_MUTABLE_FIELDS = new Set([
+  ...Object.keys(pickOrderFields({})),
+  'product_id',
+  'product_title',
+]);
+
+function filterUpdateFields(src = {}) {
+  const filtered = {};
+  for (const [key, value] of Object.entries(src)) {
+    if (ORDER_MUTABLE_FIELDS.has(key)) filtered[key] = value;
+  }
+  return filtered;
+}
+
 
 // Update JSONB fields directly via pg
 
@@ -426,7 +440,7 @@ app.post('/api/orders/duplicate', async (req, res) => {
 app.put('/api/orders/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    const body = { ...req.body };
+    const body = filterUpdateFields(req.body);
     // Handle tags jsonb directly (avoid gateway PG array serialisation issue)
     if ('tags' in body) {
       await updateTagsField(id, body.tags);
@@ -818,6 +832,88 @@ app.get('/api/orders/huaxiang/preview', async (req, res) => {
     });
   } catch (err) {
     console.error('huaxiang preview error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 店铺监控: 拉上游订单列表,关联 shops 表 shop_name,直接返回给前端展示 (不写库)
+// 输入: shopId (shops.id 或 mongo_id), days(默认30), orderStatus(默认''全部), paymentMethod(默认'0'), maxPages(默认5)
+// 输出: { shop, total, rows: [{source_order_sn, purchase_time, consignee, phone, address, productName, payAmount, freight, paymentMethod, orderStatus, paymentStatus, shippingStatus, shop_name, platform_name}] }
+app.get('/api/orders/huaxiang/shop-monitor', async (req, res) => {
+  try {
+    const { shopId, days = '30', orderStatus = '', paymentMethod = '0', maxPages = '5' } = req.query;
+    const shop = await fetchHuaxiangShop(shopId);
+    if (!shop) return res.status(404).json({ error: '店铺不存在' });
+    if (!shop.huaxiang_api_token) return res.status(400).json({ error: '该店铺未配置 huaxiang_api_token,请先在店铺管理录入' });
+    if (!shop.huaxiang_platform_id) return res.status(400).json({ error: '该店铺未配置 huaxiang_platform_id(花像花木 platformId),请先在店铺管理录入' });
+
+    const d = parseInt(days, 10) || 30;
+    const end = new Date();
+    const start = new Date(); start.setDate(start.getDate() - d);
+    const startTime = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')} 00:00:00`;
+    const endTime   = `${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')} 23:59:59`;
+    const pages = Math.min(Math.max(parseInt(maxPages, 10) || 5, 1), 20);
+    const pageSize = 50;
+
+    // 预拉 shops 表 shop_name 映射 (用于 platformName → shop_name)
+    const { rows: shopRows } = await pgPool.query(
+      `SELECT shop_name FROM shops WHERE shop_name IS NOT NULL AND shop_name <> ''`
+    );
+    const shopNames = shopRows.map(r => r.shop_name);
+
+    let total = 0;
+    const collected = [];
+    for (let p = 1; p <= pages; p++) {
+      const data = await callHuaxiangFinds(shop, {
+        startTime, endTime, orderStatus, paymentMethod, sort: false,
+      }, p, pageSize);
+      if (data.code !== 200) {
+        return res.status(400).json({ error: data.status || data.msg || `上游 code=${data.code}` });
+      }
+      const rows = Array.isArray(data.data) ? data.data : [];
+      if (p === 1) total = data.count || rows.length;
+      if (!rows.length) break;
+      collected.push(...rows);
+      if (rows.length < pageSize) break;
+    }
+
+    // 把 platformName 跟 shops.shop_name 关联 (用 trim + 小写匹配)
+    const norm = s => String(s || '').replace(/[\s\-_·•・]+/g, '').toLowerCase();
+    const shopNameMap = new Map();
+    for (const sn of shopNames) shopNameMap.set(norm(sn), sn);
+
+    const outRows = collected.map(r => {
+      const platformName = r.platformName || '';
+      const matchedShopName = shopNameMap.get(norm(platformName)) || '';
+      return {
+        source_order_sn: String(r.order?.sn || r.orderSn || r.order?.id || ''),
+        purchase_time: r.order?.createDate || r.create_date || '',
+        consignee: r.order?.consignee || '',
+        phone: r.order?.phone || '',
+        address: r.order?.address || '',
+        productName: r.productName || '',
+        payAmount: Number(r.payAmount || r.order?.realPrice || 0),
+        freight: Number(r.freight || r.order?.freight || 0),
+        coupon_discount: Number(r.couponDiscount || r.order?.couponDiscount || 0),
+        paymentMethod: r.order?.paymentMethod || r.paymentMethodName || '',
+        orderStatus: r.orderStatus || '',
+        paymentStatus: r.paymentStatus || '',
+        shippingStatus: r.shippingStatus || '',
+        platform_name: platformName,
+        shop_name: matchedShopName,
+        pfid: r.order?.pfid || '',
+      };
+    });
+
+    res.json({
+      code: 200,
+      total,
+      count: outRows.length,
+      shop: { id: String(shop.id), shop_name: shop.shop_name, huaxiang_platform_id: shop.huaxiang_platform_id },
+      rows: outRows,
+    });
+  } catch (err) {
+    console.error('huaxiang shop-monitor error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
