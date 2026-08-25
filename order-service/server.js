@@ -653,7 +653,11 @@ async function fetchHuaxiangShop(shopId) {
   if (!shopId) return null;
   const num = /^[0-9]+$/.test(String(shopId));
   const r = await pgPool.query(
-    `SELECT id, mongo_id, shop_name, api_base AS huaxiang_api_base, token_enc AS huaxiang_api_token, huaxiang_platform_id
+    `SELECT id, mongo_id, shop_name,
+            api_base AS huaxiang_api_base,
+            token_enc AS huaxiang_api_token,
+            huaxiang_cookie,
+            huaxiang_platform_id
        FROM shops
       WHERE (mongo_id = $1${num ? ' OR id = $1::bigint' : ''})
       LIMIT 1`,
@@ -662,21 +666,39 @@ async function fetchHuaxiangShop(shopId) {
   return r.rows[0] || null;
 }
 
-async function callHuaxiangFinds(shop, filters, pageNumber = 1, pageSize = 50) {
-  if (!shop.huaxiang_api_token) throw new Error('店铺未配置 huaxiang_api_token');
-  if (!shop.huaxiang_platform_id) throw new Error('店铺未配置 huaxiang_platform_id (platformId)');
-  const base = (shop.huaxiang_api_base || 'http://adminapi.huaxianghuamu.cn/').replace(/\/$/, '') + '/';
-  const token = shop.huaxiang_api_token;
-  const url = `${base}weidao/weidaoyun/admin/order/finds.jhtml?platformId=${encodeURIComponent(shop.huaxiang_platform_id)}&token=${encodeURIComponent(token)}&stoken=${encodeURIComponent(token)}`;
+async function fetchMasterShop() {
+  // 主账付账 (北京花卉) 的 token + cookie, 任意被监控店钣只配 platformId 即可
+  const r = await pgPool.query(
+    `SELECT id, shop_name,
+            api_base AS huaxiang_api_base,
+            token_enc AS huaxiang_api_token,
+            huaxiang_cookie,
+            huaxiang_platform_id
+       FROM shops WHERE shop_name = '北京花卉' LIMIT 1`
+  );
+  return r.rows[0] || null;
+}
 
-  // body: orderStatus / paymentMethod / startTime / endTime / productName / keyword / searchStatus / sort / pageNumber / pageSize
+async function callHuaxiangFinds(masterShop, targetPlatformId, filters, pageNumber = 1, pageSize = 50) {
+  if (!masterShop || !masterShop.huaxiang_api_token) throw new Error('主账号(北京花卉)未配置 huaxiang_api_token');
+  if (!targetPlatformId) throw new Error('目标店铺缺少 huaxiang_platform_id');
+  const origin = (masterShop.huaxiang_api_base || 'https://admin.huaxianghuamu.cn').replace(/\/$/, '');
+  const base = origin + '/';
+  const token = masterShop.huaxiang_api_token;
+  // 完整 cookie 串 (从 shops.huaxiang_cookie 读), fallback 至少带上 ajaxtoken
+  const cookieExtra = masterShop.huaxiang_cookie && masterShop.huaxiang_cookie.trim()
+    ? masterShop.huaxiang_cookie.trim()
+    : 'ajaxtoken=' + token;
+  const url = `${base}weidao/weidaoyun/admin/order/findPlatformOrders.jhtml?platformId=${encodeURIComponent(targetPlatformId)}&token=${encodeURIComponent(token)}&stoken=${encodeURIComponent(token)}`;
+
+  // body: paymentMethod / orderStatus / pageNumber / pageSize / needTotal / shippingMethodName / startTime / endTime / productName / keyword / searchStatus / sort
   const body = {
     pageNumber: String(pageNumber),
     pageSize: String(pageSize),
     paymentMethod: String(filters.paymentMethod || 0),
     orderStatus: filters.orderStatus === '' || filters.orderStatus == null ? '' : String(filters.orderStatus),
     needTotal: '1',
-    userPfid: String(shop.huaxiang_platform_id),
+    shippingMethodName: filters.shippingMethodName || '',
   };
   if (filters.sort) body.sort = '1';
   if (filters.startTime) body.startTime = filters.startTime;
@@ -696,7 +718,9 @@ async function callHuaxiangFinds(shop, filters, pageNumber = 1, pageSize = 50) {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
       'token': token,
-      'Cookie': `ajaxtoken=${token}`,
+      'Cookie': cookieExtra,
+      'Origin': origin,
+      'Referer': origin + '/',
       'User-Agent': 'order-service/sync',
     },
     data: params,
@@ -709,46 +733,86 @@ async function callHuaxiangFinds(shop, filters, pageNumber = 1, pageSize = 50) {
   return res.data || {};
 }
 
-// 把上游 row.order 拍平到 purchase_orders 字段
+// 上游状态数字 -> 中文
+const HUAXIANG_ORDER_STATUS = { 0: '未确认', 1: '待确认', 2: '已确认', 3: '已完成', 4: '已取消', 5: '已退款' };
+const HUAXIANG_PAYMENT_STATUS = { 0: '未支付', 1: '部分支付', 2: '已支付', 3: '已退款', 4: '已退款' };
+const HUAXIANG_SHIPPING_STATUS = { 0: '未发货', 1: '部分发货', 2: '已发货', 3: '已签收', 4: '已退货' };
+const mapHuaxiangStatus = (m, v) => (v == null || v === '') ? '' : (m[Number(v)] || String(v));
+
+// 把上游 row 拍平到 purchase_orders 字段
+// findPlatformOrders 新接口 shape: top-level { product, source, paymentInformation, order }
+//   order: { id, sn, createDate/paymentDate(ms), paymentStatus/orderStatus/shippingStatus(数字),
+//            consignee, phone/memberPhone, address, pfid, nickName, paymentMethod, ... }
+//   paymentInformation: { amountPaid, freight, couponDiscount, promotionDiscount, paymentMethod, paymentDate(ms) }
+//   source: 平台名 (取代旧 r.platformName)
+//   product: [{ fullName, quantity, ... }] (新 shape)
 function mapHuaxiangRow(row, shopName) {
   const o = row.order || {};
-  // 时间优先用 createDate / paymentDate / create_date, fallback current
-  const purchaseTime = o.createDate || o.paymentDate || row.create_date || row.payment_date || new Date().toISOString();
-  // paymentMethod 是文字 (微信收单/银联收单/线上支付/线下支付)
-  const paymentChannel = o.paymentMethod || row.paymentMethodName || '';
-  // orderStatus / paymentStatus / shippingStatus 都是后端映射好的中文 ("未确认/已支付/已发货/...")
-  const orderStatus = row.orderStatus || '';
-  const payStatus = row.paymentStatus || '';
-  const shippingStatus = row.shippingStatus || '';
-  // orderId 在源里叫 id, sn 是订单号
+  const pi = row.paymentInformation || {};
+
+  // ms 时间戳 -> ISO 字符串 (兼容 10位秒 或 13位毫秒)
+  const tsToIso = (ts) => {
+    if (ts == null || ts === '') return null;
+    const n = Number(ts);
+    if (!Number.isFinite(n)) return null;
+    const ms = n > 1e12 ? n : n * 1000;
+    return new Date(ms).toISOString();
+  };
+
+  const orderCreateMs = o.createDate ?? row.create_date;
+  const paymentMs = pi.paymentDate ?? o.paymentDate;
+  const purchaseTime = tsToIso(orderCreateMs) || tsToIso(paymentMs) || new Date().toISOString();
+
+  const paymentChannel = pi.paymentMethod || o.paymentMethod || row.paymentMethodName || '';
+  const orderStatus = mapHuaxiangStatus(HUAXIANG_ORDER_STATUS, row.orderStatus);
+  const payStatus = mapHuaxiangStatus(HUAXIANG_PAYMENT_STATUS, row.paymentStatus ?? o.paymentStatus);
+  const shippingStatus = mapHuaxiangStatus(HUAXIANG_SHIPPING_STATUS, row.shippingStatus ?? o.shippingStatus);
+
   const sourceOrderId = String(o.id || row.orderId || '');
   const sourceOrderSn = String(o.sn || row.orderSn || sourceOrderId);
-  // 金额: payAmount(实付), freight(运费), settlementPrice(结算价), productQuantity(数量)
-  const income = Number(row.payAmount ?? o.realPrice ?? 0) || 0;
-  const shippingFee = Number(row.freight ?? o.freight ?? 0) || 0;
-  // 商品明细: 优先 row.productName (搜索列), 否则拼 order.products 名字
+
+  const income = Number(pi.amountPaid ?? row.payAmount ?? o.realPrice ?? o.amount ?? 0) || 0;
+  const shippingFee = Number(pi.freight ?? row.freight ?? o.freight ?? 0) || 0;
+  const couponDiscount = Number(pi.couponDiscount ?? row.couponDiscount ?? o.couponDiscount ?? 0) || 0;
+
+  // 商品明细: 优先 row.product (新 shape), 否则 o.products / row.productName
   let productNames = [];
-  if (Array.isArray(o.products)) {
+  if (Array.isArray(row.product)) {
+    for (const p of row.product) {
+      const t = p.fullName || p.name || p.productName || '';
+      if (t) productNames.push(t);
+    }
+  }
+  if (!productNames.length && Array.isArray(o.products)) {
     for (const p of o.products) {
       const t = p.fullName || p.name || p.productName || '';
       if (t) productNames.push(t);
     }
   }
   if (!productNames.length && row.productName) productNames = [String(row.productName)];
+
+  const phone = o.phone || o.memberPhone || row.phone || '';
+  const memberName = o.nickName || row.nickname || o.nickname || '';
+  const consignee = o.consignee || row.consignee || '';
+  const address = o.address || row.address || '';
+  const memo = o.memo || row.memo || '';
+  const platformName = row.source || row.platformName || '';
+  const pfid = o.pfid || row.pfid || '';
+
   return {
-    member_id: o.memberId || row.memberId || '',
-    member_name: row.nickname || o.nickname || '',
-    phone: o.phone || row.phone || '',
-    consignee: o.consignee || row.consignee || '',
-    delivery_address: o.address || row.address || '',
-    personal_tag: o.memo || row.memo || '',
+    member_id: o.member ? String(o.member) : (o.memberId || row.memberId || ''),
+    member_name: memberName,
+    phone,
+    consignee,
+    delivery_address: address,
+    personal_tag: memo,
     purchase_time: purchaseTime,
     income_amount: income,
     expense_amount: 0,
     product_subtotal: Math.max(income - shippingFee, 0),
     shipping_fee: shippingFee,
-    coupon_discount: Number(row.couponDiscount ?? o.couponDiscount ?? 0) || 0,
-    cost_amount: Number(row.cost ?? o.cost ?? 0) || 0,
+    coupon_discount: couponDiscount,
+    cost_amount: Number(o.cost ?? row.cost ?? 0) || 0,
     profit_amount: 0,
     payment_channel: paymentChannel,
     payment_order_id: o.paymentSn || row.paymentSn || sourceOrderSn,
@@ -758,12 +822,12 @@ function mapHuaxiangRow(row, shopName) {
     source_order_key: sourceOrderId || sourceOrderSn,
     source_order_id: sourceOrderId,
     source_order_sn: sourceOrderSn,
-    source_shop_id: String(o.pfid || row.pfid || ''),
-    shop_name: shopName || row.platformName || '',
-    shop_phone: o.phone || '',
+    source_shop_id: String(pfid),
+    shop_name: shopName || platformName || '',
+    shop_phone: phone,
     order_status: orderStatus,
     shipping_status: shippingStatus,
-    pay_status: payStatus === '已支付' ? '已支付' : payStatus === '未支付' ? '未支付' : '',
+    pay_status: payStatus,
     tags: ['北京花卉订单'],
     product_id: [],
     product_title: productNames,
@@ -790,15 +854,18 @@ app.get('/api/orders/huaxiang/shops', async (req, res) => {
 
 app.get('/api/orders/huaxiang/preview', async (req, res) => {
   try {
-    const { shopId, startTime, endTime, orderStatus = '', paymentMethod = '0', productName = '', keyword = '', searchStatus = '', sort = 'false', pageNumber = '1', pageSize = '20' } = req.query;
+    const { shopId, startTime, endTime, orderStatus = '', paymentMethod = '0', productName = '', keyword = '', searchStatus = '', sort = 'false', pageNumber = '1', pageSize = '20', shippingMethodName = '' } = req.query;
+    const master = await fetchMasterShop();
+    if (!master) return res.status(500).json({ error: '主账号 "北京花卉" 不存在,请先在店铺管理创建' });
+    if (!master.huaxiang_api_token) return res.status(500).json({ error: '主账号 "北京花卉" 未配置 huaxiang_api_token' });
     const shop = await fetchHuaxiangShop(shopId);
     if (!shop) return res.status(404).json({ error: '店铺不存在' });
-    if (!shop.huaxiang_api_token) return res.status(400).json({ error: '该店铺未配置 huaxiang_api_token,请先在店铺管理录入' });
     if (!shop.huaxiang_platform_id) return res.status(400).json({ error: '该店铺未配置 huaxiang_platform_id(花像花木 platformId),请先在店铺管理录入' });
 
-    const data = await callHuaxiangFinds(shop, {
-      startTime, endTime, orderStatus, paymentMethod,
-      productName, keyword, searchStatus, sort: sort === 'true' || sort === true || sort === '1',
+    const data = await callHuaxiangFinds(master, shop.huaxiang_platform_id, {
+      startTime, endTime, orderStatus, paymentMethod, productName, keyword, searchStatus,
+      sort: sort === 'true' || sort === true || sort === '1',
+      shippingMethodName,
     }, parseInt(pageNumber,10) || 1, Math.min(parseInt(pageSize,10) || 20, 100));
 
     if (data.code !== 200) {
@@ -816,19 +883,20 @@ app.get('/api/orders/huaxiang/preview', async (req, res) => {
         order_id: r.order?.id,
         purchase_time: r.order?.createDate || r.create_date || '',
         consignee: r.order?.consignee || '',
-        phone: r.order?.phone || '',
-        paymentMethod: r.order?.paymentMethod || r.paymentMethodName || '',
-        payAmount: Number(r.payAmount || r.order?.realPrice || 0),
-        freight: Number(r.freight || r.order?.freight || 0),
-        orderStatus: r.orderStatus || '',
-        paymentStatus: r.paymentStatus || '',
-        shippingStatus: r.shippingStatus || '',
-        productName: r.productName || '',
+        phone: r.order?.phone || r.order?.memberPhone || '',
+        paymentMethod: r.paymentInformation?.paymentMethod || r.order?.paymentMethod || r.paymentMethodName || '',
+        payAmount: Number(r.paymentInformation?.amountPaid ?? r.payAmount ?? r.order?.realPrice ?? r.order?.amount ?? 0),
+        freight: Number(r.paymentInformation?.freight ?? r.freight ?? r.order?.freight ?? 0),
+        orderStatus: r.orderStatus ?? '',
+        paymentStatus: r.paymentStatus ?? r.order?.paymentStatus ?? '',
+        shippingStatus: r.shippingStatus ?? r.order?.shippingStatus ?? '',
+        productName: (Array.isArray(r.product) && r.product[0]?.fullName) || r.productName || '',
         address: r.order?.address || '',
-        platformName: r.platformName || shop.shop_name || '',
+        platformName: r.source || r.platformName || shop.shop_name || '',
         pfid: r.order?.pfid || '',
       })),
       shop: { id: String(shop.id), shop_name: shop.shop_name, huaxiang_platform_id: shop.huaxiang_platform_id },
+      master: { id: String(master.id), shop_name: master.shop_name, huaxiang_platform_id: master.huaxiang_platform_id },
     });
   } catch (err) {
     console.error('huaxiang preview error:', err.message);
@@ -841,10 +909,12 @@ app.get('/api/orders/huaxiang/preview', async (req, res) => {
 // 输出: { shop, total, rows: [{source_order_sn, purchase_time, consignee, phone, address, productName, payAmount, freight, paymentMethod, orderStatus, paymentStatus, shippingStatus, shop_name, platform_name}] }
 app.get('/api/orders/huaxiang/shop-monitor', async (req, res) => {
   try {
-    const { shopId, days = '30', orderStatus = '', paymentMethod = '0', maxPages = '5' } = req.query;
+    const { shopId, days = '30', orderStatus = '', paymentMethod = '0', maxPages = '5', shippingMethodName = '' } = req.query;
+    const master = await fetchMasterShop();
+    if (!master) return res.status(500).json({ error: '主账号 "北京花卉" 不存在,请先在店铺管理创建' });
+    if (!master.huaxiang_api_token) return res.status(500).json({ error: '主账号 "北京花卉" 未配置 huaxiang_api_token' });
     const shop = await fetchHuaxiangShop(shopId);
     if (!shop) return res.status(404).json({ error: '店铺不存在' });
-    if (!shop.huaxiang_api_token) return res.status(400).json({ error: '该店铺未配置 huaxiang_api_token,请先在店铺管理录入' });
     if (!shop.huaxiang_platform_id) return res.status(400).json({ error: '该店铺未配置 huaxiang_platform_id(花像花木 platformId),请先在店铺管理录入' });
 
     const d = parseInt(days, 10) || 30;
@@ -855,7 +925,7 @@ app.get('/api/orders/huaxiang/shop-monitor', async (req, res) => {
     const pages = Math.min(Math.max(parseInt(maxPages, 10) || 5, 1), 20);
     const pageSize = 50;
 
-    // 预拉 shops 表 shop_name 映射 (用于 platformName → shop_name)
+    // 预拉 shops 表 shop_name 映射 (用于 r.source/platformName → shop_name)
     const { rows: shopRows } = await pgPool.query(
       `SELECT shop_name FROM shops WHERE shop_name IS NOT NULL AND shop_name <> ''`
     );
@@ -864,8 +934,8 @@ app.get('/api/orders/huaxiang/shop-monitor', async (req, res) => {
     let total = 0;
     const collected = [];
     for (let p = 1; p <= pages; p++) {
-      const data = await callHuaxiangFinds(shop, {
-        startTime, endTime, orderStatus, paymentMethod, sort: false,
+      const data = await callHuaxiangFinds(master, shop.huaxiang_platform_id, {
+        startTime, endTime, orderStatus, paymentMethod, sort: false, shippingMethodName,
       }, p, pageSize);
       if (data.code !== 200) {
         return res.status(400).json({ error: data.status || data.msg || `上游 code=${data.code}` });
@@ -883,22 +953,22 @@ app.get('/api/orders/huaxiang/shop-monitor', async (req, res) => {
     for (const sn of shopNames) shopNameMap.set(norm(sn), sn);
 
     const outRows = collected.map(r => {
-      const platformName = r.platformName || '';
+      const platformName = r.source || r.platformName || '';
       const matchedShopName = shopNameMap.get(norm(platformName)) || '';
       return {
         source_order_sn: String(r.order?.sn || r.orderSn || r.order?.id || ''),
         purchase_time: r.order?.createDate || r.create_date || '',
         consignee: r.order?.consignee || '',
-        phone: r.order?.phone || '',
+        phone: r.order?.phone || r.order?.memberPhone || '',
         address: r.order?.address || '',
-        productName: r.productName || '',
-        payAmount: Number(r.payAmount || r.order?.realPrice || 0),
-        freight: Number(r.freight || r.order?.freight || 0),
-        coupon_discount: Number(r.couponDiscount || r.order?.couponDiscount || 0),
-        paymentMethod: r.order?.paymentMethod || r.paymentMethodName || '',
-        orderStatus: r.orderStatus || '',
-        paymentStatus: r.paymentStatus || '',
-        shippingStatus: r.shippingStatus || '',
+        productName: (Array.isArray(r.product) && r.product[0]?.fullName) || r.productName || '',
+        payAmount: Number(r.paymentInformation?.amountPaid ?? r.payAmount ?? r.order?.realPrice ?? r.order?.amount ?? 0),
+        freight: Number(r.paymentInformation?.freight ?? r.freight ?? r.order?.freight ?? 0),
+        coupon_discount: Number(r.paymentInformation?.couponDiscount ?? r.couponDiscount ?? r.order?.couponDiscount ?? 0),
+        paymentMethod: r.paymentInformation?.paymentMethod || r.order?.paymentMethod || r.paymentMethodName || '',
+        orderStatus: r.orderStatus ?? '',
+        paymentStatus: r.paymentStatus ?? r.order?.paymentStatus ?? '',
+        shippingStatus: r.shippingStatus ?? r.order?.shippingStatus ?? '',
         platform_name: platformName,
         shop_name: matchedShopName,
         pfid: r.order?.pfid || '',
@@ -910,6 +980,7 @@ app.get('/api/orders/huaxiang/shop-monitor', async (req, res) => {
       total,
       count: outRows.length,
       shop: { id: String(shop.id), shop_name: shop.shop_name, huaxiang_platform_id: shop.huaxiang_platform_id },
+      master: { id: String(master.id), shop_name: master.shop_name, huaxiang_platform_id: master.huaxiang_platform_id },
       rows: outRows,
     });
   } catch (err) {
@@ -920,14 +991,16 @@ app.get('/api/orders/huaxiang/shop-monitor', async (req, res) => {
 
 app.post('/api/orders/sync-huaxiang', async (req, res) => {
   try {
-    const { shopId, startTime, endTime, orderStatus = '', paymentMethod = '0', productName = '', keyword = '', searchStatus = '', sort = false, maxPages = 30, pageSize = 50 } = req.body || {};
+    const { shopId, startTime, endTime, orderStatus = '', paymentMethod = '0', productName = '', keyword = '', searchStatus = '', sort = false, maxPages = 30, pageSize = 50, shippingMethodName = '' } = req.body || {};
     if (!shopId) return res.status(400).json({ error: 'shopId 必填' });
+    const master = await fetchMasterShop();
+    if (!master) return res.status(500).json({ error: '主账号 "北京花卉" 不存在,请先在店铺管理创建' });
+    if (!master.huaxiang_api_token) return res.status(500).json({ error: '主账号 "北京花卉" 未配置 huaxiang_api_token' });
     const shop = await fetchHuaxiangShop(shopId);
     if (!shop) return res.status(404).json({ error: '店铺不存在' });
-    if (!shop.huaxiang_api_token) return res.status(400).json({ error: '该店铺未配置 huaxiang_api_token,请先在店铺管理录入' });
     if (!shop.huaxiang_platform_id) return res.status(400).json({ error: '该店铺未配置 huaxiang_platform_id, 请先在店铺管理录入' });
 
-    const filters = { startTime, endTime, orderStatus, paymentMethod, productName, keyword, searchStatus, sort: !!sort };
+    const filters = { startTime, endTime, orderStatus, paymentMethod, productName, keyword, searchStatus, sort: !!sort, shippingMethodName: shippingMethodName || '' };
 
     let scanned = 0, inserted = 0, updated = 0, skipped = 0, errors = 0;
     const errorList = [];
@@ -937,7 +1010,7 @@ app.post('/api/orders/sync-huaxiang', async (req, res) => {
     const ps = Math.min(Math.max(parseInt(pageSize,10) || 50, 1), 100);
 
     for (let p = 1; p <= pagesLimit; p++) {
-      const data = await callHuaxiangFinds(shop, filters, p, ps);
+      const data = await callHuaxiangFinds(master, shop.huaxiang_platform_id, filters, p, ps);
       if (data.code !== 200) {
         errorList.push({ page: p, message: data.status || data.msg || `code=${data.code}` });
         break;
@@ -1030,6 +1103,7 @@ app.post('/api/orders/sync-huaxiang', async (req, res) => {
       total: lastTotal,
       pages: pagesLimit,
       shop: { id: String(shop.id), shop_name: shop.shop_name, huaxiang_platform_id: shop.huaxiang_platform_id },
+      master: { id: String(master.id), shop_name: master.shop_name, huaxiang_platform_id: master.huaxiang_platform_id },
       filters,
       errorList,
     });
