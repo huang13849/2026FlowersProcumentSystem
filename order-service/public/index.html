@@ -940,6 +940,36 @@ const columns = [
           </Col>
         </Row>
         )}
+
+        {/* 按店铺统计 - shopStats 顶部卡片 (点击可筛选 shopName) */}
+        <Card size="small" style={{marginBottom:12, background:'#fafafa'}} bodyStyle={{padding:'8px 14px'}}>
+          <div style={{display:'flex',alignItems:'center',flexWrap:'wrap',gap:8}}>
+            <span style={{color:'#1677ff',fontWeight:600,marginRight:4,fontSize:13}}>🏪 按店铺:</span>
+            {shopStats.map((s, i) => {
+              const isLinked = s.shop_name && s.shop_name !== '未关联';
+              const active = shopName === s.shop_name;
+              const bg = active ? '#1677ff' : (isLinked ? '#e6f4ff' : '#fff1f0');
+              const fg = active ? '#fff' : (isLinked ? '#1677ff' : '#cf1322');
+              return (
+                <span key={i} onClick={() => setShopName(active ? '全部' : s.shop_name)}
+                  style={{cursor:'pointer',fontSize:13,padding:'4px 12px',borderRadius:16,background:bg,color:fg,
+                          border:'1px solid ' + (active ? '#1677ff' : (isLinked ? '#91caff' : '#ffa39e')),
+                          fontWeight: active ? 600 : 400, transition:'all 0.15s'}}
+                  title={active ? '清除筛选' : `筛选店铺: ${s.shop_name}`}>
+                  {s.shop_name} <b style={{marginLeft:4}}>{s.count}</b>
+                </span>
+              );
+            })}
+            {!shopStats.length && <span style={{color:'#bbb',fontSize:12}}>加载中...</span>}
+            {shopStats.find(s => s.shop_name === '未关联') && (
+              <span style={{marginLeft:'auto', color:'#cf1322', fontSize:12}}
+                title="这些订单写入 purchase_orders 时未填 shop_name，请检查手工录入或上游同步">
+                ⚠ {shopStats.find(s => s.shop_name === '未关联').count} 条未关联店铺
+              </span>
+            )}
+          </div>
+        </Card>
+
         <Card size="small" style={{marginBottom:12}} bodyStyle={{padding:'10px 14px'}}>
           <div style={{display:'flex',alignItems:'center',flexWrap:'wrap',gap:6}}>
             <span style={{color:'#722ed1',fontWeight:600,marginRight:8}}>🏷️ 标签筛选：</span>
