@@ -774,20 +774,11 @@ export default function ProductList() {
   const removeGridImage = async (productId, colField, url) => {
     const key = imgFieldKey(colField);
     try {
-      // 先从 MinIO 删除图片本身
-      try { await api.delete('/images/by-url', { data: { imageUrl: url } }); } catch (e) { console.warn('MinIO删除失败', e); }
-      // 再从产品中移除引用
-      setAllProducts(prev => {
-        const updated = prev.map(p => {
-          if (p._id !== productId) return p;
-          const filtered = (p[key] || []).filter(i => i !== url);
-          return { ...p, [key]: filtered };
-        });
-        const updatedProduct = updated.find(p => p._id === productId);
-        const newArr = updatedProduct?.[key] || [];
-        api.put('/products/' + productId, { [key]: newArr }).catch(() => {});
-        return updated;
-      });
+      const product = allProducts.find(p => p._id === productId);
+      const newArr = (product?.[key] || []).filter(i => i !== url);
+      await api.put('/products/' + productId, { [key]: newArr });
+      await api.delete('/images/by-url', { data: { imageUrl: url } });
+      setAllProducts(prev => prev.map(p => p._id === productId ? { ...p, [key]: newArr } : p));
     } catch { alert('删除失败'); }
   };
 
@@ -843,13 +834,11 @@ export default function ProductList() {
 
   const removeProductVideo = async (productId, url) => {
     try {
-      try { await api.delete('/images/by-url', { data: { imageUrl: url } }); } catch (e) { console.warn('MinIO视频删除失败', e); }
-      setAllProducts(prev => {
-        const updated = prev.map(p => p._id === productId ? { ...p, product_videos: (p.product_videos || []).filter(i => i !== url) } : p);
-        const updatedProduct = updated.find(p => p._id === productId);
-        api.put('/products/' + productId, { product_videos: updatedProduct?.product_videos || [] }).catch(() => {});
-        return updated;
-      });
+      const product = allProducts.find(p => p._id === productId);
+      const newVideos = (product?.product_videos || []).filter(i => i !== url);
+      await api.put('/products/' + productId, { product_videos: newVideos });
+      await api.delete('/images/by-url', { data: { imageUrl: url } });
+      setAllProducts(prev => prev.map(p => p._id === productId ? { ...p, product_videos: newVideos } : p));
     } catch { alert('删除视频失败'); }
   };
 

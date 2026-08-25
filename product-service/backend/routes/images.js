@@ -2,7 +2,8 @@ import { Router } from "express";
 import multer from "multer";
 import sharp from "sharp";
 import Product from "../models/Product.js";
-import { uploadFile, deleteFile } from "../services/minio.js";
+import { uploadFile } from "../services/minio.js";
+import { deleteIfUnreferenced } from "../services/productMedia.js";
 
 const router = Router();
 
@@ -213,10 +214,10 @@ router.get("/product/:productId", async (req, res) => {
 router.delete("/product/:productId", async (req, res) => {
   try {
     const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ error: "缺少图片URL" });
     await Product.findByIdAndUpdate(req.params.productId, { $pull: { images: imageUrl } });
-    // Also delete from MinIO
-    await deleteFile(imageUrl);
-    res.json({ message: "图片已移除" });
+    const cleanup = await deleteIfUnreferenced(imageUrl);
+    res.json({ message: "图片已移除", cleanup });
   } catch (err) {
     res.status(err.statusCode || 500).json({ error: err.message });
   }
@@ -227,8 +228,8 @@ router.delete("/by-url", async (req, res) => {
   try {
     const { imageUrl } = req.body;
     if (!imageUrl) return res.status(400).json({ error: "缺少图片URL" });
-    await deleteFile(imageUrl);
-    res.json({ message: "图片已删除", url: imageUrl });
+    const cleanup = await deleteIfUnreferenced(imageUrl);
+    res.json({ message: cleanup.deleted ? "图片已删除" : "图片仍被引用，保留对象", url: imageUrl, cleanup });
   } catch (err) {
     res.status(err.statusCode || 500).json({ error: err.message });
   }

@@ -27,14 +27,19 @@ export const uploadFile = async ({ buffer, filename, mimetype, folder = "product
   return { key, url };
 };
 
+export const objectKeyFromUrl = (url) => {
+  if (typeof url !== "string") return null;
+  const marker = `/${bucket}/`;
+  const index = url.indexOf(marker);
+  if (index < 0) return null;
+  return decodeURIComponent(url.slice(index + marker.length).split("?")[0]);
+};
+
 export const deleteFile = async (url) => {
-  try {
-    const key = url.split(`/${bucket}/`)[1];
-    if (!key) return;
-    await client.removeObject(bucket, key);
-  } catch (err) {
-    console.error("MinIO delete error:", err.message);
-  }
+  const key = objectKeyFromUrl(url);
+  if (!key) return false;
+  await client.removeObject(bucket, key);
+  return true;
 };
 
 export const listFiles = async (folder = "") => {

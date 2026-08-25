@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import Product from '../models/Product.js';
 import AuditLog from '../models/AuditLog.js';
-import { uploadFile as minioUpload, deleteFile as minioDelete } from "../services/minio.js";
+import { uploadFile as minioUpload } from "../services/minio.js";
+import { cleanupRemovedMedia, deleteIfUnreferenced, productMediaUrls } from "../services/productMedia.js";
 import { getSupplierTagsMap, suppliersWithTags } from "../services/supplierTags.js";
 
 const router = Router();
@@ -118,8 +119,10 @@ router.post('/', async (req, res) => {
 // Update
 router.put('/:id', async (req, res) => {
   try {
+    const previous = await Product.findById(req.params.id);
+    if (!previous) return res.status(404).json({ error: '商品不存在' });
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!product) return res.status(404).json({ error: '商品不存在' });
+    await cleanupRemovedMedia(previous, product);
     await log('update_product', { productId: product.productId, title: product.title, changes: Object.keys(req.body) });
     res.json(product);
   } catch (err) {
@@ -132,6 +135,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ error: '商品不存在' });
+    for (const url of productMediaUrls(product)) await deleteIfUnreferenced(url);
     await log('delete_product', { productId: product.productId, title: product.title });
     res.json({ message: '已删除' });
   } catch (err) {
@@ -238,9 +242,7 @@ router.post('/batch', async (req, res) => {
           for (const f of imgFields) {
             if (p[f]) p[f].forEach(u => allUrls.add(u));
           }
-          for (const url of allUrls) {
-            minioDelete(url).catch(e => console.warn('MinIO cleanup failed:', url, e.message));
-          }
+          for (const url of allUrls) await deleteIfUnreferenced(url);
         }
         break;
       default:
@@ -296,4 +298,3 @@ router.get('/meta/seller-stats', async (req, res) => {
 });
 
 export default router;
-
