@@ -1042,14 +1042,12 @@ const columns = [
       {showTagMgr && <OrderTagManagerModal tagPool={tagPool} onClose={() => setShowTagMgr(false)} onChanged={fetchTagPool} />}
       {showBatchTag && <OrderBatchTagModal ids={selectedRowKeys} tagPool={tagPool} onClose={() => setShowBatchTag(false)} onSaved={() => { setShowBatchTag(false); setSelectedRowKeys([]); fetchData(pagination.current); fetchTagPool(); }} />}
     </div>
+    </div>
   );
 }
 
 
 
-// ============ 订单 · 标签管理 ============
-// TEMP disabled 2026-08-25 01:38 PDT — Babel parsing error in this component
-// Re-enable after precompiling JSX or fixing shorthand
 // ============ 订单 · 批量打标签 ============
 function OrderBatchTagModal({ ids, tagPool, onClose, onSaved }) {
   const [selected, setSelected] = React.useState(new Set());
