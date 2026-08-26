@@ -40,4 +40,4 @@ spec:
   type: NodePort
   selector: { app: order-web }
   ports:
-    - { name: http, port: 80, targetPort: 80, nodePort: 31009 }
+    - { name: http, port: 80, targetPort: 80, nodePort: 31020 }
