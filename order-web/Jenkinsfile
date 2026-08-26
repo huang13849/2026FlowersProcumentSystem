@@ -1,28 +1,25 @@
-// ── order-service pipeline (后端独立微服务, 纯 API) ──
+// ── order-web pipeline (前端独立微服务) ──
 //   * 复用 k3s-build agent (xspt05 + dind sidecar, 已在 k3s 上)
 //   * SCM: Gitea (100.76.15.64:13000, credentialId=gitea-token)
 //   * 用 in-cluster SA jenkins-agent (clusterwide deploy perms)
 //
-//   order-service 现在只服务 backend API (Node.js + Express + PG)
-//   前端 UI 已拆到 order-web (nginx 静态服务, /api/* 反代到本服务)
-//   NodePort 31008 → order-service
-//
-// 注: 走 in-cluster 所以不需要 office-k3s-kubeconfig
+//   order-web 部署在 xsyysj 节点, NodePort 31009
+//   nginx 自代理 /api/* 到 order-service:3008
 
 pipeline {
   agent { label 'k3s-build' }
 
   options {
-    timeout(time: 25, unit: 'MINUTES')
+    timeout(time: 15, unit: 'MINUTES')
     disableConcurrentBuilds()
   }
 
   environment {
     REGISTRY    = '100.76.15.64:5001'
     IMAGE_NS    = 'supply-chain'
-    IMAGE_NAME  = 'order-service'
+    IMAGE_NAME  = 'order-web'
     K8S_NS      = 'supply-chain'
-    NODE_PORT   = '31008'
+    NODE_PORT   = '31009'
     SERVICE_HOST = '100.96.54.109'
   }
 
@@ -70,7 +67,7 @@ pipeline {
           echo "[1/4] set image deploy/${IMAGE_NAME} -> $IMG"
           kubectl -n ${K8S_NS} set image deploy/${IMAGE_NAME} ${IMAGE_NAME}="$IMG"
           echo "[2/4] rollout status"
-          kubectl -n ${K8S_NS} rollout status deploy/${IMAGE_NAME} --timeout=240s
+          kubectl -n ${K8S_NS} rollout status deploy/${IMAGE_NAME} --timeout=180s
           echo "[3/4] final container image"
           kubectl -n ${K8S_NS} get deploy ${IMAGE_NAME} -o jsonpath='{.spec.template.spec.containers[0].image}'
           printf '\\n'
@@ -80,28 +77,34 @@ pipeline {
       }
     }
 
-    stage('Smoke Test (API)') {
+    stage('Smoke Test') {
       steps {
         sh '''
           set -euo pipefail
           sleep 5
-          echo "[1/3] /api/health"
-          code=$(curl -s -o /tmp/ord_body -w '%{http_code}' --max-time 20 "http://${SERVICE_HOST}:${NODE_PORT}/api/health" || echo ERR)
-          echo "$code /api/health"
+          echo "[1/4] healthz"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://${SERVICE_HOST}:${NODE_PORT}/healthz" || echo ERR)
+          echo "$code /healthz"
           [ "$code" = "200" ] || exit 30
 
-          echo "[2/3] /api/orders?limit=1"
-          code=$(curl -s -o /tmp/ord_body -w '%{http_code}' --max-time 30 "http://${SERVICE_HOST}:${NODE_PORT}/api/orders?limit=1" || echo ERR)
-          echo "$code /api/orders"
-          [ "$code" = "200" ] || exit 31
-          head -c 100 /tmp/ord_body; echo
+          echo "[2/4] UI html"
+          html=$(curl -s --max-time 20 "http://${SERVICE_HOST}:${NODE_PORT}/")
+          echo "$html" | grep -q '<title>订单管理</title>' || { echo "missing title"; exit 31; }
+          echo "[ok] title 订单管理 present"
 
-          echo "[3/3] clusterIP direct"
-          IP=$(kubectl -n ${K8S_NS} get svc ${IMAGE_NAME} -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo '')
-          if [ -n "$IP" ]; then
-            code=$(curl -s -m 10 -o /dev/null -w '%{http_code}' "http://${IP}:3008/api/health" || echo ERR)
-            echo "$code clusterIP direct"
-          fi
+          echo "[3/4] static assets"
+          for u in /favicon.svg /index.html; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://${SERVICE_HOST}:${NODE_PORT}${u}" || echo ERR)
+            echo "$code $u"
+            [ "$code" = "200" ] || exit 32
+          done
+
+          echo "[4/4] backend API via /api/orders (nginx 反代)"
+          code=$(curl -s -o /tmp/ow_body -w '%{http_code}' --max-time 30 "http://${SERVICE_HOST}:${NODE_PORT}/api/orders?limit=1" || echo ERR)
+          echo "$code /api/orders"
+          [ "$code" = "200" ] || exit 33
+          head -c 100 /tmp/ow_body; echo
+
           echo "smoke OK"
         '''
       }
@@ -109,7 +112,7 @@ pipeline {
   }
 
   post {
-    success { echo 'order-service pipeline SUCCEEDED' }
-    failure { echo 'order-service pipeline FAILED' }
+    success { echo 'order-web pipeline SUCCEEDED' }
+    failure { echo 'order-web pipeline FAILED' }
   }
 }
