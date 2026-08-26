@@ -1102,69 +1102,153 @@ function OrderBatchTagModal({ ids, tagPool, onClose, onSaved }) {
 
 // ============ 🌐 外部订单同步 (花像花木 admin) ============
 // ============ 🌐 外部订单监控 (花像花木 admin) ============
-// 流程: 加载店铺列表 → 点"监控" → 后端拉上游 + 关联 shops 表 shop_name → 展示订单
-// 不写 purchase_orders,只读上游;需要入库请用老的"同步到本地"按钮 (本页未启用)
-function HuaxiangMonitorTab({ apiBase, onBack }) {
-  const [shops, setShops] = React.useState([]);
-  const [shopsBusy, setShopsBusy] = React.useState(false);
-  const [shopsErr, setShopsErr] = React.useState('');
-  // 监控结果: { [shopId]: { shop, total, rows, busy, err, fetchedAt } }
-  const [monitors, setMonitors] = React.useState({});
-  const [days, setDays] = React.useState(30);
-  const [orderStatus, setOrderStatus] = React.useState('');
-  const [paymentMethod, setPaymentMethod] = React.useState('0');
 
-  const fetchShops = React.useCallback(async () => {
+// 主账号 (北京花卉) + target platformId 模式: 任何店铺无需自带 token 都能监控/同步
+// 主账号配置: shops 表 shop_name='北京花卉' 的 huaxiang_api_token + huaxiang_cookie
+// 监控流程: 选店铺 → "预览" → 后端用主账号 token 调上游 findPlatformOrders.jhtml?platformId={target.platformId} → 展示
+// 同步流程: "同步到订单库" → 后端把上游订单 upsert 到 purchase_orders (source_table='huaxiang_porder'),返回 inserted/updated/skipped 数量
+function HuaxiangMonitorTab({ apiBase, onBack }) {
+  const [shops, setShops] = useState([]);
+  const [shopsBusy, setShopsBusy] = useState(false);
+  const [shopsErr, setShopsErr] = useState('');
+  const [master, setMaster] = useState(null);
+  const [monitors, setMonitors] = useState({});
+  const [days, setDays] = useState(30);
+  const [orderStatus, setOrderStatus] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('0');
+
+  const fetchShops = useCallback(async () => {
     setShopsBusy(true); setShopsErr('');
     try {
       const r = await fetch(`${apiBase}/api/orders/huaxiang/shops`);
       const j = await r.json();
       setShops(j.data || []);
+      const m = (j.data || []).find(s => s.shop_name === '北京花卉' && s.huaxiang_api_base);
+      setMaster(m || null);
     } catch (e) { setShopsErr('加载店铺列表失败: ' + e.message); }
     setShopsBusy(false);
   }, [apiBase]);
 
-  React.useEffect(() => { fetchShops(); }, [fetchShops]);
+  useEffect(() => { fetchShops(); }, [fetchShops]);
 
-  const runMonitor = async (shop) => {
+  const runPreview = async (shop) => {
     const sid = String(shop.id);
-    setMonitors(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), shop, busy: true, err: '', rows: [], total: 0 } }));
+    setMonitors(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), shop, busy: true, syncing: false, err: '', rows: [], total: 0 } }));
     try {
       const params = new URLSearchParams({ shopId: sid, days: String(days), orderStatus, paymentMethod, maxPages: '5' });
       const r = await fetch(`${apiBase}/api/orders/huaxiang/shop-monitor?${params.toString()}`);
       const j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
-      setMonitors(prev => ({ ...prev, [sid]: { shop, busy: false, err: '', rows: j.rows || [], total: j.total || j.count || 0, fetchedAt: new Date() } }));
+      setMonitors(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), shop, busy: false, syncing: false, err: '', rows: j.rows || [], total: j.total || j.count || 0, fetchedAt: new Date() } }));
     } catch (e) {
-      setMonitors(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), shop, busy: false, err: e.message } }));
+      setMonitors(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), shop, busy: false, syncing: false, err: e.message } }));
+      message.error(`预览 ${shop.shop_name} 失败: ${e.message}`);
     }
+  };
+
+  const runSync = async (shop) => {
+    const sid = String(shop.id);
+    setMonitors(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), shop, busy: false, syncing: true, err: '' } }));
+    try {
+      const body = JSON.stringify({ shopId: sid, startTime: '', endTime: '', orderStatus, paymentMethod, sort: false, maxPages: 30, pageSize: 50 });
+      const r = await fetch(`${apiBase}/api/orders/sync-huaxiang`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
+      });
+      const j = await r.json();
+      if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`);
+      const stats = { inserted: j.inserted || 0, updated: j.updated || 0, skipped: j.skipped || 0, scanned: j.scanned || 0, errors: j.errors || 0 };
+      setMonitors(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), shop, busy: false, syncing: false, err: '', lastSync: new Date(), lastSyncStats: stats } }));
+      message.success(`${shop.shop_name} 同步完成: 拉取 ${stats.scanned} · 新增 ${stats.inserted} · 更新 ${stats.updated} · 跳过 ${stats.skipped}${stats.errors ? ` · 错误 ${stats.errors}` : ''}`);
+      setTimeout(() => runPreview(shop), 500);
+    } catch (e) {
+      setMonitors(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), shop, busy: false, syncing: false, err: e.message } }));
+      message.error(`同步 ${shop.shop_name} 失败: ${e.message}`);
+    }
+  };
+
+  const runSyncAll = async () => {
+    if (!shops.length) { message.warning('暂无店铺'); return; }
+    Modal.confirm({
+      title: `全部同步 ${shops.length} 个店铺?`,
+      content: '会依次调用 /sync-huaxiang 写入 purchase_orders (按店铺单). 可能需要 1-3 分钟.',
+      okText: '开始同步', cancelText: '取消',
+      onOk: async () => {
+        const hide = message.loading('全部同步中...', 0);
+        let totalInserted = 0, totalUpdated = 0, totalErrors = 0;
+        for (const shop of shops) {
+          try {
+            const r = await fetch(`${apiBase}/api/orders/sync-huaxiang`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ shopId: String(shop.id), startTime: '', endTime: '', orderStatus, paymentMethod, maxPages: 30, pageSize: 50 }),
+            });
+            const j = await r.json();
+            if (j.success) {
+              totalInserted += (j.inserted || 0);
+              totalUpdated += (j.updated || 0);
+              totalErrors += (j.errors || 0);
+              message.success(`${shop.shop_name}: 新增 ${j.inserted||0} 更新 ${j.updated||0}`, 1);
+            } else {
+              totalErrors += 1;
+              message.error(`${shop.shop_name}: ${j.error}`, 2);
+            }
+          } catch (e) {
+            totalErrors += 1;
+            message.error(`${shop.shop_name}: ${e.message}`, 2);
+          }
+        }
+        hide();
+        message.success(`全部完成: 新增 ${totalInserted} · 更新 ${totalUpdated} · 错误 ${totalErrors}`);
+        fetchShops();
+      },
+    });
   };
 
   const monitorColumns = [
     { title: '#', key: 'idx', width: 50, render: (_, r, i) => i + 1 },
-    { title: '订单号', dataIndex: 'source_order_sn', width: 170, render: v => <span style={{fontFamily:'monospace',fontSize:12}}>{v || '-'}</span> },
-    { title: '下单时间', dataIndex: 'purchase_time', width: 150, render: v => v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-' },
+    { title: '订单号', dataIndex: 'source_order_sn', width: 180, render: v => <span style={{fontFamily:'monospace',fontSize:12}}>{v || '-'}</span> },
+    { title: '下单时间', dataIndex: 'purchase_time', width: 160, render: v => {
+      if (!v) return '-';
+      const n = Number(v);
+      if (n > 1e12) return dayjs(n).format('YYYY-MM-DD HH:mm');
+      return dayjs(v).format('YYYY-MM-DD HH:mm');
+    } },
     { title: '收货人', dataIndex: 'consignee', width: 90 },
     { title: '手机', dataIndex: 'phone', width: 120 },
     { title: '地址', dataIndex: 'address', width: 220, ellipsis: true },
     { title: '商品', dataIndex: 'productName', ellipsis: true, render: v => v ? <span title={v}>🌸 {v}</span> : '-' },
-    { title: '订单总价', dataIndex: 'payAmount', width: 100, align: 'right', render: v => <b style={{color:'#3f8600'}}>¥{Number(v||0).toFixed(2)}</b> },
+    { title: '实付', dataIndex: 'payAmount', width: 90, align: 'right', render: v => <b style={{color:'#3f8600'}}>¥{Number(v||0).toFixed(2)}</b> },
     { title: '运费', dataIndex: 'freight', width: 80, align: 'right', render: v => '¥' + Number(v||0).toFixed(2) },
-    { title: '业务类型', dataIndex: 'paymentMethod', width: 110 },
-    { title: '订单状态', dataIndex: 'orderStatus', width: 110 },
-    { title: '发货状态', dataIndex: 'shippingStatus', width: 110 },
-    { title: '支付状态', dataIndex: 'paymentStatus', width: 100 },
+    { title: '优惠', dataIndex: 'coupon_discount', width: 80, align: 'right', render: v => Number(v||0) > 0 ? <span style={{color:'#fa8c16'}}>-¥{Number(v||0).toFixed(2)}</span> : '-' },
+    { title: '支付方式', dataIndex: 'paymentMethod', width: 110 },
+    { title: '订单', dataIndex: 'orderStatus', width: 80 },
+    { title: '发货', dataIndex: 'shippingStatus', width: 80 },
+    { title: '付款', dataIndex: 'paymentStatus', width: 80, render: v => {
+      if (v == null || v === '') return '-';
+      const map = { 0: '未支付', 1: '部分付', 2: '已支付', 3: '已退款' };
+      const color = { 2: '#3f8600', 3: '#cf1322' };
+      const txt = map[v] || (map[String(v)] || v);
+      return <span style={{color: color[v] || '#666'}}>{txt}</span>;
+    } },
   ];
 
   return (
     <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '14px 18px' }}
       title={<span><span style={{ color: '#722ed1', fontWeight: 600 }}>🌐 外部订单监控</span>
-        <span style={{ fontSize: 12, color: '#888', marginLeft: 12 }}>选店铺 → 点监控 → 拉花像花木上游订单(关联店铺管理 shop_name)</span>
+        <span style={{ fontSize: 12, color: '#888', marginLeft: 12 }}>通过"北京花卉"主账号拉花像花木上游订单,任何店铺都可不自带 token</span>
       </span>}
       extra={<Space>
+        <Button size="small" type="primary" onClick={runSyncAll} disabled={!shops.length}>📥 全部同步</Button>
         <Button size="small" icon="🔄" onClick={fetchShops} loading={shopsBusy}>刷新店铺</Button>
         <Button size="small" onClick={() => onBack && onBack()}>← 返回总览</Button>
       </Space>}>
+
+      {master ? (
+        <Alert type="success" showIcon style={{ marginBottom: 12 }}
+          message={<span><b>🔑 主账号已配置</b>: {master.shop_name} · platformId=<code>{master.huaxiang_platform_id}</code> · 所有店铺都通过该主账号访问上游,无需各自配 token</span>} />
+      ) : (
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }}
+          message={<span><b>⚠ 主账号"北京花卉"未配置 huaxiang_api_token</b> · 请到 <a href="http://100.96.54.109:31004" target="_blank" rel="noreferrer">店铺管理</a> 录入 token + cookie 后,本页才能监控订单</span>} />
+      )}
 
       <Space wrap style={{ marginBottom: 14 }}>
         <span>监控最近</span>
@@ -1193,7 +1277,7 @@ function HuaxiangMonitorTab({ apiBase, onBack }) {
       {shopsErr && <Alert type="error" message={shopsErr} style={{marginBottom:12}} />}
 
       {shops.length === 0 && !shopsBusy && (
-        <div style={{padding:20, textAlign:'center', color:'#999', background:'#fafafa', borderRadius:6}}>
+        <div style={{padding:30, textAlign:'center', color:'#999', background:'#fafafa', borderRadius:6}}>
           暂无已配 huaxiang_platform_id 的店铺. 请到 <a href="http://100.96.54.109:31004" target="_blank" rel="noreferrer">店铺管理</a> 给店铺填上 platformId (花像花木 admin 的 platformId).
         </div>
       )}
@@ -1201,53 +1285,62 @@ function HuaxiangMonitorTab({ apiBase, onBack }) {
       {shops.map(shop => {
         const sid = String(shop.id);
         const m = monitors[sid] || {};
+        const lastSync = m.lastSyncStats;
+        const matchedCount = (m.rows || []).filter(r => r.shop_name).length;
+        const unmatchedCount = (m.rows || []).filter(r => !r.shop_name).length;
         return (
-          <Card key={sid} size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: '12px 16px' }}
-            title={<span>
-              <b style={{fontSize:14}}>{shop.shop_name}</b>
-              <span style={{fontSize:11, color:'#888', marginLeft:8}}>
-                platformId={shop.huaxiang_platform_id}{shop.has_token ? '  ✓Token' : '  ⚠未配Token'}
-              </span>
-            </span>}
-            extra={<Space>
-              <Button type="primary" size="small" loading={m.busy} disabled={!shop.has_token}
-                onClick={() => runMonitor(shop)}>
-                监控
-              </Button>
-            </Space>}>
-            {!shop.has_token && <Alert type="warning" showIcon style={{marginBottom:8}} message={
-              <span>该店铺未配 huaxiang_api_token,无法监控. 请到 <a href="http://100.96.54.109:31004" target="_blank" rel="noreferrer">店铺管理</a> 录入 Token + platformId.</span>
-            } />}
-            {m.err && <Alert type="error" message={m.err} style={{marginBottom:8}} />}
+          <Card key={sid} size="small" style={{ marginBottom: 10 }} bodyStyle={{ padding: '12px 16px' }}
+            title={
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8}}>
+                <span style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                  <b style={{fontSize:15}}>{shop.shop_name}</b>
+                  <Tag color="purple">platformId={shop.huaxiang_platform_id}</Tag>
+                  {shop.has_token
+                    ? <Tag color="green">🔑 自有 Token</Tag>
+                    : <Tag color="orange">🔗 走主账号</Tag>}
+                  {m.total > 0 && <Tag color="blue">上游 {m.total} 条</Tag>}
+                  {lastSync && <Tag color="cyan">已同步 {lastSync.inserted + lastSync.updated} 条 ({dayjs(m.lastSync).fromNow()})</Tag>}
+                  {lastSync && lastSync.errors > 0 && <Tag color="red">{lastSync.errors} 错</Tag>}
+                </span>
+                <Space>
+                  <Button size="small" onClick={() => runPreview(shop)} loading={m.busy} disabled={m.syncing}>👁 预览</Button>
+                  <Button size="small" type="primary" onClick={() => runSync(shop)} loading={m.syncing} disabled={m.busy}>📥 同步到订单库</Button>
+                </Space>
+              </div>
+            }>
+            {m.err && <Alert type="error" showIcon message={m.err} style={{marginBottom:8}} />}
+            {m.busy && <div style={{padding:14, textAlign:'center', color:'#1677ff'}}>⏳ 预览拉取中,请稍候...</div>}
+            {m.syncing && <div style={{padding:14, textAlign:'center', color:'#fa8c16'}}>📥 同步写入中(分页拉上游+ upsert 到 purchase_orders),请稍候...</div>}
             {m.rows && m.rows.length > 0 && (
               <>
-                <div style={{marginBottom:8, color:'#666', fontSize:12}}>
-                  📊 共 <b>{m.total}</b> 条 · 拉取于 {dayjs(m.fetchedAt).format('YYYY-MM-DD HH:mm:ss')}
-                  {m.rows[0]?.shop_name && <span style={{marginLeft:12}}>关联店铺: <b style={{color:'#3f8600'}}>{m.rows[0].shop_name}</b></span>}
-                  {m.rows.some(r => !r.shop_name) && <span style={{marginLeft:12, color:'#faad14'}}>⚠ {m.rows.filter(r=>!r.shop_name).length} 条未匹配店铺名(platformName={m.rows.find(r=>!r.shop_name)?.platform_name || '?'})</span>}
+                <div style={{marginBottom:8, color:'#666', fontSize:12, display:'flex', alignItems:'center', flexWrap:'wrap', gap:12}}>
+                  <span>📊 上游共 <b>{m.total}</b> 条</span>
+                  {matchedCount > 0 && <span style={{color:'#3f8600'}}>✓ 关联 {matchedCount}</span>}
+                  {unmatchedCount > 0 && <span style={{color:'#faad14'}}>⚠ 未匹配 {unmatchedCount} 条(platformName={m.rows.find(r => !r.shop_name)?.platform_name || '?'})</span>}
+                  <span style={{color:'#999'}}>拉取于 {dayjs(m.fetchedAt).format('YYYY-MM-DD HH:mm:ss')}</span>
                 </div>
                 <Table size="small" rowKey="source_order_sn"
                   dataSource={m.rows}
                   columns={monitorColumns}
-                  pagination={{ pageSize: 20, showSizeChanger: true, showTotal: t => `共 ${t} 条` }}
-                  scroll={{ x: 1600 }} />
+                  pagination={{ pageSize: 10, showSizeChanger: true, showTotal: t => `共 ${t} 条` }}
+                  scroll={{ x: 1500 }} />
               </>
             )}
-            {m.rows && m.rows.length === 0 && !m.busy && !m.err && (
-              <div style={{padding:10, textAlign:'center', color:'#999', background:'#fafafa', borderRadius:6}}>未拉到订单 (店铺在上游范围内无符合条件的订单,或上游返回为空)</div>
+            {m.rows && m.rows.length === 0 && !m.busy && !m.syncing && !m.err && (
+              <div style={{padding:14, textAlign:'center', color:'#999', background:'#fafafa', borderRadius:6}}>未拉到订单 (上游范围内无符合条件的订单)</div>
             )}
-            {m.busy && <div style={{padding:14, textAlign:'center', color:'#1677ff'}}>⏳ 拉取中,请稍候...</div>}
           </Card>
         );
       })}
     </Card>
   );
 }
-// 版本角标 (右下角) - 调试用：用户可看到这里确认拿到的是新版
+
+// 版本角标 (右下角)
 (function(){
   const div = document.createElement('div');
   div.id = 'build-version-marker';
-  div.textContent = 'build: 2026-08-25 01:35 v2.1 (shopStats+sort)';
+  div.textContent = 'build: 2026-08-25 17:10 v3.0 (huaxiang master+sync button+UI redesign)';
   div.style.cssText = 'position:fixed;bottom:8px;right:8px;background:#52c41a;color:#fff;padding:4px 10px;border-radius:4px;font-size:11px;font-family:monospace;z-index:9999;opacity:0.85;box-shadow:0 2px 6px rgba(0,0,0,0.2);';
   document.body.appendChild(div);
 })();
