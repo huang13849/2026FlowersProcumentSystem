@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: huaxiang-sync-service
+  namespace: supply-chain
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: huaxiang-sync-service } }
+  template:
+    metadata: { labels: { app: huaxiang-sync-service } }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: huangfra-ubun-master-ms-7e11
+      containers:
+        - name: huaxiang-sync-service
+          image: 100.76.15.64:5001/supply-chain/huaxiang-sync-service:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef: { name: supply-chain-common }
+          env:
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: supply-chain-secrets, key: PG_PASSWORD }
+            - name: NATS_URL
+              value: nats://nats.messaging.svc.cluster.local:4222
+            - name: HTTP_PORT
+              value: "3030"
+            - name: SYNC_INTERVAL_MS
+              value: "1800000"
+            - name: LOOKBACK_HOURS
+              value: "168"
+            - name: MAX_PAGES_PER_SHOP
+              value: "30"
+            - name: PAGE_SIZE
+              value: "50"
+          ports:
+            - { name: http, containerPort: 3030 }
+          readinessProbe:
+            httpGet: { path: /health, port: 3030 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 3030 }
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits:   { cpu: 300m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: huaxiang-sync-service, namespace: supply-chain }
+spec:
+  selector: { app: huaxiang-sync-service }
+  ports:
+    - { name: http, port: 3030, targetPort: 3030 }
