@@ -1299,7 +1299,7 @@ function HuaxiangMonitorTab({ apiBase, onBack }) {
                     ? <Tag color="green">🔑 自有 Token</Tag>
                     : <Tag color="orange">🔗 走主账号</Tag>}
                   {m.total > 0 && <Tag color="blue">上游 {m.total} 条</Tag>}
-                  {lastSync && <Tag color="cyan">已同步 {lastSync.inserted + lastSync.updated} 条 ({dayjs(m.lastSync).fromNow()})</Tag>}
+                  {lastSync && <Tag color="cyan">已同步 {lastSync.inserted + lastSync.updated} 条 ({dayjs(m.lastSync).format("MM-DD HH:mm")})</Tag>}
                   {lastSync && lastSync.errors > 0 && <Tag color="red">{lastSync.errors} 错</Tag>}
                 </span>
                 <Space>
