@@ -1,0 +1,85 @@
+// \u2500\u2500 nginx-gateway pipeline \u2500\u2500
+//   * 通用模板, SERVICE 变量选服务
+//   * 复用 k3s-build agent (dind + kubectl sidecar)
+//   * SCM: Gitea (admin/supply-chain-platform)
+
+pipeline {
+  agent { label 'k3s-build' }
+  options { timeout(time: 15, unit: 'MINUTES') }
+
+  environment {
+    REGISTRY    = '100.76.15.64:5001'
+    IMAGE_NS    = 'supply-chain'
+    IMAGE_NAME  = 'nginx-gateway'
+    K8S_NS      = 'supply-chain'
+  }
+
+  stages {
+    stage('Checkout (Gitea)') {
+      steps {
+        checkout([$class: 'GitSCM',
+          branches: [[name: '*/main']],
+          userRemoteConfigs: [[
+            url: 'http://100.76.15.64:13000/admin/supply-chain-platform.git',
+            credentialsId: 'gitea-token',
+          ]],
+          extensions: [[$class: 'CloneOption', shallow: true, depth: 1, noTags: false]],
+        ])
+      }
+    }
+
+    stage('Build & Push Image') {
+      steps {
+        sh '''
+          set -euo pipefail
+          SHA=$(git rev-parse --short=8 HEAD)
+          TAG=${IMAGE_NAME}-${SHA}-${BUILD_NUMBER}
+          IMG=${REGISTRY}/${IMAGE_NS}/${IMAGE_NAME}:${TAG}
+          echo "[1/3] build $IMG"
+          DOCKER_BUILDKIT=1 docker build --platform linux/amd64 -t "$IMG" ./nginx-gateway | tail -30
+          echo "[2/3] push $IMG"
+          docker push "$IMG"
+          echo "[3/3] image info"
+          printf '%s' "$TAG" > .image-tag
+          printf '%s' "$IMG" > .image-url
+          cat .image-url
+        '''
+      }
+    }
+
+    stage('Deploy to k3s') {
+      steps {
+        sh '''
+          set -euo pipefail
+          IMG=$(cat .image-url)
+          echo "[1/3] set image deploy/${IMAGE_NAME} -> $IMG"
+          kubectl -n ${K8S_NS} set image deploy/${IMAGE_NAME} ${IMAGE_NAME}="$IMG"
+          echo "[2/3] rollout status"
+          kubectl -n ${K8S_NS} rollout status deploy/${IMAGE_NAME} --timeout=180s
+          echo "[3/3] pod node + ready"
+          kubectl -n ${K8S_NS} get pod -l app=${IMAGE_NAME} -o wide
+        '''
+      }
+    }
+
+    stage('Smoke Test') {
+      steps {
+        sh '''
+          set -euo pipefail
+          sleep 5
+          for u in "/" "/order/" "/api/orders?limit=1"; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://100.96.54.109:31188${u}" || echo ERR)
+            echo "$code $u"
+            [ "$code" = "200" ] || exit 30
+          done
+          echo "smoke OK"
+        '''
+      }
+    }
+  }
+
+  post {
+    success { echo 'nginx-gateway pipeline SUCCEEDED' }
+    failure { echo 'nginx-gateway pipeline FAILED' }
+  }
+}
