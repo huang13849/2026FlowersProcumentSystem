@@ -50,7 +50,7 @@ pipeline {
           TAG="${IMAGE_NAME}-${SHA}-${BUILD_NUMBER}"
           IMG="${REGISTRY}/${IMAGE_NS}/${IMAGE_NAME}:${TAG}"
           echo "[1/3] build $IMG"
-          docker buildx use amdbld 2>/dev/null || docker buildx create --name amdbld --driver docker-container --bootstrap --use 2>&1 | tail -3
+          docker buildx use default 2>&1 | tail -3 || true
           docker buildx build --platform linux/amd64 --pull --load -t "$IMG" ./${IMAGE_NAME} | tail -30
           echo "[2/3] push $IMG"
           docker push "$IMG"
