@@ -25,6 +25,50 @@ app.use(express.static('public'));
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// ============ 根路径引导页 (拆分后 order-service 只服务 API; UI 已迁移到 order-web:31020) ============
+const ORDER_WEB_URL = process.env.ORDER_WEB_URL || 'http://100.96.54.109:31020';
+const GATEWAY_URL_PUBLIC = process.env.GATEWAY_URL_PUBLIC || 'http://100.96.54.109:31188';
+app.get('/', (req, res) => {
+  const endpoints = [
+    ['GET',  '/api/health',                  '健康检查'],
+    ['GET',  '/api/orders',                  '订单列表'],
+    ['GET',  '/api/products/search',         '商品搜索'],
+    ['POST', '/api/orders/sync-huaxiang',    '花像订单同步'],
+    ['POST', '/api/orders/export-settlement','结算导出'],
+    ['POST', '/api/orders/export-purchase-list','采购清单导出'],
+  ].map(([m, p, d]) => `<li><code>${m} ${p}</code> — ${d}</li>`).join('');
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="2;url=${ORDER_WEB_URL}/">
+<title>order-service (API)</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:780px;margin:40px auto;padding:0 20px;color:#222;line-height:1.6}
+  h1{margin:0 0 8px;font-size:22px}
+  .muted{color:#666;font-size:14px}
+  a.btn{display:inline-block;padding:10px 18px;background:#1677ff;color:#fff;border-radius:6px;text-decoration:none;margin:8px 6px 0 0;font-weight:600}
+  a.btn.alt{background:#52c41a}
+  code{background:#f5f5f5;padding:2px 6px;border-radius:3px;font-size:13px}
+  ul{padding-left:20px}
+  li{margin:4px 0}
+  hr{border:none;border-top:1px solid #eee;margin:20px 0}
+  .ok{color:#52c41a;font-weight:600}
+</style></head>
+<body>
+  <h1>order-service <span class="muted">(API backend)</span></h1>
+  <p class="muted">订单管理 UI 已拆分到独立微服务 <code>order-web</code>。2 秒后将自动跳转…</p>
+  <p>
+    <a class="btn" href="${ORDER_WEB_URL}/">前往订单管理 UI →</a>
+    <a class="btn alt" href="${GATEWAY_URL_PUBLIC}/order/">通过统一入口访问</a>
+  </p>
+  <hr>
+  <p class="ok">本服务仅提供 API 端点：</p>
+  <ul>${endpoints}</ul>
+  <p class="muted">部署: NodePort <code>31008</code> · Pod <code>order-service</code> (k3s ns=supply-chain)</p>
+</body></html>`);
+});
+
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:3007';
 const API_KEY = process.env.API_KEY || (function(){throw new Error('API_KEY env required')}());
 const DB_NAME = process.env.PG_DATABASE || 'supply_chain';
