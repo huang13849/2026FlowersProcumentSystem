@@ -69,7 +69,9 @@ async function ensureOrderSchema() {
     "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_payload JSONB DEFAULT '{}'::jsonb",
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ',
     "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb",
-    "CREATE UNIQUE INDEX IF NOT EXISTS ux_purchase_orders_plant_collector ON purchase_orders(source_order_sn) WHERE source_table='plant_collector.orders'"
+    "CREATE UNIQUE INDEX IF NOT EXISTS ux_purchase_orders_plant_collector ON purchase_orders(source_order_sn) WHERE source_table='plant_collector.orders'",
+    'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS shop_id BIGINT',
+    'CREATE INDEX IF NOT EXISTS ix_purchase_orders_shop_id ON purchase_orders(shop_id) WHERE shop_id IS NOT NULL'
   ];
   for (const sql of alters) await pgPool.query(sql);
 }
@@ -568,7 +570,7 @@ app.get('/api/orders/stats/amount', async (req, res) => {
 
 app.get('/api/orders/stats/shop-name', async (req, res) => {
   try {
-    const { rows } = await pgPool.query("SELECT COALESCE(NULLIF(shop_name,''),'未关联') AS shop_name, COUNT(*)::int AS count FROM purchase_orders GROUP BY COALESCE(NULLIF(shop_name,''),'未关联') ORDER BY count DESC");
+    const { rows } = await pgPool.query(`SELECT COALESCE(NULLIF(s.shop_name,''),'未关联') AS shop_name, COUNT(*)::int AS count FROM purchase_orders po LEFT JOIN shops s ON s.id = po.shop_id GROUP BY COALESCE(NULLIF(s.shop_name,''),'未关联') ORDER BY count DESC`);
     res.json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1035,7 +1037,7 @@ app.post('/api/orders/sync-huaxiang', async (req, res) => {
             await pgPool.query(
               `UPDATE purchase_orders SET
                  source_order_key = $2, source_order_id = $3, source_shop_id = $4,
-                 shop_name = $5, shop_phone = $6, consignee = $7, order_status = $8,
+                 shop_id = $24, shop_name = $5, shop_phone = $6, consignee = $7, order_status = $8,
                  shipping_status = $9, pay_status = $10,
                  purchase_time = COALESCE(NULLIF($11,'')::timestamptz, purchase_time),
                  income_amount = $12, shipping_fee = $13, coupon_discount = $14,
@@ -1052,6 +1054,7 @@ app.post('/api/orders/sync-huaxiang', async (req, res) => {
                 mapped.cost_amount, mapped.payment_channel, mapped.payment_order_id,
                 mapped.member_id, mapped.member_name, mapped.phone, mapped.delivery_address,
                 mapped.product_subtotal, jsonb(mapped.synced_payload),
+                shop.id ? Number(shop.id) : null,
               ]
             );
             updated++;
@@ -1063,10 +1066,10 @@ app.post('/api/orders/sync-huaxiang', async (req, res) => {
                   payment_order_id, payment_channel, product_subtotal, shipping_fee,
                   coupon_discount, cost_amount, profit_amount,
                   source_table, source_order_key, source_order_id, source_order_sn,
-                  source_shop_id, shop_name, shop_phone, consignee,
+                  source_shop_id, shop_id, shop_name, shop_phone, consignee,
                   order_status, shipping_status, pay_status, synced_at,
                   tags, synced_payload)
-               VALUES ($1,$2,$3,$4,$5,$6::timestamptz,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30::jsonb,$31::jsonb)
+               VALUES ($1,$2,$3,$4,$5,$6::timestamptz,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34::jsonb,$35::jsonb)
                RETURNING id`,
               [
                 mapped.member_id, mapped.member_name, mapped.phone, mapped.business_type, mapped.region, mapped.purchase_time,
@@ -1074,7 +1077,7 @@ app.post('/api/orders/sync-huaxiang', async (req, res) => {
                 mapped.payment_order_id, mapped.payment_channel, mapped.product_subtotal, mapped.shipping_fee,
                 mapped.coupon_discount, mapped.cost_amount, 0,
                 mapped.source_table, mapped.source_order_key, mapped.source_order_id, mapped.source_order_sn,
-                mapped.source_shop_id, mapped.shop_name, mapped.shop_phone, mapped.consignee,
+                mapped.source_shop_id, shop.id ? Number(shop.id) : null, mapped.shop_name, mapped.shop_phone, mapped.consignee,
                 mapped.order_status, mapped.shipping_status, mapped.pay_status, mapped.synced_at,
                 JSON.stringify(mapped.tags), JSON.stringify(mapped.synced_payload),
               ]
