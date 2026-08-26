@@ -124,7 +124,69 @@ function tsToIso(ts) {
   return new Date(ms).toISOString();
 }
 
-function mapRowToOrder(row, shop, shopId) {
+// ---------- cost lookup: 上游商品标题 → PG products.cost_price ----------
+// 策略 (顺序, 第一个命中即返回):
+//   1) 精确匹配 products.title = upstream_title
+//   2) products.title ILIKE '%upstream_title%' (上游 title 是 products title 的子串)
+//   3) upstream_title ILIKE '%products.title%' AND length(products.title) >= 8 (反向: products title 短, 是 upstream 的子串)
+//   4) 多关键词 (split on 空格/'-') 全部命中 products.title
+async function lookupProductCost(productTitles) {
+  if (!Array.isArray(productTitles) || !productTitles.length) return 0;
+  let total = 0;
+  const matched = [];
+  for (const title of productTitles) {
+    if (!title || !title.trim()) continue;
+    let row = null;
+    let strategy = '';
+    // 1) 精确
+    let r = await pool.query(`SELECT title, cost_price FROM products WHERE title = $1 LIMIT 1`, [title]);
+    if (r.rows.length) { row = r.rows[0]; strategy = 'exact'; }
+    // 2) products.title LIKE %upstream%
+    if (!row) {
+      r = await pool.query(`SELECT title, cost_price FROM products WHERE title ILIKE '%' || $1 || '%' LIMIT 1`, [title]);
+      if (r.rows.length) { row = r.rows[0]; strategy = 'upstream-in-products'; }
+    }
+    // 3) upstream LIKE %products% (反向, products.title 较长且内容是 upstream 子串)
+    if (!row) {
+      r = await pool.query(
+        `SELECT title, cost_price FROM products WHERE length(title) >= 6 AND $1 ILIKE '%' || title || '%' LIMIT 1`,
+        [title]
+      );
+      if (r.rows.length) { row = r.rows[0]; strategy = 'products-in-upstream'; }
+    }
+    // 4) 多关键词 (>=2 字符) OR 任一 in products.title, 优先最完整 title (length DESC); 二次过滤命中 >=2 token
+    if (!row) {
+      const tokens = title.split(/[\s\-()]+/).filter(t => t.length >= 2).slice(0, 8);
+      if (tokens.length >= 2) {
+        const conds = tokens.map((_, i) => `title ILIKE '%' || $${i + 1} || '%'`).join(' OR ');
+        r = await pool.query(
+          `SELECT title, cost_price FROM products
+             WHERE ${conds}
+             ORDER BY length(title) DESC LIMIT 50`,
+          tokens
+        );
+        // 过滤: PG title 包含上游 >= 2 个 token
+        const filtered = r.rows.filter(p => {
+          const hits = tokens.filter(t => p.title.includes(t));
+          return hits.length >= 2;
+        });
+        if (filtered.length) { row = filtered[0]; strategy = 'multi-token'; }
+      }
+    }
+    if (row && row.cost_price != null) {
+      total += Number(row.cost_price) || 0;
+      matched.push({ strategy, upstream: title, matched: row.title, cost: row.cost_price });
+    }
+  }
+  if (matched.length) {
+    console.log(`[cost] ${matched.length}/${productTitles.length} matched: ${JSON.stringify(matched)}`);
+  } else if (productTitles.length) {
+    console.log(`[cost] 0/${productTitles.length} matched for: ${JSON.stringify(productTitles)}`);
+  }
+  return total;
+}
+
+async function mapRowToOrder(row, shop, shopId) {
   const o = row.order || {};
   const pi = row.paymentInformation || {};
 
@@ -163,6 +225,11 @@ function mapRowToOrder(row, shop, shopId) {
   const platformName = row.source || row.platformName || '';
   const pfid = o.pfid || row.pfid || '';
 
+  // 成本: 按上游商品标题匹配 products.title → cost_price (优先 cost_price, fallback o.cost/row.cost)
+  const upstreamCost = Number(o.cost ?? row.cost ?? 0) || 0;
+  const productCost = await lookupProductCost(productTitles);
+  const cost = productCost > 0 ? productCost : upstreamCost;
+
   return {
     source: 'huaxiang',
     source_table: HUAXIANG_SOURCE_TABLE,
@@ -184,7 +251,7 @@ function mapRowToOrder(row, shop, shopId) {
     payment_channel: paymentChannel,
     shipping_fee: shippingFee,
     coupon_discount: couponDiscount,
-    cost: Number(o.cost ?? row.cost ?? 0) || 0,
+    cost: cost,
     pay_status: mapStatus(HUAXIANG_PAYMENT_STATUS, row.paymentStatus ?? o.paymentStatus),
     order_status: mapStatus(HUAXIANG_ORDER_STATUS, row.orderStatus),
     shipping_status: mapStatus(HUAXIANG_SHIPPING_STATUS, row.shippingStatus ?? o.shippingStatus),
@@ -265,7 +332,7 @@ async function syncShop(shop, opts = {}) {
     for (const row of rows) {
       scanned++;
       try {
-        const order = mapRowToOrder(row, shop, shop.id);
+        const order = await mapRowToOrder(row, shop, shop.id);
         if (!order.order_no) continue;
         if (!nc) throw new Error('NATS not connected');
         const subject = `orders.paid.huaxiang.${shop.huaxiang_platform_id}.${order.order_no}`;
