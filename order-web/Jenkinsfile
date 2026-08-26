@@ -1,10 +1,10 @@
-// \u2500\u2500 order-web pipeline (\u524d\u7aef\u72ec\u7acb\u5fae\u670d\u52a1) \u2500\u2500
-//   * \u590d\u7528 k3s-build agent (xspt05 + dind sidecar, \u5df2\u5728 k3s \u4e0a)
+// ── order-web pipeline (前端独立微服务) ──
+//   * 复用 k3s-build agent (xspt05 + dind sidecar, 已在 k3s 上)
 //   * SCM: Gitea (100.76.15.64:13000, credentialId=gitea-token)
-//   * \u7528 in-cluster SA jenkins-agent (clusterwide deploy perms)
+//   * 用 in-cluster SA jenkins-agent (clusterwide deploy perms)
 //
-//   order-web \u90e8\u7f72\u5728 xsyysj \u8282\u70b9, \u540c\u6e90 /api/* \u53cd\u4ee3\u5230 order-service:3008
-//   NodePort 31020
+//   order-web 部署在 xsyysj 节点, NodePort 31009
+//   nginx 自代理 /api/* 到 order-service:3008
 
 pipeline {
   agent { label 'k3s-build' }
@@ -47,6 +47,7 @@ pipeline {
           TAG="${IMAGE_NAME}-${SHA}-${BUILD_NUMBER}"
           IMG="${REGISTRY}/${IMAGE_NS}/${IMAGE_NAME}:${TAG}"
           echo "[1/3] build $IMG"
+          docker pull --platform linux/amd64 nginx:1.27-alpine | tail -5
           docker build --platform linux/amd64 -t "$IMG" ./${IMAGE_NAME} | tail -30
           echo "[2/3] push $IMG"
           docker push "$IMG"
@@ -89,8 +90,8 @@ pipeline {
 
           echo "[2/4] UI html"
           html=$(curl -s --max-time 20 "http://${SERVICE_HOST}:${NODE_PORT}/")
-          echo "$html" | grep -q '<title>\u8ba2\u5355\u7ba1\u7406</title>' || { echo "missing title"; exit 31; }
-          echo "[ok] title \u8ba2\u5355\u7ba1\u7406 present"
+          echo "$html" | grep -q '<title>订单管理</title>' || { echo "missing title"; exit 31; }
+          echo "[ok] title 订单管理 present"
 
           echo "[3/4] static assets"
           for u in /favicon.svg /index.html; do
@@ -99,7 +100,7 @@ pipeline {
             [ "$code" = "200" ] || exit 32
           done
 
-          echo "[4/4] backend API via /api/orders (nginx \u53cd\u4ee3)"
+          echo "[4/4] backend API via /api/orders (nginx 反代)"
           code=$(curl -s -o /tmp/ow_body -w '%{http_code}' --max-time 30 "http://${SERVICE_HOST}:${NODE_PORT}/api/orders?limit=1" || echo ERR)
           echo "$code /api/orders"
           [ "$code" = "200" ] || exit 33
