@@ -1,9 +1,0 @@
-Dockerfile
-.dockerignore
-.git
-.gitignore
-README.md
-Jenkinsfile
-*.md
-node_modules
-*.log
