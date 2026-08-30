@@ -1,5 +1,5 @@
 # ── product-api-service：只跑 backend，无前端资源 ──
-FROM node:22-alpine
+FROM 100.76.15.64:5001/library/node:20-alpine-amd64
 WORKDIR /app
 
 # 只 copy backend + package 元数据
