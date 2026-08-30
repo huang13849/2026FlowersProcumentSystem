@@ -1177,6 +1177,19 @@ export default function ProductList() {
           }}>
           {exporting ? '⏳ 导出中…' : '📊 全列全量导出'}
         </button>
+        <button onClick={() => nav('/product-submissions')}
+          title="审核联盟新增商品投稿，通过后入商品总表"
+          style={{
+            padding:'5px 12px',
+            background:'#389e0d',
+            color:'#fff',
+            border:'none', borderRadius:4,
+            cursor:'pointer',
+            fontSize:12, whiteSpace:'nowrap',
+            display:'flex', alignItems:'center', gap:4,
+          }}>
+          ✅ 新增商品审核
+        </button>
         <button onClick={() => {
           if (selected.size === 1) {
             // 复制
