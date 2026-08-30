@@ -48,8 +48,8 @@ spec:
               value: /system-key/systemuser.key
             - name: ZITADEL_URL
               value: http://zitadel.identity.svc.cluster.local:8080
-            - name: ZITADEL_AUD
-              value: http://id.horiculture.club:443
+            - name: ZITADEL_SYSTEM_USER_ID
+              value: http://100.96.54.109:31111
           envFrom:
             - configMapRef:
                 name: supply-chain-common

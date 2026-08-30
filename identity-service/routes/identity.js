@@ -35,7 +35,10 @@ function resolveSource(instanceName) {
 // ===== Zitadel Admin API 客户端 =====
 const KEY_PATH = process.env.ZITADEL_SYSTEM_KEY_PATH || '/system-key/systemuser.key';
 const ZITADEL_URL = process.env.ZITADEL_URL || 'http://zitadel.identity.svc.cluster.local:8080';
-const ZITADEL_AUD = process.env.ZITADEL_AUD || 'http://id.horiculture.club:443';
+// This value must match the SystemAPIUsers key configured in ZITADEL, and is
+// therefore also the issuer, subject and audience of the signed system JWT.
+// It is deliberately not the public login domain.
+const ZITADEL_SYSTEM_USER_ID = process.env.ZITADEL_SYSTEM_USER_ID || 'http://100.96.54.109:31111';
 
 function b64url(buf) {
   const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
@@ -47,7 +50,11 @@ function sysJwt() {
   const now = Math.floor(Date.now() / 1000);
   const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const payload = b64url(JSON.stringify({
-    iss: 'systemuser', sub: 'systemuser', aud: ZITADEL_AUD, iat: now, exp: now + 300,
+    iss: ZITADEL_SYSTEM_USER_ID,
+    sub: ZITADEL_SYSTEM_USER_ID,
+    aud: ZITADEL_SYSTEM_USER_ID,
+    iat: now,
+    exp: now + 300,
   }));
   const signer = crypto.createSign('RSA-SHA256');
   signer.update(`${header}.${payload}`);
