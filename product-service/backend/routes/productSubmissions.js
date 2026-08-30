@@ -59,6 +59,21 @@ function cleanProduct(product) {
   return out;
 }
 
+function sourcePostId(payload) {
+  return payload?.plantAlliancePostId || payload?.sourcePostId || payload?.postId || null;
+}
+
+function submissionEventMeta(submission, extra = {}) {
+  return {
+    submissionId: submission.id,
+    status: submission.status,
+    sourceProject: submission.source_project,
+    submitterId: submission.submitter_id,
+    sourcePostId: sourcePostId(submission.payload),
+    ...extra,
+  };
+}
+
 router.post('/', async (req, res) => {
   const a = actor(req);
   if (!a) return res.status(401).json({ error: '投稿身份无效' });
@@ -75,7 +90,7 @@ router.post('/', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
       [source, a.id, a.name, a.email, payload, status],
     );
-    await emitSubmissionEvent({ action: 'created', submissionId: rows[0].id, status: rows[0].status, sourceProject: source });
+    await emitSubmissionEvent(submissionEventMeta(rows[0], { action: 'created' }));
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -110,7 +125,7 @@ router.put('/:id', async (req, res) => {
       [payload, status, req.params.id, source, a.id],
     );
     if (!rows[0]) return res.status(404).json({ error: '投稿不存在或不可修改' });
-    await emitSubmissionEvent({ action: 'updated', submissionId: rows[0].id, status: rows[0].status, sourceProject: source });
+    await emitSubmissionEvent(submissionEventMeta(rows[0], { action: 'updated' }));
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -169,7 +184,7 @@ router.post('/:id/approve', async (req, res) => {
       [String(req.get('x-reviewer') || 'intranet-reviewer'), req.body?.reviewNote || null, product.id, submission.id],
     );
     await client.query('COMMIT');
-    await emitSubmissionEvent({ action: 'approved', submissionId: submission.id, status: 'approved', productId: product.id, sourceProject: submission.source_project });
+    await emitSubmissionEvent(submissionEventMeta(result.rows[0], { action: 'approved', productId: product.id }));
     res.json({ submission: result.rows[0], product });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -186,7 +201,7 @@ router.post('/:id/reject', async (req, res) => {
       [String(req.get('x-reviewer') || 'intranet-reviewer'), req.body?.reviewNote || null, req.params.id],
     );
     if (!rows[0]) return res.status(404).json({ error: '待审核投稿不存在' });
-    await emitSubmissionEvent({ action: 'rejected', submissionId: rows[0].id, status: 'rejected', sourceProject: rows[0].source_project });
+    await emitSubmissionEvent(submissionEventMeta(rows[0], { action: 'rejected' }));
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
