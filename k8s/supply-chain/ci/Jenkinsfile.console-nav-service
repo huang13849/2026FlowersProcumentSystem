@@ -73,13 +73,15 @@ pipeline {
           sleep 3
           for u in \
             http://100.96.54.109:31040/healthz \
-            http://100.96.54.109:31040/api/nav/apps \
             http://100.96.54.109:31040/nav.js; do
             code=$(curl -s -o /tmp/jenkins_console_nav_body -w '%{http_code}' --max-time 20 "$u" || echo ERR)
             echo "$code $u"
             [ "$code" = "200" ] || exit 30
           done
-          grep -q '新增商品审核' /tmp/jenkins_console_nav_body || { echo "missing submission tab marker"; exit 31; }
+          code=$(curl -s -o /tmp/jenkins_console_nav_apps -w '%{http_code}' --max-time 20 http://100.96.54.109:31040/api/nav/apps || echo ERR)
+          echo "$code http://100.96.54.109:31040/api/nav/apps"
+          [ "$code" = "200" ] || exit 30
+          grep -q '新增商品审核' /tmp/jenkins_console_nav_apps || { echo "missing submission tab marker"; exit 31; }
           echo "smoke OK"
         '''
       }
