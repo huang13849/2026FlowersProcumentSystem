@@ -43,7 +43,7 @@ pipeline {
           IMG="${REGISTRY}/supply-chain/${SERVICE}:${TAG}"
           echo "[1/3] build $IMG"
           docker version || true
-          docker build -t "$IMG" ./${SERVICE} | tail -30
+          docker build --platform linux/amd64 -t "$IMG" ./${SERVICE} | tail -30
           echo "[2/3] push $IMG"
           docker push "$IMG"
           echo "[3/3] image info"
