@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 3020;
 // ==== APP MANIFEST (single source of truth) ====
 const APPS = [
   { id:'products',   name:'商品管理',      icon:'🌸', href:'http://100.96.54.109:31001/', color:'#eb2f96', gradient:'linear-gradient(135deg,#f759ab,#eb2f96)' },
+  { id:'product-submissions', name:'新增商品审核', icon:'✅', href:'http://100.96.54.109:31001/#/product-submissions', color:'#389e0d', gradient:'linear-gradient(135deg,#73d13d,#389e0d)' },
   { id:'suppliers',  name:'供应商管理',   icon:'🏭', href:'http://100.96.54.109:31002/', color:'#722ed1', gradient:'linear-gradient(135deg,#9254de,#722ed1)' },
   { id:'shops',      name:'店铺管理',      icon:'🏪', href:'http://100.96.54.109:31004/', color:'#1890ff', gradient:'linear-gradient(135deg,#40a9ff,#1890ff)' },
   { id:'orders',     name:'订单管理',      icon:'🛒', href:'http://100.96.54.109:31008/', color:'#fa8c16', gradient:'linear-gradient(135deg,#ffa940,#fa8c16)' },
@@ -56,11 +57,4 @@ app.get(['/','/console','/console/'], (req,res) => {
 
 app.get('/healthz', (req,res) => res.json({ ok:true, service:'console-nav', version:'1.0.0' }));
 
-<<<<<<< Updated upstream
 app.listen(PORT, () => console.log(`[console-nav] listening on ${PORT}`));
-=======
-app.listen(PORT, () => console.log(`[console-nav] listening on ${PORT}`));
-
-
-[Exit code: 0]
->>>>>>> Stashed changes

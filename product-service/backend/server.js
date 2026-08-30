@@ -16,6 +16,7 @@ import userRoutes from './routes/users.js';
 import tagRoutes from './routes/tags.js';
 import publishTaskRoutes from './routes/publishTasks.js';
 import syncRoutes from './routes/sync.js';
+import productSubmissionRoutes from './routes/productSubmissions.js';
 
 
 const app = express();
@@ -54,6 +55,7 @@ app.use(express.static(frontendDir, {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/product-submissions', productSubmissionRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/publish-tasks', publishTaskRoutes);

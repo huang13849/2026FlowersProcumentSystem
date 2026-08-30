@@ -474,7 +474,7 @@ const Product = {
     return r.rows[0] ? new ProductDoc(r.rows[0]) : null;
   },
 
-  async create(data) {
+  async create(data, client = null) {
     // Mongo-style create; accept camelCase, translate to snake_case.
     const cols = [];
     const vals = [];
@@ -494,8 +494,8 @@ const Product = {
     }
     if (!cols.length) throw new Error('create: no known fields');
 
-    const pool = getPgPool();
-    const r = await pool.query(
+    const db = client || getPgPool();
+    const r = await db.query(
       `INSERT INTO ${TABLE} (${cols.join(', ')}) VALUES (${vals.join(', ')}) RETURNING *`,
       params
     );

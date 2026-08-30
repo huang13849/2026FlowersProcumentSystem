@@ -65,20 +65,27 @@
 
     // 鼠标进入 tab 区 或 整个 shell → 展开;离开 → 折叠
     var t;
-<<<<<<< Updated upstream
-    function open(){clearTimeout(t);shell.classList.add('on');setTimeout(function(){scrollActiveIntoView(tabs);},80);}
-    function close(){t=setTimeout(function(){shell.classList.remove('on')},220)}
-=======
+    function centerActive(){
+      var cont=tabs, el=shell.querySelector('.gc-tab.active');
+      if (!cont || !el) return;
+      var cw=cont.clientWidth, ew=el.offsetWidth, ex=el.offsetLeft;
+      var target=ex-(cw-ew)/2;
+      var max=cont.scrollWidth-cw;
+      if (target<0) target=0;
+      if (target>max) target=max<0?0:max;
+      if (Math.abs(cont.scrollLeft-target)>4){
+        try{ cont.scrollTo({left:target, behavior:'smooth'}); }
+        catch(e){ cont.scrollLeft=target; }
+      }
+    }
     function open(){clearTimeout(t);shell.classList.add('on');requestAnimationFrame(centerActive)}
     function close(){t=setTimeout(function(){shell.classList.remove('on');setTimeout(centerActive,260)},220)}
->>>>>>> Stashed changes
     shell.addEventListener('mouseenter',open);
     shell.addEventListener('mouseleave',close);
     shell.querySelector('.gc-tab.active')?.addEventListener('click',function(e){
       if (!shell.classList.contains('on')){e.preventDefault();open()}
     });
 
-<<<<<<< Updated upstream
     // 桌面箭头按钮: 滚动 1 个 tab 宽度
     function arrowScroll(dir){
       var step = Math.max(160, tabs.clientWidth * 0.6);
@@ -92,30 +99,9 @@
       el.addEventListener('click', function(){
         try { el.scrollIntoView({ inline:'center', block:'nearest', behavior:'smooth' }); } catch(e){}
       });
-=======
-    // 横滑居中:active tab 滚到 gc-tabs 视野中央
-    function centerActive(){
-      var cont=tabs, el=shell.querySelector('.gc-tab.active');
-      if (!cont || !el) return;
-      var cw=cont.clientWidth, ew=el.offsetWidth, ex=el.offsetLeft;
-      var target=ex-(cw-ew)/2;
-      var max=cont.scrollWidth-cw;
-      if (target<0) target=0;
-      if (target>max) target=max<0?0:max;
-      // 用 smooth 滚动,只有当差距超过半个 tab 宽时才滚
-      if (Math.abs(cont.scrollLeft-target)>4){
-        try{ cont.scrollTo({left:target, behavior:'smooth'}); }
-        catch(e){ cont.scrollLeft=target; }
-      }
-    }
-    // 初始居中(等 layout 完成)
+    });
     requestAnimationFrame(centerActive);
     window.addEventListener('resize',function(){clearTimeout(centerActive._t);centerActive._t=setTimeout(centerActive,80)});
-
-    shell.querySelector('#gcLaunch').addEventListener('click',function(e){
-      e.stopPropagation(); location.href=origin+'/console/';
->>>>>>> Stashed changes
-    });
 
     // Ctrl/⌘ + K toggle
     document.addEventListener('keydown',function(e){
@@ -137,11 +123,4 @@
 
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',build);
   else build();
-<<<<<<< Updated upstream
 })();
-=======
-})();
-
-
-[Exit code: 0]
->>>>>>> Stashed changes

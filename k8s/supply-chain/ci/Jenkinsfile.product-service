@@ -79,7 +79,8 @@ pipeline {
           echo "[1/3] API endpoints"
           for u in \
             http://100.96.54.109:31001/api/health \
-            http://100.96.54.109:31001/api/products?limit=1; do
+            http://100.96.54.109:31001/api/products?limit=1 \
+            http://100.96.54.109:31001/api/product-submissions?status=pending; do
             code=$(curl -s -o /tmp/jenkins_product_body -w '%{http_code}' --max-time 20 "$u" || echo ERR)
             echo "$code $u"
             [ "$code" = "200" ] || exit 30
