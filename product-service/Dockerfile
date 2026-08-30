@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 node:20-alpine
+FROM 100.76.15.64:5001/library/node:20-alpine-amd64
 WORKDIR /app
 
 # Copy everything (product-service content)
