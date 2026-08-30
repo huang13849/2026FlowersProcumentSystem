@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPgPool } from '../config/db.js';
 import Product from '../models/Product.js';
+import { addSubmissionEventClient, emitSubmissionEvent } from '../services/submissionEvents.js';
 
 const router = Router();
 let ready;
@@ -74,6 +75,7 @@ router.post('/', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
       [source, a.id, a.name, a.email, payload, status],
     );
+    await emitSubmissionEvent({ action: 'created', submissionId: rows[0].id, status: rows[0].status, sourceProject: source });
     res.status(201).json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -108,8 +110,38 @@ router.put('/:id', async (req, res) => {
       [payload, status, req.params.id, source, a.id],
     );
     if (!rows[0]) return res.status(404).json({ error: '投稿不存在或不可修改' });
+    await emitSubmissionEvent({ action: 'updated', submissionId: rows[0].id, status: rows[0].status, sourceProject: source });
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/count', async (req, res) => {
+  try {
+    await ensureTable();
+    const status = String(req.query.status || 'pending');
+    const { rows } = await getPgPool().query(
+      `SELECT count(*)::int AS count FROM public.product_submissions WHERE status=$1`,
+      [status],
+    );
+    res.json({ status, count: rows[0]?.count || 0 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/events', async (_req, res) => {
+  try {
+    await ensureTable();
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.flushHeaders?.();
+    await addSubmissionEventClient(res);
+  } catch (e) {
+    res.write(`event: error\ndata: ${JSON.stringify({ error: e.message })}\n\n`);
+    res.end();
+  }
 });
 
 // 31001 is an intranet console by design; review does not use a separate role.
@@ -137,6 +169,7 @@ router.post('/:id/approve', async (req, res) => {
       [String(req.get('x-reviewer') || 'intranet-reviewer'), req.body?.reviewNote || null, product.id, submission.id],
     );
     await client.query('COMMIT');
+    await emitSubmissionEvent({ action: 'approved', submissionId: submission.id, status: 'approved', productId: product.id, sourceProject: submission.source_project });
     res.json({ submission: result.rows[0], product });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -153,6 +186,7 @@ router.post('/:id/reject', async (req, res) => {
       [String(req.get('x-reviewer') || 'intranet-reviewer'), req.body?.reviewNote || null, req.params.id],
     );
     if (!rows[0]) return res.status(404).json({ error: '待审核投稿不存在' });
+    await emitSubmissionEvent({ action: 'rejected', submissionId: rows[0].id, status: 'rejected', sourceProject: rows[0].source_project });
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

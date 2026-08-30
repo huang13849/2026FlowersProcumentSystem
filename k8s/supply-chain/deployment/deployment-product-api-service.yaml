@@ -36,6 +36,8 @@ spec:
           value: production
         - name: PORT
           value: '3000'
+        - name: NATS_URL
+          value: nats://nats.messaging.svc.cluster.local:4222
         - name: MONGODB_URI
           valueFrom:
             secretKeyRef:

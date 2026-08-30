@@ -36,7 +36,7 @@ const COLUMNS = [
   // 7b: 标签（多选，紧随商家 — 由「场景标签」演变）
   { field: 'sceneTags', label: '标签', width: 180, type: 'sceneTags', editable: false },
   // 8: 花卉
-  { field: 'flowerName',   label: '花卉',     width: 90,  type: 'string', editable: true },
+  { field: 'flowerName',   label: '商品名称', width: 90,  type: 'string', editable: true },
   // 8b: 英文名（移到花卉后面）
   { field: 'englishTitle', label: '英文', width: 140, type: 'string', editable: true },
   // 8b: 花期（12格可视化）
@@ -109,6 +109,7 @@ const SCENE_TAG_COLOR = SCENE_TAG_OPTIONS.reduce((m, o) => { m[o.v] = o; return 
 // ─── Component ──────────────────────────────────────────────────────
 export default function ProductList({ initialTab = 'products' }) {
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [submissionCount, setSubmissionCount] = useState(0);
   const [allProducts, setAllProducts] = useState([]);  // no pagination
   const [displayed, setDisplayed] = useState([]);
   const [search, setSearch] = useState('');
@@ -403,6 +404,34 @@ export default function ProductList({ initialTab = 'products' }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const refreshSubmissionCount = useCallback(async () => {
+    try {
+      const r = await api.get('/product-submissions/count?status=pending');
+      setSubmissionCount(Number(r.data?.count || 0));
+    } catch {
+      try {
+        const r = await api.get('/product-submissions?status=pending');
+        setSubmissionCount((r.data?.submissions || []).length);
+      } catch {
+        setSubmissionCount(0);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSubmissionCount();
+    const timer = window.setInterval(refreshSubmissionCount, 30000);
+    const es = new EventSource('/api/product-submissions/events');
+    es.addEventListener('product-submissions.changed', () => refreshSubmissionCount());
+    es.onerror = () => {
+      // Keep the interval fallback alive if NATS/SSE is temporarily unavailable.
+    };
+    return () => {
+      window.clearInterval(timer);
+      es.close();
+    };
+  }, [refreshSubmissionCount]);
 
   // Load filter options
   useEffect(() => {
@@ -1033,7 +1062,7 @@ export default function ProductList({ initialTab = 'products' }) {
       <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:10, borderBottom:'1px solid #e8e8e8' }}>
         {[
           { key:'products', label:'全部商品' },
-          { key:'submissions', label:'新增商品审核' },
+          { key:'submissions', label:'新增商品审核', count: submissionCount },
         ].map(tab => {
           const on = activeTab === tab.key;
           return (
@@ -1048,14 +1077,38 @@ export default function ProductList({ initialTab = 'products' }) {
                 cursor:'pointer',
                 fontSize:14,
               }}>
-              {tab.label}
+              <span>{tab.label}</span>
+              {tab.key === 'submissions' && (
+                <span style={{
+                  display:'inline-flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  minWidth:18,
+                  height:18,
+                  marginLeft:6,
+                  padding:'0 6px',
+                  borderRadius:999,
+                  background:'#ff4d4f',
+                  color:'#fff',
+                  fontSize:12,
+                  fontWeight:700,
+                  lineHeight:'18px',
+                }}>{tab.count ?? 0}</span>
+              )}
             </button>
           );
         })}
       </div>
 
       {activeTab === 'submissions' ? (
-        <SubmissionReview embedded />
+        <SubmissionReview
+          embedded
+          onChanged={refreshSubmissionCount}
+          onApproved={() => {
+            refreshSubmissionCount();
+            load();
+          }}
+        />
       ) : (
       <>
       {/* ════ Toolbar ════ */}

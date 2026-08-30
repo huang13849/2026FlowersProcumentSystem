@@ -138,7 +138,7 @@ export default function ProductForm() {
 
   const fields = [
     ['title','商品标题','text',true], ['englishTitle','英文名','text'], ['productId','SKU','text'], ['category','分类','text'],
-    ['sellerName','商家名称','text',true], ['flowerName','花卉名称','text'], ['specSize','规格尺寸','text'],
+    ['sellerName','商家名称','text',true], ['flowerName','商品名称','text'], ['specSize','规格尺寸','text'],
     ['potColorNotes','备注','text'], ['deliveryMethod','履约方式','text'], ['origin','发货地','text'],
     ['weight','重量(kg)','number'], ['stock','库存','number'],
     ['minOrder','起订量','number'],

@@ -17,6 +17,7 @@ import tagRoutes from './routes/tags.js';
 import publishTaskRoutes from './routes/publishTasks.js';
 import syncRoutes from './routes/sync.js';
 import productSubmissionRoutes from './routes/productSubmissions.js';
+import { startSubmissionEventBus } from './services/submissionEvents.js';
 
 
 const app = express();
@@ -85,6 +86,7 @@ app.get('*', (req, res) => {
 
 async function start() {
   await connectDB();
+  startSubmissionEventBus();
   app.listen(PORT, '0.0.0.0', () => {
     console.log('Supply Chain System running on http://0.0.0.0:' + PORT);
   });

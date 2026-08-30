@@ -1,7 +1,26 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
 
-export default function SubmissionReview({ embedded = false }) {
+const IMAGE_FIELDS = [
+  ['主图', 'panorama_images'],
+  ['发货包装图', 'package_images'],
+  ['细节特写图', 'detail_images'],
+  ['根系盆土图', 'root_soil_images'],
+  ['尺寸参考图', 'size_ref_images'],
+  ['场景应用图', 'scene_images'],
+  ['品种卖点图', 'selling_point_images'],
+  ['养护教程图', 'care_images'],
+  ['规格对比图', 'comparison_images'],
+  ['发货与售后图', 'shipping_images'],
+  ['售后图', 'after_sale_images'],
+];
+
+function list(value) {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  return String(value || '').split(/[\n,，]/).map(s => s.trim()).filter(Boolean);
+}
+
+export default function SubmissionReview({ embedded = false, onChanged, onApproved }) {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
@@ -12,7 +31,12 @@ export default function SubmissionReview({ embedded = false }) {
   useEffect(() => { load(); }, []);
   const review = async (id, action) => {
     setBusy(id); setError('');
-    try { await api.post(`/product-submissions/${id}/${action}`, {}); await load(); }
+    try {
+      await api.post(`/product-submissions/${id}/${action}`, {});
+      await load();
+      onChanged?.();
+      if (action === 'approve') onApproved?.();
+    }
     catch (e) { setError(e.response?.data?.error || e.message); }
     finally { setBusy(null); }
   };
@@ -49,11 +73,40 @@ export default function SubmissionReview({ embedded = false }) {
         <div style={{ display:'flex', gap:22, flexWrap:'wrap', marginTop:14, padding:'12px 0', borderTop:'1px solid #f0f0f0' }}>
           {field('商家', product.sellerName)}
           {field('分类', product.category)}
-          {field('花卉名称', product.flowerName)}
+          {field('商品名称', product.flowerName)}
+          {field('英文名', product.englishTitle)}
           {field('规格', product.specSize)}
           {field('库存', product.stock)}
           {field('销售价', product.sellPrice)}
           {field('成本价', product.costPrice)}
+        </div>
+        <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #f0f0f0' }}>
+          <div style={{ fontSize:12, color:'#8c8c8c', marginBottom:8 }}>上传图片</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:12 }}>
+            {IMAGE_FIELDS.flatMap(([label, key]) => list(product[key]).map((url, idx) => ({ label, key, url, idx }))).length === 0 && (
+              <span style={{ color:'#aaa', fontSize:13 }}>未上传图片</span>
+            )}
+            {IMAGE_FIELDS.flatMap(([label, key]) => list(product[key]).map((url, idx) => ({ label, key, url, idx }))).map(img => (
+              <a key={img.key + img.idx + img.url} href={img.url} target="_blank" rel="noreferrer"
+                title={img.label}
+                style={{ width:104, textDecoration:'none', color:'#595959' }}>
+                <div style={{
+                  width:104,
+                  height:104,
+                  border:'1px solid #e8e8e8',
+                  borderRadius:6,
+                  background:'#fafafa',
+                  overflow:'hidden',
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                }}>
+                  <img src={img.url} alt={img.label} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                </div>
+                <div style={{ marginTop:5, fontSize:12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{img.label}</div>
+              </a>
+            ))}
+          </div>
         </div>
         <details style={{ marginTop:8 }}>
           <summary style={{ cursor:'pointer', color:'#595959', fontSize:13 }}>查看完整投稿数据</summary>
