@@ -1061,7 +1061,7 @@ export default function ProductList({ initialTab = 'products' }) {
 
       <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:10, borderBottom:'1px solid #e8e8e8' }}>
         {[
-          { key:'products', label:'全部商品' },
+          { key:'products', label:'全部商品', count: allProducts.length },
           { key:'submissions', label:'新增商品审核', count: submissionCount },
         ].map(tab => {
           const on = activeTab === tab.key;
@@ -1078,7 +1078,7 @@ export default function ProductList({ initialTab = 'products' }) {
                 fontSize:14,
               }}>
               <span>{tab.label}</span>
-              {tab.key === 'submissions' && (
+              {tab.count !== undefined && (
                 <span style={{
                   display:'inline-flex',
                   alignItems:'center',
@@ -1088,7 +1088,7 @@ export default function ProductList({ initialTab = 'products' }) {
                   marginLeft:6,
                   padding:'0 6px',
                   borderRadius:999,
-                  background:'#ff4d4f',
+                  background: tab.key === 'submissions' ? '#ff4d4f' : '#1677ff',
                   color:'#fff',
                   fontSize:12,
                   fontWeight:700,
@@ -1216,7 +1216,6 @@ export default function ProductList({ initialTab = 'products' }) {
           )}
         </div>
 
-        <span style={{ fontSize:12, color:'#888', whiteSpace:'nowrap' }}>共 {displayed.length} 条</span>
         {statChip('批发', tradeStats.wholesale, '#fff7e6', '#fa8c16', '#ffd591')}
         {statChip('零售', tradeStats.retail, '#e6fffb', '#13c2c2', '#87e8de')}
         {statChip('零批混', tradeStats.mixed, '#f0f5ff', '#2f54eb', '#adc6ff')}

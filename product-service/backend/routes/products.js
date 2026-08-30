@@ -4,6 +4,8 @@ import AuditLog from '../models/AuditLog.js';
 import { uploadFile as minioUpload } from "../services/minio.js";
 import { cleanupRemovedMedia, deleteIfUnreferenced, productMediaUrls } from "../services/productMedia.js";
 import { getSupplierTagsMap, suppliersWithTags } from "../services/supplierTags.js";
+import { getPgPool } from '../config/db.js';
+import { emitLifecycleEvents, markApprovedProductsDeleted, syncApprovedProductUpdate } from '../services/submissionLifecycle.js';
 
 const router = Router();
 
@@ -13,6 +15,35 @@ async function log(action, details = {}) {
   try {
     await AuditLog.create({ action, username: 'admin', ...details });
   } catch (e) { console.warn('Audit log failed:', e.message); }
+}
+
+async function deleteProductWithLifecycle(id) {
+  const client = await getPgPool().connect();
+  try {
+    const existing = await Product.findById(id);
+    if (!existing) return null;
+    await client.query('BEGIN');
+    const submissions = await markApprovedProductsDeleted([existing.id], client);
+    const product = await Product.findByIdAndDelete(id, client);
+    if (!product) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    await client.query('COMMIT');
+    // The transaction is now durable.  Media cleanup and notification are
+    // best-effort side effects and must not turn a successful delete into a
+    // false client failure.
+    for (const url of productMediaUrls(product)) {
+      try { await deleteIfUnreferenced(url); } catch (e) { console.warn('media cleanup skipped:', e.message); }
+    }
+    await emitLifecycleEvents(submissions, 'deleted');
+    return product;
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 // List / Search
@@ -123,6 +154,8 @@ router.put('/:id', async (req, res) => {
     if (!previous) return res.status(404).json({ error: '商品不存在' });
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
     await cleanupRemovedMedia(previous, product);
+    const submissions = await syncApprovedProductUpdate(product);
+    await emitLifecycleEvents(submissions, 'updated');
     await log('update_product', { productId: product.productId, title: product.title, changes: Object.keys(req.body) });
     res.json(product);
   } catch (err) {
@@ -133,9 +166,8 @@ router.put('/:id', async (req, res) => {
 // Delete
 router.delete('/:id', async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await deleteProductWithLifecycle(req.params.id);
     if (!product) return res.status(404).json({ error: '商品不存在' });
-    for (const url of productMediaUrls(product)) await deleteIfUnreferenced(url);
     await log('delete_product', { productId: product.productId, title: product.title });
     res.json({ message: '已删除' });
   } catch (err) {
@@ -234,16 +266,12 @@ router.post('/batch', async (req, res) => {
         break;
       }
       case 'delete':
-        const toDelete = await Product.find({ _id: { $in: ids } }).lean();
-        result = await Product.deleteMany({ _id: { $in: ids } });
-        for (const p of toDelete) {
-          const allUrls = new Set();
-          const imgFields = ['panorama_images','package_images','detail_images','root_soil_images','size_ref_images','scene_images','selling_point_images','care_images','comparison_images','shipping_images','after_sale_images','images'];
-          for (const f of imgFields) {
-            if (p[f]) p[f].forEach(u => allUrls.add(u));
-          }
-          for (const url of allUrls) await deleteIfUnreferenced(url);
+        const deleted = [];
+        for (const id of ids) {
+          const product = await deleteProductWithLifecycle(id);
+          if (product) deleted.push(product);
         }
+        result = { deletedCount: deleted.length, modifiedCount: 0 };
         break;
       default:
         return res.status(400).json({ error: '未知操作' });

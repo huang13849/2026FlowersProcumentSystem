@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPgPool } from '../config/db.js';
 import Product from '../models/Product.js';
 import { addSubmissionEventClient, emitSubmissionEvent } from '../services/submissionEvents.js';
+import { ensureSubmissionLifecycleSchema } from '../services/submissionLifecycle.js';
 
 const router = Router();
 let ready;
@@ -31,7 +32,7 @@ async function ensureTable() {
     );
     CREATE INDEX IF NOT EXISTS product_submissions_queue_idx ON public.product_submissions(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS product_submissions_owner_idx ON public.product_submissions(source_project, submitter_id, updated_at DESC);
-  `);
+  `).then(async () => ensureSubmissionLifecycleSchema());
   return ready;
 }
 
@@ -108,6 +109,49 @@ router.get('/mine', async (req, res) => {
     );
     res.json({ submissions: rows });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Called by an alliance when its source post is deleted from either "我的" or
+// the community admin console.  This is the reverse direction of product
+// deletion: remove the approved primary product, mark its submission deleted,
+// then notify every consumer through the same JetStream subject.
+router.delete('/source-post/:postId', async (req, res) => {
+  const a = actor(req);
+  if (!a) return res.status(401).json({ error: '投稿身份无效' });
+  const source = normalizeSourceProject(req.query.sourceProject);
+  if (!source) return res.status(400).json({ error: '投稿来源无效' });
+  const client = await getPgPool().connect();
+  try {
+    await ensureTable();
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `SELECT * FROM public.product_submissions
+        WHERE source_project=$1 AND submitter_id=$2
+          AND COALESCE(payload->>'plantAlliancePostId', payload->>'sourcePostId', payload->>'postId')=$3
+          AND status <> 'deleted'
+        FOR UPDATE`,
+      [source, a.id, String(req.params.postId)],
+    );
+    const submission = rows[0];
+    if (!submission) {
+      await client.query('ROLLBACK');
+      return res.json({ ok: true, changed: false });
+    }
+    const productId = submission.approved_product_id;
+    const { rows: changedRows } = await client.query(
+      `UPDATE public.product_submissions
+          SET status='deleted', approved_product_id=NULL, updated_at=now(), review_note=COALESCE(review_note, '源帖子已删除')
+        WHERE id=$1 RETURNING *`,
+      [submission.id],
+    );
+    if (productId) await client.query('DELETE FROM public.products WHERE id=$1', [productId]);
+    await client.query('COMMIT');
+    await emitSubmissionEvent(submissionEventMeta(changedRows[0], { action: 'source-post-deleted', productId }));
+    res.json({ ok: true, changed: true, submission: changedRows[0] });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    res.status(500).json({ error: e.message });
+  } finally { client.release(); }
 });
 
 router.put('/:id', async (req, res) => {

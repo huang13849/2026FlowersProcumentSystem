@@ -466,10 +466,10 @@ const Product = {
     return opts.new === false ? null : new ProductDoc(r.rows[0]);
   },
 
-  async findByIdAndDelete(id) {
+  async findByIdAndDelete(id, client = null) {
     const params = [];
     const where = idPredicate(id, params);
-    const pool = getPgPool();
+    const pool = client || getPgPool();
     const r = await pool.query(`DELETE FROM ${TABLE} WHERE ${where} RETURNING *`, params);
     return r.rows[0] ? new ProductDoc(r.rows[0]) : null;
   },
