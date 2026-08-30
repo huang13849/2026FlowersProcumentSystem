@@ -58,6 +58,12 @@ pipeline {
         sh '''
           set -euo pipefail
           IMG=$(cat .image-url)
+          echo "[0/2] sync nav-js-hotfix ConfigMap"
+          kubectl -n ${NAMESPACE} create configmap nav-js-hotfix \
+            --from-file=server.js=./console-nav-service/server.js \
+            --from-file=nav.js=./console-nav-service/public/nav.js \
+            --from-file=nav.css=./console-nav-service/public/nav.css \
+            --dry-run=client -o yaml | kubectl apply -f -
           echo "[1/2] set image deploy/${SERVICE} -> $IMG"
           kubectl -n ${NAMESPACE} set image deploy/${SERVICE} web="$IMG"
           echo "[2/2] rollout status"
