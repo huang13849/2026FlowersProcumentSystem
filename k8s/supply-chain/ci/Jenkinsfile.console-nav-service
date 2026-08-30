@@ -87,7 +87,10 @@ pipeline {
           code=$(curl -s -o /tmp/jenkins_console_nav_apps -w '%{http_code}' --max-time 20 http://100.96.54.109:31040/api/nav/apps || echo ERR)
           echo "$code http://100.96.54.109:31040/api/nav/apps"
           [ "$code" = "200" ] || exit 30
-          grep -q '新增商品审核' /tmp/jenkins_console_nav_apps || { echo "missing submission tab marker"; exit 31; }
+          if grep -q '新增商品审核' /tmp/jenkins_console_nav_apps; then
+            echo "submission review should live under product management, not console navbar"
+            exit 31
+          fi
           echo "smoke OK"
         '''
       }
