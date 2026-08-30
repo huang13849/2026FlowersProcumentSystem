@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import SubmissionReview from './SubmissionReview';
 
 // ─── Column definition ──────────────────────────────────────────────
 const IMG_COLS = [
@@ -107,7 +107,8 @@ const SCENE_TAG_OPTIONS = [
 ]
 const SCENE_TAG_COLOR = SCENE_TAG_OPTIONS.reduce((m, o) => { m[o.v] = o; return m; }, {});
 // ─── Component ──────────────────────────────────────────────────────
-export default function ProductList() {
+export default function ProductList({ initialTab = 'products' }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [allProducts, setAllProducts] = useState([]);  // no pagination
   const [displayed, setDisplayed] = useState([]);
   const [search, setSearch] = useState('');
@@ -384,7 +385,6 @@ export default function ProductList() {
   const [sceneTagInput, setSceneTagInput] = useState('');
   // 上传进度提示: { phase: 'compress'|'upload'|'done'|'error', pct: 0-100, msg, total, current }
   const [uploadStatus, setUploadStatus] = useState(null);
-  const nav = useNavigate();
 
   // ── Load all products (no pagination) ──
   const load = useCallback(async () => {
@@ -1029,6 +1029,35 @@ export default function ProductList() {
           </div>
         </div>
       )}
+
+      <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:10, borderBottom:'1px solid #e8e8e8' }}>
+        {[
+          { key:'products', label:'全部商品' },
+          { key:'submissions', label:'新增商品审核' },
+        ].map(tab => {
+          const on = activeTab === tab.key;
+          return (
+            <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)}
+              style={{
+                padding:'9px 16px',
+                border:'none',
+                borderBottom:'3px solid ' + (on ? '#1677ff' : 'transparent'),
+                background:'transparent',
+                color: on ? '#1677ff' : '#595959',
+                fontWeight: on ? 700 : 500,
+                cursor:'pointer',
+                fontSize:14,
+              }}>
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeTab === 'submissions' ? (
+        <SubmissionReview embedded />
+      ) : (
+      <>
       {/* ════ Toolbar ════ */}
       <div style={{ display:'flex', gap:8, marginBottom:8, alignItems:'center', flexWrap:'wrap' }}>
         {/* 商家名称筛选 */}
@@ -1176,19 +1205,6 @@ export default function ProductList() {
             display:'flex', alignItems:'center', gap:4,
           }}>
           {exporting ? '⏳ 导出中…' : '📊 全列全量导出'}
-        </button>
-        <button onClick={() => nav('/product-submissions')}
-          title="审核联盟新增商品投稿，通过后入商品总表"
-          style={{
-            padding:'5px 12px',
-            background:'#389e0d',
-            color:'#fff',
-            border:'none', borderRadius:4,
-            cursor:'pointer',
-            fontSize:12, whiteSpace:'nowrap',
-            display:'flex', alignItems:'center', gap:4,
-          }}>
-          ✅ 新增商品审核
         </button>
         <button onClick={() => {
           if (selected.size === 1) {
@@ -1936,6 +1952,8 @@ const rt = remoteTags.find(r => r.name === v);
         <span>已加载全部 {displayed.length} 条商品（无分页）</span>
         <span>点击行展开详情 · 悬停图片查看大图 · 点击单元格编辑</span>
       </div>
+      </>
+      )}
     </div>
   );
 }

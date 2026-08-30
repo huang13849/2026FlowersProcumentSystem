@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
 
-export default function SubmissionReview() {
+export default function SubmissionReview({ embedded = false }) {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
@@ -23,7 +23,7 @@ export default function SubmissionReview() {
     </div>
   );
 
-  return <main style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+  return <main style={embedded ? { padding: 0 } : { padding: 24, maxWidth: 1200, margin: '0 auto' }}>
     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
       <div>
         <h2 style={{ margin:'0 0 6px', fontSize:20 }}>新增商品审核</h2>
