@@ -231,7 +231,10 @@ router.post('/oidc/general-plants-web/ensure', async (req, res) => {
         devMode: false,
         accessTokenType: 'OIDC_TOKEN_TYPE_JWT',
       }, host);
-      if (!updated.ok) {
+      // ZITADEL uses 400/COMMAND-1m88i for an idempotent update whose
+      // configuration already exactly matches the requested values.
+      const unchanged = updated.status === 400 && /COMMAND-1m88i|没有变化/.test(updated.text || '');
+      if (!updated.ok && !unchanged) {
         console.error('[general-plants-oidc-update]', updated.status, (updated.text || '').slice(0, 300));
         return res.status(updated.status || 502).json({ success: false, error: 'oidc_client_update_failed' });
       }
