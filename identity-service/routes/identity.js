@@ -158,7 +158,9 @@ router.post('/registrations/general-plants', async (req, res) => {
     const created = await zitadelReq('POST', '/v2/users/human', {
       username: phone,
       organization: { orgId: target.org_id },
-      profile: { firstName: nickname, lastName: '植物联盟', displayName: nickname },
+      // User V2 uses givenName/familyName (not the legacy firstName/lastName
+      // fields); otherwise ZITADEL validates the mandatory given name as empty.
+      profile: { givenName: nickname, familyName: '植物联盟', displayName: nickname },
       email: { email, isEmailVerified: false },
       phone: { phone, isPhoneVerified: false },
       password: { password, passwordChangeRequired: false },
