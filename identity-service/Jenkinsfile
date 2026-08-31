@@ -29,12 +29,8 @@ pipeline {
           SSH_KEY=/var/jenkins_home/.ssh/id_ed25519
           ssh -i ${SSH_KEY} -o BatchMode=yes -o StrictHostKeyChecking=no ${K3S_HOST} bash -s <<REMOTE
             set -euo pipefail
-            export KUBECONFIG=\$HOME/k3s.yaml
-            cd /home/huangfra-ubun-master/supply-chain-platform
-            git fetch origin main
-            git reset --hard origin/main
-            sed -i "s|image: .*supply-chain/identity-service:.*|image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}|" identity-service/k8s/deployment.yaml
-            kubectl apply --server-side=true -f identity-service/k8s/deployment.yaml
+            export KUBECONFIG=/home/huangfra-ubun-master/k3s.yaml
+            kubectl -n supply-chain set image deployment/identity-service identity-service=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
             kubectl -n supply-chain rollout status deployment/identity-service --timeout=240s
             kubectl -n supply-chain get deploy identity-service -o jsonpath='{.spec.template.spec.containers[0].image}'
 REMOTE
