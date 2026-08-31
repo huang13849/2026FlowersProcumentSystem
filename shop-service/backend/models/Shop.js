@@ -29,6 +29,21 @@ async function ensureHuaxiangSchema() {
     try { await getPool().query(sql); } catch (e) { console.warn('[huaxiang schema]', e.message); }
   }
 }
+
+// 自动迁移: 抖音小店 (token/cookie 模式) 多店铺凭据
+async function ensureDouyinSchema() {
+  const alters = [
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS douyin_api_base TEXT DEFAULT 'https://fxg.jinritemai.com'",
+    'ALTER TABLE shops ADD COLUMN IF NOT EXISTS douyin_api_token TEXT',
+    'ALTER TABLE shops ADD COLUMN IF NOT EXISTS douyin_cookie TEXT',
+    'ALTER TABLE shops ADD COLUMN IF NOT EXISTS douyin_platform_id TEXT',
+    'ALTER TABLE shops ADD COLUMN IF NOT EXISTS douyin_freight_template_id TEXT',
+    "ALTER TABLE shops ADD COLUMN IF NOT EXISTS douyin_category_leaf_id BIGINT DEFAULT 1000005675",
+  ];
+  for (const sql of alters) {
+    try { await getPool().query(sql); } catch (e) { console.warn('[douyin schema]', e.message); }
+  }
+}
 // 启动时同步迁移 (延迟到 Pool 创建后, 详见底部)
 
 let pool = null;
@@ -81,6 +96,13 @@ function toApi(row) {
     huaxiangApiToken: row.huaxiang_api_token || '',
     huaxiangCookie: row.huaxiang_cookie || '',
     huaxiangPlatformId: row.huaxiang_platform_id || '',
+    // 抖音小店 (token/cookie 模式) 凭据
+    douyinApiBase: row.douyin_api_base || 'https://fxg.jinritemai.com',
+    douyinApiToken: row.douyin_api_token || '',
+    douyinCookie: row.douyin_cookie || '',
+    douyinPlatformId: row.douyin_platform_id || '',
+    douyinFreightTemplateId: row.douyin_freight_template_id || '',
+    douyinCategoryLeafId: row.douyin_category_leaf_id || 1000005675,
     platform: row.platform || '',
     displayName: row.display_name || '',
     username: row.username || '',
@@ -142,7 +164,8 @@ const Shop = {
     const fieldMap = { shopName:'shop_name', lakalaShopNo:'lakala_shop_no', terminalNo:'terminal_no', wechatMerchantNo:'wechat_merchant_no', alipayMerchantNo:'alipay_merchant_no', phone:'phone', contactName:'contact_name', date:'date', idNumber:'id_number', idCardImages:'id_card_images', bankCardImages:'bank_card_images', qrCodeImages:'qr_code_images', businessCategory:'business_category', sortOrder:'sort_order', address:'address', longitude:'longitude', latitude:'latitude', supplierId:'supplier_id', huaxiangApiBase:'huaxiang_api_base', huaxiangApiToken:'huaxiang_api_token', huaxiangCookie:'huaxiang_cookie', huaxiangPlatformId:'huaxiang_platform_id', tags:'tags', platform:'platform',
    apiBase:'huaxiang_api_base', token:'huaxiang_api_token', cookie:'huaxiang_cookie',
    displayName:'display_name', username:'username', isDefault:'is_default', status:'status', notes:'notes',
-   freightMode:'freight_mode', freightTemplateId:'freight_template_id', uniformPostage:'uniform_postage' };
+   freightMode:'freight_mode', freightTemplateId:'freight_template_id', uniformPostage:'uniform_postage',
+   douyinApiBase:'douyin_api_base', douyinApiToken:'douyin_api_token', douyinCookie:'douyin_cookie', douyinPlatformId:'douyin_platform_id', douyinFreightTemplateId:'douyin_freight_template_id', douyinCategoryLeafId:'douyin_category_leaf_id' };
     for (const [k, v] of Object.entries(update)) {
       if (fieldMap[k] !== undefined) {
         const val = (typeof v === 'object' && !Array.isArray(v)) ? JSON.stringify(v) : (Array.isArray(v) ? JSON.stringify(v) : v);
@@ -171,9 +194,9 @@ const Shop = {
   async create(data) {
     const mongoId = data._id || crypto.randomBytes(12).toString('hex');
     const r = await pgQuery(
-      `INSERT INTO ${TABLE} (mongo_id, shop_name, lakala_shop_no, terminal_no, wechat_merchant_no, alipay_merchant_no, phone, contact_name, date, id_number, id_card_images, bank_card_images, qr_code_images, business_category, sort_order, address, longitude, latitude, supplier_id, huaxiang_api_base, huaxiang_api_token, huaxiang_cookie, huaxiang_platform_id, tags, platform, display_name, username, is_default, status, freight_mode, freight_template_id, uniform_postage, notes)
+      `INSERT INTO ${TABLE} (mongo_id, shop_name, lakala_shop_no, terminal_no, wechat_merchant_no, alipay_merchant_no, phone, contact_name, date, id_number, id_card_images, bank_card_images, qr_code_images, business_category, sort_order, address, longitude, latitude, supplier_id, huaxiang_api_base, huaxiang_api_token, huaxiang_cookie, huaxiang_platform_id, tags, platform, display_name, username, is_default, status, freight_mode, freight_template_id, uniform_postage, notes, douyin_api_base, douyin_api_token, douyin_cookie, douyin_platform_id, douyin_freight_template_id, douyin_category_leaf_id)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33) RETURNING *`,
-      [mongoId, data.shopName||'', data.lakalaShopNo||'', data.terminalNo||'', data.wechatMerchantNo||'', data.alipayMerchantNo||'', data.phone||'', data.contactName||'', data.date||'', data.idNumber||'', JSON.stringify(data.idCardImages||[]), JSON.stringify(data.bankCardImages||[]), JSON.stringify(data.qrCodeImages||[]), data.businessCategory||'', data.sortOrder||0, data.address||'', data.longitude||null, data.latitude||null, data.supplierId||null, data.huaxiangApiBase||'http://adminapi.huaxianghuamu.cn/', data.huaxiangApiToken||'', data.huaxiangCookie||'', data.huaxiangPlatformId||'', JSON.stringify(data.tags||[]), data.platform||'', data.displayName||'', data.username||'', data.isDefault===true, data.status||'active', data.freightMode||'uniform', data.freightTemplateId||216, data.uniformPostage||0, data.notes||'']
+      [mongoId, data.shopName||'', data.lakalaShopNo||'', data.terminalNo||'', data.wechatMerchantNo||'', data.alipayMerchantNo||'', data.phone||'', data.contactName||'', data.date||'', data.idNumber||'', JSON.stringify(data.idCardImages||[]), JSON.stringify(data.bankCardImages||[]), JSON.stringify(data.qrCodeImages||[]), data.businessCategory||'', data.sortOrder||0, data.address||'', data.longitude||null, data.latitude||null, data.supplierId||null, data.huaxiangApiBase||'http://adminapi.huaxianghuamu.cn/', data.huaxiangApiToken||'', data.huaxiangCookie||'', data.huaxiangPlatformId||'', JSON.stringify(data.tags||[]), data.platform||'', data.displayName||'', data.username||'', data.isDefault===true, data.status||'active', data.freightMode||'uniform', data.freightTemplateId||216, data.uniformPostage||0, data.notes||'', data.douyinApiBase||'https://fxg.jinritemai.com', data.douyinApiToken||'', data.douyinCookie||'', data.douyinPlatformId||'', data.douyinFreightTemplateId||'', data.douyinCategoryLeafId||1000005675]
     );
     const rows = r.data || r.rows || [];
     return toApi(rows[0]);
@@ -314,6 +337,27 @@ const Shop = {
       cookie: row.huaxiang_cookie || '',
     }));
   },
+
+  // 公开给同集群内的 publish-service 调用: 列出所有 douyin 平台凭证 (token/cookie 模式)
+  async listDouyinCredentials() {
+    const r = await pgQuery(
+      `SELECT id, mongo_id, shop_name, display_name, douyin_api_base, douyin_api_token, douyin_cookie, douyin_platform_id, douyin_freight_template_id, douyin_category_leaf_id
+         FROM ${TABLE}
+        WHERE douyin_platform_id IS NOT NULL AND douyin_platform_id <> ''
+        ORDER BY shop_name`);
+    const rows = r.data || r.rows || [];
+    return rows.map(row => ({
+      shopId: row.mongo_id || String(row.id),
+      shopName: row.shop_name,
+      displayName: row.display_name || row.shop_name,
+      platformId: row.douyin_platform_id,
+      apiBase: row.douyin_api_base || 'https://fxg.jinritemai.com',
+      token: row.douyin_api_token || '',
+      cookie: row.douyin_cookie || '',
+      freightTemplateId: row.douyin_freight_template_id || '',
+      categoryLeafId: row.douyin_category_leaf_id || 1000005675,
+    }));
+  },
 };
 
 // Chainable .find().sort()
@@ -331,6 +375,7 @@ Shop.find = function(query = {}) {
 // 延迟到下个事件循环 (此时 getPool 已被 require 过, Pool 已就绪)
 setImmediate(() => {
   ensureHuaxiangSchema().catch(e => console.warn('[huaxiang schema] init failed:', e.message));
+  ensureDouyinSchema().catch(e => console.warn('[douyin schema] init failed:', e.message));
 });
 
 module.exports = { ShopSchema: {}, createShopModel: () => Shop, Shop, pgQuery };

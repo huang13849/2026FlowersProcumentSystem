@@ -70,16 +70,30 @@ router.get('/:id/publish-config', async (req, res) => {
   try {
     const shop = await Shop.findById(req.params.id);
     if (!shop) return res.status(404).json({ error: '店铺不存在' });
+    // 按 platform 分发凭据 (huaxiang vs douyin vs 其他)
+    const isDouyin = (shop.platform || '') === 'douyin';
+    const isHuaxiang = (shop.platform || '') === 'huaxiang' || !shop.platform; // 兼容老数据默认 huaxiang
     res.json({
       id: shop._id,
       shopId: shop._id,
       shopName: shop.shopName,
-      displayName: shop.shopName,
+      displayName: shop.displayName || shop.shopName,
       platform: shop.platform || '',
-      apiBase: shop.huaxiangApiBase || 'http://adminapi.huaxianghuamu.cn/',
-      token: shop.huaxiangApiToken || '',
-      cookie: shop.huaxiangCookie || '',
-      platformId: shop.huaxiangPlatformId || '',
+      // 花乡花木凭据 (老接口兼容)
+      apiBase: isHuaxiang ? (shop.huaxiangApiBase || 'http://adminapi.huaxianghuamu.cn/') : (shop.huaxiangApiBase || ''),
+      token: isHuaxiang ? (shop.huaxiangApiToken || '') : '',
+      cookie: isHuaxiang ? (shop.huaxiangCookie || '') : '',
+      platformId: isHuaxiang ? (shop.huaxiangPlatformId || '') : '',
+      // 抖音小店凭据 (token/cookie 模式)
+      douyin: isDouyin ? {
+        apiBase: shop.douyinApiBase || 'https://fxg.jinritemai.com',
+        token: shop.douyinApiToken || '',
+        cookie: shop.douyinCookie || '',
+        platformId: shop.douyinPlatformId || '',
+        freightTemplateId: shop.douyinFreightTemplateId || '',
+        categoryLeafId: shop.douyinCategoryLeafId || 1000005675,
+      } : null,
+      // 运费 (花乡花木: 模板 vs 统一; 抖店: freightTemplateId 在 douyin 子对象里)
       freightMode: shop.freightMode || 'uniform',
       freightTemplateId: shop.freightTemplateId || 216,
       uniformPostage: shop.uniformPostage || 0,
@@ -178,6 +192,13 @@ router.get('/tags/pool', async (req, res) => {
 router.get('/publish/huaxiang-credentials', async (req, res) => {
   try {
     const creds = await Shop.listHuaxiangCredentials();
+    res.json({ data: creds });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/publish/douyin-credentials', async (req, res) => {
+  try {
+    const creds = await Shop.listDouyinCredentials();
     res.json({ data: creds });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
