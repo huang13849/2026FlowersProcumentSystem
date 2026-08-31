@@ -180,6 +180,55 @@ router.post('/registrations/general-plants', async (req, res) => {
   }
 });
 
+// One idempotent provisioning endpoint for the plants-alliance BFF client.
+// It creates no user and returns only the public client id.
+router.post('/oidc/general-plants-web/ensure', async (req, res) => {
+  const requiredKey = process.env.PLANT_ALLIANCE_REGISTRATION_KEY || '';
+  if (!requiredKey || req.headers['x-plant-alliance-registration-key'] !== requiredKey) {
+    return res.status(403).json({ success: false, error: 'registration_not_authorized' });
+  }
+  try {
+    const target = await getGeneralPlantsTarget();
+    if (!target) return res.status(503).json({ success: false, error: 'general_plants_target_unavailable' });
+    const zpool = getZitadelPgPool();
+    const project = await zpool.query(
+      `SELECT id FROM projections.projects4
+        WHERE instance_id=$1 AND resource_owner=$2
+        ORDER BY change_date DESC LIMIT 1`,
+      [target.instance_id, target.org_id]
+    );
+    const projectId = project.rows[0] && project.rows[0].id;
+    if (!projectId) return res.status(503).json({ success: false, error: 'general_plants_project_unavailable' });
+    const host = await getInstanceHost(target.instance_id) || undefined;
+    const existing = await zitadelReq('POST', `/management/v1/projects/${encodeURIComponent(projectId)}/apps/_search`, {}, host);
+    const apps = ((existing.json || {}).result || []);
+    const app = apps.find(x => x.name === 'plants-alliance-web');
+    if (app && app.oidcConfig && app.oidcConfig.clientId) {
+      return res.json({ success: true, created: false, client_id: app.oidcConfig.clientId, project_id: projectId });
+    }
+    const created = await zitadelReq('POST', `/management/v1/projects/${encodeURIComponent(projectId)}/apps/oidc`, {
+      name: 'plants-alliance-web',
+      redirectUris: ['https://horiculture.club/plants-alliance/auth-callback.html'],
+      responseTypes: ['OIDC_RESPONSE_TYPE_CODE'],
+      grantTypes: ['OIDC_GRANT_TYPE_AUTHORIZATION_CODE', 'OIDC_GRANT_TYPE_REFRESH_TOKEN'],
+      appType: 'OIDC_APP_TYPE_USER_AGENT',
+      authMethodType: 'OIDC_AUTH_METHOD_TYPE_NONE',
+      postLogoutRedirectUris: ['https://horiculture.club/plants-alliance/'],
+      version: 'OIDC_VERSION_1_0',
+      devMode: false,
+      accessTokenType: 'OIDC_TOKEN_TYPE_JWT',
+    }, host);
+    if (!created.ok || !(created.json || {}).clientId) {
+      console.error('[general-plants-oidc]', created.status, (created.text || '').slice(0, 300));
+      return res.status(created.status || 502).json({ success: false, error: 'oidc_client_create_failed' });
+    }
+    res.status(201).json({ success: true, created: true, client_id: created.json.clientId, project_id: projectId });
+  } catch (err) {
+    console.error('[general-plants-oidc]', err.message);
+    res.status(500).json({ success: false, error: 'oidc_client_internal_error' });
+  }
+});
+
 const STATE = { 1: 'active', 2: 'inactive', 3: 'deleted', 4: 'locked', 5: 'suspend', 6: 'initial' };
 const TYPE  = { 1: 'human', 2: 'machine' };
 
