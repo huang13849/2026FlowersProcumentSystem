@@ -203,12 +203,24 @@ router.post('/oidc/general-plants-web/ensure', async (req, res) => {
     const existing = await zitadelReq('POST', `/management/v1/projects/${encodeURIComponent(projectId)}/apps/_search`, {}, host);
     const apps = ((existing.json || {}).result || []);
     const app = apps.find(x => x.name === 'plants-alliance-web');
-    if (app && app.oidcConfig && app.oidcConfig.clientId) {
+    // An empty legacy _search request does not reliably return every app on
+    // this ZITADEL version. Query the local read-model by project + name as a
+    // deterministic fallback, so an existing client is updated rather than
+    // accidentally re-created.
+    const persisted = await zpool.query(
+      `SELECT a.id, c.client_id
+         FROM projections.apps7 a
+         JOIN projections.apps7_oidc_configs c ON c.app_id=a.id AND c.instance_id=a.instance_id
+        WHERE a.project_id=$1 AND a.instance_id=$2 AND a.name='plants-alliance-web' AND a.state=1
+        LIMIT 1`,
+      [projectId, target.instance_id]
+    );
+    const appId = (app && (app.id || app.appId)) || (persisted.rows[0] && persisted.rows[0].id);
+    const clientId = (app && app.oidcConfig && app.oidcConfig.clientId) || (persisted.rows[0] && persisted.rows[0].client_id);
+    if (appId && clientId) {
       // Older provisioning runs created the client before the callback was
       // finalized. Reconcile it every time so login cannot fail with a stale
       // redirect URI.
-      const appId = app.id || app.appId;
-      if (!appId) return res.status(502).json({ success: false, error: 'oidc_client_id_missing' });
       const updated = await zitadelReq('PUT', `/management/v1/projects/${encodeURIComponent(projectId)}/apps/${encodeURIComponent(appId)}/oidc_config`, {
         redirectUris: ['https://horiculture.club/plants-alliance/auth-callback.html'],
         responseTypes: ['OIDC_RESPONSE_TYPE_CODE'],
@@ -223,7 +235,7 @@ router.post('/oidc/general-plants-web/ensure', async (req, res) => {
         console.error('[general-plants-oidc-update]', updated.status, (updated.text || '').slice(0, 300));
         return res.status(updated.status || 502).json({ success: false, error: 'oidc_client_update_failed' });
       }
-      return res.json({ success: true, created: false, client_id: app.oidcConfig.clientId, project_id: projectId });
+      return res.json({ success: true, created: false, client_id: clientId, project_id: projectId });
     }
     const created = await zitadelReq('POST', `/management/v1/projects/${encodeURIComponent(projectId)}/apps/oidc`, {
       name: 'plants-alliance-web',
