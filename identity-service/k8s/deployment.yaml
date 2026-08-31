@@ -50,6 +50,10 @@ spec:
               value: http://zitadel.identity.svc.cluster.local:8080
             - name: ZITADEL_SYSTEM_USER_ID
               value: http://100.96.54.109:31111
+            # Only the plants-alliance backend uses this to proxy public
+            # registration.  The ZITADEL system key remains local to this pod.
+            - name: PLANT_ALLIANCE_REGISTRATION_KEY
+              value: supply-chain-key-2024
           envFrom:
             - configMapRef:
                 name: supply-chain-common

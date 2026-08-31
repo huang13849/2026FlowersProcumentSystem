@@ -90,6 +90,96 @@ async function getInstanceHost(instanceId) {
   return r.rows[0] && r.rows[0].domain;
 }
 
+// The UI name "General Plants Alliance" is shared by the merged historical
+// instances.  The sole stable enrollment anchor is the existing alliance
+// administrator, not the (now ambiguous) display name.
+const GENERAL_PLANTS_ADMIN_USERNAME = 'plant-alliance-admin';
+
+async function getGeneralPlantsTarget() {
+  const zpool = getZitadelPgPool();
+  const r = await zpool.query(
+    `SELECT u.instance_id, u.resource_owner AS org_id, i.name AS instance_name,
+            o.name AS org_name
+       FROM projections.users14 u
+       JOIN projections.instances i ON i.id = u.instance_id
+       JOIN projections.orgs1 o ON o.id = u.resource_owner AND o.instance_id = u.instance_id
+      WHERE u.username = $1 AND u.state = 1
+      ORDER BY u.change_date DESC
+      LIMIT 1`,
+    [GENERAL_PLANTS_ADMIN_USERNAME]
+  );
+  return r.rows[0] || null;
+}
+
+function validMobile(value) {
+  return /^1\d{10}$/.test(String(value || '').trim());
+}
+
+function validEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+// POST /identity/registrations/general-plants
+// Internal-only ingress used by the plants-alliance BFF.  The ZITADEL system
+// key never leaves this service and the user password is neither stored nor
+// logged here.
+router.post('/registrations/general-plants', async (req, res) => {
+  const requiredKey = process.env.PLANT_ALLIANCE_REGISTRATION_KEY || '';
+  if (!requiredKey || req.headers['x-plant-alliance-registration-key'] !== requiredKey) {
+    return res.status(403).json({ success: false, error: 'registration_not_authorized' });
+  }
+
+  const body = req.body || {};
+  const phone = String(body.phone || '').trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+  const nickname = String(body.nickname || '植物会员').trim().slice(0, 60) || '植物会员';
+  if (!validMobile(phone)) return res.status(400).json({ success: false, error: 'phone_invalid' });
+  if (!validEmail(email)) return res.status(400).json({ success: false, error: 'email_invalid' });
+  if (password.length < 8) return res.status(400).json({ success: false, error: 'password_too_short' });
+
+  try {
+    const target = await getGeneralPlantsTarget();
+    if (!target) return res.status(503).json({ success: false, error: 'general_plants_target_unavailable' });
+
+    const zpool = getZitadelPgPool();
+    const exists = await zpool.query(
+      `SELECT u.id
+         FROM projections.users14 u
+         LEFT JOIN projections.users14_humans h ON h.user_id = u.id AND h.instance_id = u.instance_id
+        WHERE u.instance_id = $1 AND u.state <> 3
+          AND (u.username = $2 OR h.phone = $2 OR lower(h.email) = lower($3))
+        LIMIT 1`,
+      [target.instance_id, phone, email]
+    );
+    if (exists.rowCount) return res.status(409).json({ success: false, error: 'phone_or_email_already_registered' });
+
+    const host = await getInstanceHost(target.instance_id) || undefined;
+    const created = await zitadelReq('POST', '/v2/users/human', {
+      username: phone,
+      organization: { orgId: target.org_id },
+      profile: { firstName: nickname, lastName: '植物联盟', displayName: nickname },
+      email: { email, isEmailVerified: false },
+      phone: { phone, isPhoneVerified: false },
+      password: { password, passwordChangeRequired: false },
+    }, host);
+    if (!created.ok) {
+      console.error('[general-plants-registration] ZITADEL rejected:', created.status, (created.text || '').slice(0, 300));
+      return res.status(created.status || 502).json({ success: false, error: 'zitadel_registration_failed' });
+    }
+    const zid = String((created.json || {}).userId || (created.json || {}).id || '');
+    if (!zid) return res.status(502).json({ success: false, error: 'zitadel_registration_missing_user' });
+    return res.status(201).json({
+      success: true,
+      user: { zid, phone, email, nickname },
+      instance: { id: target.instance_id, name: 'General Plants Alliance', org_id: target.org_id },
+    });
+  } catch (err) {
+    console.error('[general-plants-registration]', err.message);
+    return res.status(500).json({ success: false, error: 'registration_internal_error' });
+  }
+});
+
 const STATE = { 1: 'active', 2: 'inactive', 3: 'deleted', 4: 'locked', 5: 'suspend', 6: 'initial' };
 const TYPE  = { 1: 'human', 2: 'machine' };
 
