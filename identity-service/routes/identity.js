@@ -204,6 +204,25 @@ router.post('/oidc/general-plants-web/ensure', async (req, res) => {
     const apps = ((existing.json || {}).result || []);
     const app = apps.find(x => x.name === 'plants-alliance-web');
     if (app && app.oidcConfig && app.oidcConfig.clientId) {
+      // Older provisioning runs created the client before the callback was
+      // finalized. Reconcile it every time so login cannot fail with a stale
+      // redirect URI.
+      const appId = app.id || app.appId;
+      if (!appId) return res.status(502).json({ success: false, error: 'oidc_client_id_missing' });
+      const updated = await zitadelReq('PUT', `/management/v1/projects/${encodeURIComponent(projectId)}/apps/${encodeURIComponent(appId)}/oidc_config`, {
+        redirectUris: ['https://horiculture.club/plants-alliance/auth-callback.html'],
+        responseTypes: ['OIDC_RESPONSE_TYPE_CODE'],
+        grantTypes: ['OIDC_GRANT_TYPE_AUTHORIZATION_CODE', 'OIDC_GRANT_TYPE_REFRESH_TOKEN'],
+        appType: 'OIDC_APP_TYPE_USER_AGENT',
+        authMethodType: 'OIDC_AUTH_METHOD_TYPE_NONE',
+        postLogoutRedirectUris: ['https://horiculture.club/plants-alliance/'],
+        devMode: false,
+        accessTokenType: 'OIDC_TOKEN_TYPE_JWT',
+      }, host);
+      if (!updated.ok) {
+        console.error('[general-plants-oidc-update]', updated.status, (updated.text || '').slice(0, 300));
+        return res.status(updated.status || 502).json({ success: false, error: 'oidc_client_update_failed' });
+      }
       return res.json({ success: true, created: false, client_id: app.oidcConfig.clientId, project_id: projectId });
     }
     const created = await zitadelReq('POST', `/management/v1/projects/${encodeURIComponent(projectId)}/apps/oidc`, {
