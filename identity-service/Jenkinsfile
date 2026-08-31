@@ -30,7 +30,7 @@ pipeline {
           ssh -i ${SSH_KEY} -o BatchMode=yes -o StrictHostKeyChecking=no ${K3S_HOST} bash -s <<REMOTE
             set -euo pipefail
             export KUBECONFIG=\$HOME/k3s.yaml
-            cd \$HOME/supply-chain-platform
+            cd /home/huangfra-ubun-master/supply-chain-platform
             git fetch origin main
             git reset --hard origin/main
             sed -i "s|image: .*supply-chain/identity-service:.*|image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}|" identity-service/k8s/deployment.yaml
