@@ -4,7 +4,7 @@ let pool;
 function db() {
   if (!pool) {
     pool = new Pool({
-      host: process.env.PG_HOST || '100.67.126.90', port: Number(process.env.PG_PORT || 5432),
+      host: process.env.PG_HOST || 'pg-ha-rw.pg-ha.svc.cluster.local', port: Number(process.env.PG_PORT || 5432),
       user: process.env.PG_USER || 'postgres', password: process.env.PG_PASSWORD,
       database: process.env.SUPPLY_CHAIN_PG_DATABASE || process.env.PG_DATABASE || 'supply_chain',
       max: 6, idleTimeoutMillis: 30000,

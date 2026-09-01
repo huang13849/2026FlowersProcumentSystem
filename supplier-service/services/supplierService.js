@@ -1,4 +1,3 @@
-const { mirrorUpsert, mirrorDelete } = require('./supplyChainPg');
 // ─────────────────────────────────────────────────────────────
 // SupplierService —— 供应商唯一 CRUD 入口
 //
@@ -51,19 +50,16 @@ class SupplierService {
       body.sortOrder = (last?.sortOrder ?? 0) + 10;
     }
     const doc = await this.W.create(body);
-    mirrorUpsert(doc.toObject ? doc.toObject() : doc).catch(()=>{});
     return doc;
   }
 
   async update(id, patch) {
     const doc = await this.W.findByIdAndUpdate(id, patch, { new: true, runValidators: true });
-    if (doc) mirrorUpsert(doc.toObject ? doc.toObject() : doc).catch(()=>{});
     return doc;
   }
 
   async remove(id) {
     await this.W.findByIdAndDelete(id);
-    mirrorDelete(id).catch(()=>{});
     return { message: 'Deleted' };
   }
 
@@ -126,7 +122,6 @@ class SupplierService {
   async batchDelete(ids) {
     if (!Array.isArray(ids) || ids.length === 0) throw new Error('ids must be a non-empty array');
     const result = await this.W.deleteMany({ _id: { $in: ids } });
-    Promise.all(ids.map(id => mirrorDelete(id))).catch(()=>{});
     return { success: true, deleted: result.deletedCount };
   }
 }
