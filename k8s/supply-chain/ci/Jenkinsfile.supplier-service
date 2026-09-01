@@ -1,0 +1,45 @@
+pipeline {
+  agent { label 'k3s-build' }
+  options { timeout(time: 20, unit: 'MINUTES'); disableConcurrentBuilds() }
+  environment {
+    REGISTRY = '100.76.15.64:5001'
+    NAMESPACE = 'supply-chain'
+    SERVICE = 'supplier-service'
+    CONTAINER = 'supplier-service'
+  }
+  stages {
+    stage('Checkout (Gitea)') {
+      steps {
+        checkout([$class: 'GitSCM', branches: [[name: '*/main']], userRemoteConfigs: [[url: 'http://100.76.15.64:13000/admin/supply-chain-platform.git', credentialsId: 'gitea-token']], extensions: [[$class: 'CloneOption', shallow: true, depth: 1, noTags: false]]])
+        sh 'git rev-parse HEAD && git log --oneline -3'
+      }
+    }
+    stage('Build & Push Image') {
+      steps { sh '''set -euo pipefail
+        TAG="${SERVICE}-${BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
+        IMG="${REGISTRY}/supply-chain/${SERVICE}:${TAG}"
+        docker build --pull --no-cache --platform linux/amd64 -t "$IMG" ./supplier-service | tail -40
+        docker push "$IMG"
+        printf '%s' "$IMG" > .image-url
+      ''' }
+    }
+    stage('Deploy to k3s') {
+      steps { sh '''set -euo pipefail
+        IMG=$(cat .image-url)
+        kubectl -n ${NAMESPACE} set image deploy/${SERVICE} ${CONTAINER}="$IMG"
+        kubectl -n ${NAMESPACE} rollout status deploy/${SERVICE} --timeout=240s
+      ''' }
+    }
+    stage('Smoke Test (31002)') {
+      steps { sh '''set -euo pipefail
+        sleep 5
+        for path in /api/health '/api/supplier-applications?status=pending'; do
+          code=$(curl -s -o /tmp/supplier_smoke -w '%{http_code}' --max-time 20 "http://100.96.54.109:31002${path}" || echo ERR)
+          echo "$code ${path}"
+          [ "$code" = "200" ] || exit 30
+        done
+      ''' }
+    }
+  }
+  post { success { echo 'supplier-service pipeline SUCCEEDED' } }
+}
