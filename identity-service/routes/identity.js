@@ -182,6 +182,49 @@ router.post('/registrations/general-plants', async (req, res) => {
   }
 });
 
+// POST /identity/auth/general-plants/password
+// Internal-only password verification for the Plants Alliance custom login
+// page. ZITADEL remains the password authority: this service only creates a
+// short-lived ZITADEL session and verifies its user + password factors.
+router.post('/auth/general-plants/password', async (req, res) => {
+  const requiredKey = process.env.PLANT_ALLIANCE_REGISTRATION_KEY || '';
+  if (!requiredKey || req.headers['x-plant-alliance-registration-key'] !== requiredKey) {
+    return res.status(403).json({ success: false, error: 'login_not_authorized' });
+  }
+  const phone = String((req.body || {}).phone || '').trim();
+  const password = String((req.body || {}).password || '');
+  if (!validMobile(phone) || !password) return res.status(400).json({ success: false, error: 'credentials_invalid' });
+
+  try {
+    const target = await getGeneralPlantsTarget();
+    if (!target) return res.status(503).json({ success: false, error: 'general_plants_target_unavailable' });
+    const host = await getInstanceHost(target.instance_id) || undefined;
+    const created = await zitadelReq('POST', '/v2/sessions', {
+      checks: { user: { loginName: phone } },
+      lifetime: '604800s',
+    }, host);
+    const sessionId = String((created.json || {}).sessionId || '');
+    if (!created.ok || !sessionId) return res.status(401).json({ success: false, error: 'credentials_invalid' });
+
+    const checked = await zitadelReq('PATCH', `/v2/sessions/${encodeURIComponent(sessionId)}`, {
+      checks: { password: { password } },
+      lifetime: '604800s',
+    }, host);
+    if (!checked.ok) return res.status(401).json({ success: false, error: 'credentials_invalid' });
+
+    const session = await zitadelReq('GET', `/v2/sessions/${encodeURIComponent(sessionId)}`, null, host);
+    const factors = (session.json || {}).session && (session.json || {}).session.factors;
+    const user = factors && factors.user;
+    if (!session.ok || !user || !user.id || !factors.password || !factors.password.verifiedAt) {
+      return res.status(401).json({ success: false, error: 'credentials_invalid' });
+    }
+    return res.json({ success: true, user: { zid: String(user.id), phone, nickname: user.displayName || phone } });
+  } catch (err) {
+    console.error('[general-plants-password-login]', err.message);
+    return res.status(502).json({ success: false, error: 'identity_service_unavailable' });
+  }
+});
+
 // One idempotent provisioning endpoint for the plants-alliance BFF client.
 // It creates no user and returns only the public client id.
 router.post('/oidc/general-plants-web/ensure', async (req, res) => {
