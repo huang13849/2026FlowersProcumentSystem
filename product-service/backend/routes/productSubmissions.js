@@ -174,6 +174,29 @@ router.put('/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Removing a submission is intentionally not product deletion.  An approved
+// submission can already point at public.products; deleting the audit record
+// must preserve that formal catalog item and only remove the member's review
+// history entry.
+router.delete('/:id', async (req, res) => {
+  const a = actor(req);
+  if (!a) return res.status(401).json({ error: '投稿身份无效' });
+  const source = normalizeSourceProject(req.query.sourceProject);
+  if (!source) return res.status(400).json({ error: '投稿来源无效' });
+  try {
+    await ensureTable();
+    const { rows } = await getPgPool().query(
+      `DELETE FROM public.product_submissions
+        WHERE id=$1 AND source_project=$2 AND submitter_id=$3
+        RETURNING *`,
+      [req.params.id, source, a.id],
+    );
+    if (!rows[0]) return res.status(404).json({ error: '投稿不存在或无权删除' });
+    await emitSubmissionEvent(submissionEventMeta(rows[0], { action: 'submission-deleted', productId: rows[0].approved_product_id || null }));
+    res.json({ ok: true, submission: rows[0], productPreserved: Boolean(rows[0].approved_product_id) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.get('/count', async (req, res) => {
   try {
     await ensureTable();
