@@ -39,6 +39,12 @@ const ZITADEL_URL = process.env.ZITADEL_URL || 'http://zitadel.identity.svc.clus
 // therefore also the issuer, subject and audience of the signed system JWT.
 // It is deliberately not the public login domain.
 const ZITADEL_SYSTEM_USER_ID = process.env.ZITADEL_SYSTEM_USER_ID || 'http://100.96.54.109:31111';
+// Per-instance PAT map (instanceId -> PAT). When the call targets an instance
+// that has a real machine-user PAT, use it instead of the systemuser JWT.
+let PAT_BY_INSTANCE = {};
+try {
+  if (process.env.ZITADEL_PAT_MAP) PAT_BY_INSTANCE = JSON.parse(process.env.ZITADEL_PAT_MAP);
+} catch (e) { console.warn('[identity] invalid ZITADEL_PAT_MAP:', e.message); }
 
 function b64url(buf) {
   const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
@@ -62,8 +68,28 @@ function sysJwt() {
   return `${header}.${payload}.${sig}`;
 }
 
+// Resolve the instance_id from a forwarded host.
+async function getInstanceIdByHost(host) {
+  if (!host) return null;
+  const zpool = getZitadelPgPool();
+  const r = await zpool.query(
+    `SELECT instance_id FROM projections.instance_domains WHERE domain=$1 AND is_primary=true LIMIT 1`,
+    [host]
+  );
+  return r.rows[0] && r.rows[0].instance_id;
+}
+
 async function zitadelReq(method, path, body, forwardHost) {
-  const tok = sysJwt();
+  // Prefer per-instance PAT (real machine user, IAM_OWNER). Fall back to
+  // signing a systemuser JWT for legacy single-instance setups.
+  let tok = null;
+  if (forwardHost) {
+    const instanceId = await getInstanceIdByHost(forwardHost);
+    if (instanceId && PAT_BY_INSTANCE[instanceId]) {
+      tok = PAT_BY_INSTANCE[instanceId];
+    }
+  }
+  if (!tok) tok = sysJwt(forwardHost);
   const headers = {
     Authorization: `Bearer ${tok}`,
     'Content-Type': 'application/json',
@@ -95,8 +121,28 @@ async function getInstanceHost(instanceId) {
 // administrator, not the (now ambiguous) display name.
 const GENERAL_PLANTS_ADMIN_USERNAME = 'plant-alliance-admin';
 
-async function getGeneralPlantsTarget() {
+// When a phone is provided, look up the user's actual instance first so the
+// call lands on the right zitadel host.  Fall back to the historical default
+// (the last instance whose admin was created) for legacy single-instance use.
+async function getGeneralPlantsTarget(phone) {
   const zpool = getZitadelPgPool();
+  if (phone) {
+    const byPhone = await zpool.query(
+      `SELECT u.instance_id, u.resource_owner AS org_id,
+              i.name AS instance_name, o.name AS org_name, u.change_date
+         FROM projections.users14 u
+         LEFT JOIN projections.users14_humans h
+           ON h.user_id = u.id AND h.instance_id = u.instance_id
+         JOIN projections.instances i ON i.id = u.instance_id
+         JOIN projections.orgs1 o ON o.id = u.resource_owner AND o.instance_id = u.instance_id
+        WHERE u.state = 1
+          AND (u.username = $1 OR h.phone = $1 OR h.phone = $2)
+        ORDER BY u.change_date DESC
+        LIMIT 1`,
+      [phone, '+86' + phone]
+    );
+    if (byPhone.rowCount) return byPhone.rows[0];
+  }
   const r = await zpool.query(
     `SELECT u.instance_id, u.resource_owner AS org_id, i.name AS instance_name,
             o.name AS org_name
@@ -139,7 +185,7 @@ router.post('/registrations/general-plants', async (req, res) => {
   if (password.length < 8) return res.status(400).json({ success: false, error: 'password_too_short' });
 
   try {
-    const target = await getGeneralPlantsTarget();
+    const target = await getGeneralPlantsTarget(phone);
     if (!target) return res.status(503).json({ success: false, error: 'general_plants_target_unavailable' });
 
     const zpool = getZitadelPgPool();
@@ -196,7 +242,7 @@ router.post('/auth/general-plants/password', async (req, res) => {
   if (!validMobile(phone) || !password) return res.status(400).json({ success: false, error: 'credentials_invalid' });
 
   try {
-    const target = await getGeneralPlantsTarget();
+    const target = await getGeneralPlantsTarget(phone);
     if (!target) return res.status(503).json({ success: false, error: 'general_plants_target_unavailable' });
     const host = await getInstanceHost(target.instance_id) || undefined;
     const created = await zitadelReq('POST', '/v2/sessions', {
@@ -233,7 +279,7 @@ router.post('/oidc/general-plants-web/ensure', async (req, res) => {
     return res.status(403).json({ success: false, error: 'registration_not_authorized' });
   }
   try {
-    const target = await getGeneralPlantsTarget();
+    const target = await getGeneralPlantsTarget(phone);
     if (!target) return res.status(503).json({ success: false, error: 'general_plants_target_unavailable' });
     const zpool = getZitadelPgPool();
     const project = await zpool.query(
